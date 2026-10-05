@@ -1,0 +1,30 @@
+{$PUBLIC_DOMAIN} {
+    encode zstd gzip
+    request_body {
+        max_size 12MB
+    }
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy no-referrer
+        X-Frame-Options DENY
+        Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+    }
+    handle /api/* {
+        reverse_proxy api:8000
+    }
+    handle /health/ {
+        reverse_proxy api:8000
+    }
+    handle /admin/* {
+        reverse_proxy api:8000
+    }
+    handle_path /static/* {
+        root * /srv/django-static
+        file_server
+    }
+    handle {
+        root * /srv/frontend
+        try_files {path} /index.html
+        file_server
+    }
+}

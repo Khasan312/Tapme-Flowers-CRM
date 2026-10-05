@@ -1,0 +1,38 @@
+[project]
+name = "tapme-backend"
+version = "0.1.0"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+  "celery[redis]>=5.6,<6",
+  "Django>=5.2,<5.3",
+  "django-storages[s3]>=1.14,<2",
+  "djangorestframework>=3.16,<4",
+  "drf-spectacular>=0.28,<1",
+  "gunicorn>=23,<24",
+  "openpyxl>=3.1,<4",
+  "pillow>=12,<13",
+  "psycopg[binary]>=3.2,<4",
+  "python-dotenv>=1.1,<2",
+]
+
+[dependency-groups]
+dev = ["pytest>=8,<10", "pytest-django>=4.11,<5", "ruff>=0.11,<1", "mypy>=1.15,<2"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.test_settings"
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+files = ["tapme/shared", "tapme/businesses/application", "tapme/customers/domain.py", "tapme/customers/application", "tapme/catalog/domain.py", "tapme/catalog/application", "tapme/orders/domain.py", "tapme/orders/application", "tapme/payments/application", "tapme/payments/domain.py", "tapme/media/application", "tapme/feedback/application", "tapme/reminders/application", "tapme/reminders/domain.py"]
+follow_imports = "silent"

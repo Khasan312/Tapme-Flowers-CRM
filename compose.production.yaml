@@ -1,0 +1,90 @@
+name: tapme-flowers-production
+
+x-app: &app
+  image: tapme-flowers-production-api
+  build: ./backend
+  env_file: ${TAPME_PRODUCTION_ENV_FILE:-.env.production}
+  environment:
+    DJANGO_DEBUG: "false"
+    DJANGO_ALLOWED_HOSTS: ${PUBLIC_DOMAIN:?Set PUBLIC_DOMAIN}
+    DJANGO_CSRF_TRUSTED_ORIGINS: https://${PUBLIC_DOMAIN}
+    DJANGO_TRUST_PROXY: "true"
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: "5432"
+    CELERY_BROKER_URL: redis://redis:6379/0
+    CACHE_URL: redis://redis:6379/1
+  restart: unless-stopped
+  networks: [private, public]
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  api:
+    <<: *app
+    volumes:
+      - photos:/data/media
+      - static:/data/static
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,os; r=urllib.request.Request('http://127.0.0.1:8000/health/',headers={'Host':os.environ['DJANGO_ALLOWED_HOSTS'],'X-Forwarded-Proto':'https'}); urllib.request.urlopen(r,timeout=3)"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+  worker:
+    <<: *app
+    command: ["celery", "-A", "config.celery:app", "worker", "--loglevel=INFO", "--concurrency=2"]
+  beat:
+    <<: *app
+    command: ["celery", "-A", "config.celery:app", "beat", "--loglevel=INFO", "--schedule=/data/celery/beat"]
+    volumes: ["scheduler:/data/celery"]
+  web:
+    build: ./frontend
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN}
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
+      - static:/srv/django-static:ro
+      - certificates:/data
+      - caddy_config:/config
+    networks: [private, public]
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+  postgres:
+    image: postgres:17-bookworm
+    env_file: ${TAPME_PRODUCTION_ENV_FILE:-.env.production}
+    volumes: ["database:/var/lib/postgresql/data"]
+    networks: [private]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+  redis:
+    image: redis:8.2-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes: ["redis:/data"]
+    networks: [private]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+networks:
+  private:
+    internal: true
+  public:
+volumes:
+  database:
+  photos:
+  static:
+  redis:
+  scheduler:
+  certificates:
+  caddy_config:
