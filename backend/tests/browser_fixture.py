@@ -47,6 +47,11 @@ with transaction.atomic():
         staff_ids = list(
             Membership.objects.filter(business=business).values_list("user_id", flat=True)
         )
+        removed_staff = data.get("removed_staff", [])
+        assert all(name.startswith(user.username + "_") for name in removed_staff)
+        staff_ids.extend(
+            User.objects.filter(username__in=removed_staff).values_list("id", flat=True)
+        )
         PaymentRecord.objects.filter(business=business).delete()
         if PhotoRecord.objects.filter(business=business).exists():
             # Uploads live in the API container's configured storage, not on the test host.

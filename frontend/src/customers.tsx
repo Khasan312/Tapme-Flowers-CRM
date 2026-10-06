@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { businessPath, errorText, price, request } from "./api";
 import { Modal, Notice } from "./components";
+import { PhoneInput } from "./phone-input";
 import { useRemote } from "./hooks";
 import { Status } from "./orders";
 import type { Business, CustomerProfile } from "./types";
@@ -89,13 +90,10 @@ export function CustomerPanel({
                 </label>
                 <label>
                   Телефон клиента
-                  <input
+                  <PhoneInput
                     required
-                    type="tel"
                     value={draft.phone}
-                    onChange={(e) =>
-                      setDraft({ ...draft, phone: e.target.value })
-                    }
+                    onChange={(value) => setDraft({ ...draft, phone: value })}
                   />
                 </label>
               </div>
@@ -162,20 +160,34 @@ export function CustomerPanel({
                       ).map(([field, label]) => (
                         <label key={field}>
                           {label}
-                          <input
-                            required={field === "name"}
-                            value={r[field]}
-                            onChange={(e) =>
-                              setDraft({
-                                ...draft,
-                                recipients: draft.recipients.map((v, j) =>
-                                  i === j
-                                    ? { ...v, [field]: e.target.value }
-                                    : v,
-                                ),
-                              })
-                            }
-                          />
+                          {field === "phone" ? (
+                            <PhoneInput
+                              value={r.phone}
+                              onChange={(value) =>
+                                setDraft({
+                                  ...draft,
+                                  recipients: draft.recipients.map((v, j) =>
+                                    i === j ? { ...v, phone: value } : v,
+                                  ),
+                                })
+                              }
+                            />
+                          ) : (
+                            <input
+                              required={field === "name"}
+                              value={r[field]}
+                              onChange={(e) =>
+                                setDraft({
+                                  ...draft,
+                                  recipients: draft.recipients.map((v, j) =>
+                                    i === j
+                                      ? { ...v, [field]: e.target.value }
+                                      : v,
+                                  ),
+                                })
+                              }
+                            />
+                          )}
                         </label>
                       ))}
                     </div>

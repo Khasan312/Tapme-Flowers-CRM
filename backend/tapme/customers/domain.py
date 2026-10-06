@@ -37,6 +37,9 @@ class Recipient:
     address: str
     notes: str
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "phone", phone(self.phone, required=False))
+
     def validate(self) -> None:
         text(self.name, "Имя получателя", 150)
         text(self.relation, "Кем приходится", 80, required=False)

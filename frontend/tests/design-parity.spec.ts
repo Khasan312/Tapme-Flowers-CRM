@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
+import { submitLogin } from "./login";
 let account: { username: string; password: string; business_id: string };
 const python = resolve("../backend/.venv/bin/python"),
   fixture = resolve("../backend/tests/browser_fixture.py");
@@ -21,9 +22,7 @@ test("макет: настройки, общий поиск, виды заказ
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
-  await page.getByLabel("Логин", { exact: true }).fill(account.username);
-  await page.getByLabel("Пароль", { exact: true }).fill(account.password);
-  await page.getByRole("button", { name: "Войти в CRM" }).click();
+  await submitLogin(page, account.username, account.password);
   await page.getByRole("button", { name: "Настройки", exact: true }).click();
   await expect(
     page.getByRole("cell", { name: account.username, exact: true }),
@@ -55,7 +54,7 @@ test("макет: настройки, общий поиск, виды заказ
   await page
     .getByRole("textbox", { name: "Дата через 7 дней", exact: true })
     .fill("{имя}, через неделю {повод}. {магазин}");
-  await page.getByRole("button", { name: "Сохранить шаблоны" }).click();
+  await page.getByRole("button", { name: "Сохранить шаблоны" }).first().click();
   await expect(page.getByRole("status")).toContainText("Шаблоны сохранены");
   await page.screenshot({
     path: `/tmp/tapme-${info.project.name}-settings-templates.png`,

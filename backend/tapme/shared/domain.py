@@ -38,10 +38,21 @@ def text(value: str, label: str, limit: int, *, required: bool = True) -> str:
 
 def phone(value: str, *, required: bool = True) -> str:
     value = re.sub(r"[\s()\-]", "", value)
-    if not value and not required:
+    if value in {"", "+996"} and not required:
         return ""
-    if not re.fullmatch(r"\+[1-9][0-9]{7,14}", value):
-        raise InvalidInput("Телефон должен содержать код страны, например +996555123456.")
+    if re.fullmatch(r"[1-9][0-9]{8}", value):
+        value = "+996" + value
+    elif re.fullmatch(r"0[1-9][0-9]{8}", value):
+        value = "+996" + value[1:]
+    elif re.fullmatch(r"996[1-9][0-9]{8}", value):
+        value = "+" + value
+    elif re.fullmatch(r"\+9960[1-9][0-9]{8}", value):
+        value = "+996" + value[5:]
+    if value.startswith("+996"):
+        if not re.fullmatch(r"\+996[1-9][0-9]{8}", value):
+            raise InvalidInput("Введите 9 цифр номера после +996, например 555 123 456.")
+    elif not re.fullmatch(r"\+[1-9][0-9]{7,14}", value):
+        raise InvalidInput("Проверьте номер телефона, например 555 123 456.")
     return value
 
 

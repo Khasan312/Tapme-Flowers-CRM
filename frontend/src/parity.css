@@ -560,11 +560,33 @@
   min-width: 0;
   width: 100%;
 }
+.crm .assignment-form {
+  align-items: flex-start;
+}
+.crm .courier-field select:disabled {
+  background: #e7ebe6;
+  border-color: #cbd4c8;
+  color: #637063;
+  cursor: not-allowed;
+  opacity: 1;
+}
+.crm .courier-field .field-hint {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+}
 .crm .timeline {
   display: flex;
   flex-direction: column;
   gap: 0;
   padding-left: 6px;
+}
+.crm .timeline .dot {
+  line-height: 1;
+}
+.crm .timeline .dot svg {
+  display: block;
 }
 .crm .lrow .t,
 .crm .lrow .s {
@@ -870,4 +892,16 @@
 .crm .lrow > button.plain-button:not(.row) {
   display: block;
   min-width: 0;
+}
+.crm .staff-removal {
+  border-top: 1px solid var(--border);
+}
+.crm .staff-delete-button {
+  color: var(--crit);
+  border-color: var(--crit);
+  background: var(--crit-bg);
+}
+.crm .staff-delete-button:hover:not(:disabled) {
+  background: var(--crit);
+  color: white;
 }

@@ -2,6 +2,7 @@ import { messageTemplates } from "./message-templates";
 import { useEffect, useState, type FormEvent } from "react";
 import { businessPath, errorText, price, request } from "./api";
 import { Modal, Notice, Pager } from "./components";
+import { PhoneInput } from "./phone-input";
 import { ProductForm } from "./forms";
 import { useRemote } from "./hooks";
 import { Avatar, roleNames, roleAccess, Toggle } from "./ui";
@@ -354,14 +355,26 @@ export function Settings({
                 ).map(([key, label]) => (
                   <label className="field" key={key}>
                     {label}
-                    <input
-                      aria-label={key === "name" ? "Название магазина" : label}
-                      required={key === "name"}
-                      value={draft[key]}
-                      onChange={(e) =>
-                        setDraft({ ...draft, [key]: e.target.value })
-                      }
-                    />
+                    {key === "phone" || key === "whatsapp" ? (
+                      <PhoneInput
+                        aria-label={label}
+                        value={draft[key]}
+                        onChange={(value) =>
+                          setDraft({ ...draft, [key]: value })
+                        }
+                      />
+                    ) : (
+                      <input
+                        aria-label={
+                          key === "name" ? "Название магазина" : label
+                        }
+                        required={key === "name"}
+                        value={draft[key]}
+                        onChange={(e) =>
+                          setDraft({ ...draft, [key]: e.target.value })
+                        }
+                      />
+                    )}
                     {key === "whatsapp" && (
                       <span className="hint">
                         С этого номера пишут клиентам
@@ -438,8 +451,9 @@ export function Settings({
           business={business}
           initial={staffEditor}
           close={() => setStaffEditor(null)}
-          saved={() => {
+          saved={(message) => {
             setStaffEditor(null);
+            setNotice(message || "Сохранено");
             setRevision((r) => r + 1);
             changed();
           }}
@@ -457,10 +471,11 @@ function StaffEditor({
   business: Business;
   initial: Staff | "new";
   close: () => void;
-  saved: () => void;
+  saved: (message?: string) => void;
 }) {
   const [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [confirmDelete, setConfirmDelete] = useState(false);
   const existing = initial !== "new" ? initial : null;
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -489,6 +504,59 @@ function StaffEditor({
     } finally {
       setBusy(false);
     }
+  }
+  if (existing && confirmDelete) {
+    return (
+      <Modal title="Удалить сотрудника?" close={close} busy={busy}>
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setBusy(true);
+            setError("");
+            try {
+              await request(businessPath(business.id, `staff/${existing.id}`), {
+                method: "DELETE",
+              });
+              saved("Сотрудник удалён из магазина");
+            } catch (e) {
+              setError(errorText(e));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <div className="modal-body stack">
+            {error && <Notice>{error}</Notice>}
+            <p>
+              <strong>{existing.name}</strong> потеряет доступ к этому магазину
+              и исчезнет из списка сотрудников. История заказов и оплат
+              сохранится.
+            </p>
+            <p className="muted">
+              Если на сотруднике есть незавершённые заказы, сначала передайте их
+              другому сотруднику или завершите. Заказы в пути нужно сначала
+              завершить.
+            </p>
+          </div>
+          <footer className="modal-footer">
+            <button
+              type="button"
+              autoFocus
+              disabled={busy}
+              onClick={() => {
+                setConfirmDelete(false);
+                setError("");
+              }}
+            >
+              Отмена
+            </button>
+            <button className="staff-delete-button" disabled={busy}>
+              {busy ? "Удаление…" : "Да, удалить сотрудника"}
+            </button>
+          </footer>
+        </form>
+      </Modal>
+    );
   }
   return (
     <Modal
@@ -524,8 +592,7 @@ function StaffEditor({
           )}
           <label>
             Телефон сотрудника
-            <input
-              type="tel"
+            <PhoneInput
               name="staff_phone"
               defaultValue={existing?.phone || ""}
             />
@@ -549,7 +616,7 @@ function StaffEditor({
           )}
         </div>
         <footer className="modal-footer">
-          <button type="button" onClick={close}>
+          <button type="button" onClick={close} disabled={busy}>
             Отмена
           </button>
           <button className="primary" disabled={busy}>
@@ -600,6 +667,26 @@ function StaffEditor({
           </label>
           <button disabled={busy}>Восстановить доступ</button>
         </form>
+      )}
+      {existing && (
+        <section className="modal-body stack staff-removal">
+          <h3>Удалить сотрудника</h3>
+          <p className="muted">
+            Уберите сотрудника из магазина и закройте ему доступ к CRM. История
+            его работы сохранится.
+          </p>
+          <button
+            type="button"
+            className="staff-delete-button"
+            disabled={busy}
+            onClick={() => {
+              setError("");
+              setConfirmDelete(true);
+            }}
+          >
+            Удалить сотрудника
+          </button>
+        </section>
       )}
     </Modal>
   );
@@ -759,6 +846,7 @@ function MessageTemplates({ business }: { business: Business }) {
     if (source.data)
       setDraft({
         ...source.data,
+        custom_templates: source.data.custom_templates || [],
         templates: Object.fromEntries(
           messageTemplates.map((t) => [
             t.id,
@@ -798,6 +886,126 @@ function MessageTemplates({ business }: { business: Business }) {
         <p role="status" className="save-notice">
           {notice}
         </p>
+      )}
+      {draft && (
+        <>
+          <section className="card">
+            <div className="card-hd">
+              <h2>Свои шаблоны</h2>
+              <span className="spacer" />
+              <button
+                type="button"
+                className="btn sm"
+                disabled={
+                  busy ||
+                  business.role !== "owner" ||
+                  draft.custom_templates.length >= 50
+                }
+                onClick={() => {
+                  setDraft({
+                    ...draft,
+                    custom_templates: [
+                      ...draft.custom_templates,
+                      { id: crypto.randomUUID(), name: "", text: "" },
+                    ],
+                  });
+                  setNotice("");
+                }}
+              >
+                Добавить шаблон
+              </button>
+              <button
+                className="btn sm primary"
+                disabled={busy || business.role !== "owner"}
+              >
+                Сохранить шаблоны
+              </button>
+            </div>
+            <div className="card-bd">
+              <p className="muted">
+                Создайте текст для своего повода. Сохранённые шаблоны доступны
+                команде магазина.
+              </p>
+              {!draft.custom_templates.length && (
+                <p className="hint">Своих шаблонов пока нет.</p>
+              )}
+            </div>
+          </section>
+          {draft.custom_templates.map((template, index) => (
+            <section className="card custom-template" key={template.id}>
+              <div className="card-hd">
+                <h2>{template.name || "Новый шаблон"}</h2>
+                <span className="spacer" />
+                {business.role === "owner" && (
+                  <button
+                    type="button"
+                    className="btn sm danger"
+                    disabled={busy}
+                    onClick={() => {
+                      setDraft({
+                        ...draft,
+                        custom_templates: draft.custom_templates.filter(
+                          (t) => t.id !== template.id,
+                        ),
+                      });
+                      setNotice("");
+                    }}
+                  >
+                    Убрать шаблон
+                  </button>
+                )}
+              </div>
+              <div className="card-bd stack">
+                <label className="field">
+                  Название шаблона
+                  <input
+                    required
+                    maxLength={100}
+                    autoFocus={!template.name}
+                    disabled={busy || business.role !== "owner"}
+                    value={template.name}
+                    onChange={(e) => {
+                      setDraft({
+                        ...draft,
+                        custom_templates: draft.custom_templates.map((t, i) =>
+                          i === index ? { ...t, name: e.target.value } : t,
+                        ),
+                      });
+                      setNotice("");
+                    }}
+                  />
+                </label>
+                <label className="field">
+                  Текст шаблона
+                  <textarea
+                    aria-label="Текст шаблона"
+                    aria-describedby={`template-hint-${template.id}`}
+                    required
+                    rows={3}
+                    maxLength={2000}
+                    disabled={busy || business.role !== "owner"}
+                    value={template.text}
+                    onChange={(e) => {
+                      setDraft({
+                        ...draft,
+                        custom_templates: draft.custom_templates.map((t, i) =>
+                          i === index ? { ...t, text: e.target.value } : t,
+                        ),
+                      });
+                      setNotice("");
+                    }}
+                  />
+                  <span className="hint" id={`template-hint-${template.id}`}>
+                    Подстановки:{" "}
+                    {
+                      "{имя}, {магазин}, {повод}, {получатель}, {номер}, {состав}, {дата}, {окно}, {адрес}, {сумма}, {ссылка}"
+                    }
+                  </span>
+                </label>
+              </div>
+            </section>
+          ))}
+        </>
       )}
       {draft &&
         messageTemplates.map(({ id: key, name }) => (

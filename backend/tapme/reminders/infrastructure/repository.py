@@ -49,6 +49,7 @@ class DjangoReminderRepository:
             row.template,
             row.inactive_template,
             templates,
+            row.custom_templates,
         )
 
     def save_rules(self, business_id, rules):

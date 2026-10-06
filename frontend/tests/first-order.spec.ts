@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
+import { submitLogin } from "./login";
 
 let account: { username: string; password: string; business_id: string };
 const python = resolve("../backend/.venv/bin/python");
@@ -24,9 +25,7 @@ test("вход, клиент, прайс, заказ и сохранение п�
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   async function login() {
-    await page.getByLabel("Логин", { exact: true }).fill(account.username);
-    await page.getByLabel("Пароль", { exact: true }).fill(account.password);
-    await page.getByRole("button", { name: "Войти в CRM" }).click();
+    await submitLogin(page, account.username, account.password);
     await expect(
       page.getByRole("heading", { name: "Заказы", exact: true }),
     ).toBeVisible();

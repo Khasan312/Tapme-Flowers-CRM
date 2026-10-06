@@ -7,6 +7,7 @@ from django.db import transaction
 from django.db.models import Q
 
 from tapme.businesses.application.contracts import Role
+from tapme.businesses.models import Membership
 from tapme.orders.domain import Fulfillment, Order, OrderLine
 from tapme.orders.models import OrderCounter, OrderEvent, OrderLineRecord, OrderRecord
 from tapme.payments.infrastructure.repository import DjangoPaymentRepository
@@ -34,6 +35,11 @@ def to_domain(row):
 
 
 class DjangoOrderRepository:
+    def lock_staff(self, business_id, user_id):
+        Membership.objects.select_for_update().filter(
+            business_id=business_id, user_id=user_id
+        ).first()
+
     def lock_business(self, business_id):
         OrderCounter.objects.get_or_create(business_id=business_id)
         OrderCounter.objects.select_for_update().get(business_id=business_id)

@@ -28,6 +28,7 @@ from tapme.shared.domain import Conflict, Forbidden, InvalidInput, Page, page_bo
 class WorkflowRepository(Protocol):
     def get(self, business_id: UUID, order_id: UUID) -> Order: ...
     def lock(self, business_id: UUID, order_id: UUID) -> Order: ...
+    def lock_staff(self, business_id: UUID, user_id: UUID) -> None: ...
     def save(self, order: Order, actor_id: UUID, kind: str, detail: str, now: datetime) -> None: ...
     def event(
         self, order: Order, actor_id: UUID, kind: str, detail: str, now: datetime
@@ -165,6 +166,8 @@ class WorkflowService:
             ensure_version(order, version)
             if order.status in {"route", "done", "cancelled"}:
                 raise InvalidInput("Назначения нельзя менять после отправки или закрытия заказа.")
+            for staff_id in sorted({uid for uid in (florist_id, courier_id) if uid}):
+                work.orders.lock_staff(scope.business_id, staff_id)
             for user_id, role in ((florist_id, Role.FLORIST), (courier_id, Role.COURIER)):
                 if user_id and self.access.role_for(Scope(user_id, scope.business_id)) != role:
                     raise InvalidInput("Выберите активного сотрудника нужной роли своего магазина.")
@@ -190,6 +193,8 @@ class WorkflowService:
         authorize(self.access, scope, frozenset(Role))
         with self.uow() as work:
             order = work.orders.lock(scope.business_id, order_id)
+            # A florist can claim an unassigned order here; serialize with staff removal.
+            work.orders.lock_staff(scope.business_id, scope.user_id)
             role = ensure_order_access(self.access, scope, order)
             ensure_version(order, version)
             if role == Role.FLORIST:

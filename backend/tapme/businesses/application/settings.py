@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import time
 from decimal import Decimal, InvalidOperation
 from typing import Protocol, TypedDict
@@ -79,6 +79,7 @@ class BusinessSettingsRepository(Protocol):
         self, business_id: UUID, user_id: UUID, role: Role, active: bool, phone: str | None = None
     ) -> None: ...
     def reset_staff(self, business_id: UUID, user_id: UUID, password: str) -> None: ...
+    def delete_staff(self, business_id: UUID, user_id: UUID) -> None: ...
 
 
 class BusinessSettingsService:
@@ -91,6 +92,11 @@ class BusinessSettingsService:
 
     def save(self, scope: Scope, settings: ShopSettings) -> ShopSettings:
         authorize(self.access, scope, frozenset({Role.OWNER}))
+        settings = replace(
+            settings,
+            phone=phone(settings.phone, required=False),
+            whatsapp=phone(settings.whatsapp, required=False),
+        )
         settings.validate()
         return self.repository.save(scope.business_id, settings)
 
@@ -144,3 +150,9 @@ class BusinessSettingsService:
         if user_id == scope.user_id:
             raise InvalidInput("Свой пароль меняйте в личном профиле.")
         self.repository.reset_staff(scope.business_id, user_id, password)
+
+    def delete_staff(self, scope: Scope, user_id: UUID) -> None:
+        authorize(self.access, scope, frozenset({Role.OWNER}))
+        if user_id == scope.user_id:
+            raise InvalidInput("Нельзя удалить владельца магазина.")
+        self.repository.delete_staff(scope.business_id, user_id)

@@ -93,6 +93,11 @@ class StaffView(APIView):
 
 
 class StaffDetailView(APIView):
+    @extend_schema(request=None, responses={204: None})
+    def delete(self, request, business_id, user_id):
+        composition.settings().delete_staff(Scope(request.user.id, business_id), user_id)
+        return Response(status=204)
+
     @extend_schema(request=StaffUpdate, responses={204: None})
     def put(self, request, business_id, user_id):
         data = validated(StaffUpdate, request.data)

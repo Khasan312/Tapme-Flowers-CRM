@@ -1,10 +1,12 @@
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 
 from tapme.accounts.models import User
 from tapme.businesses.application.settings import ShopSettings
 from tapme.businesses.models import Business, Membership, Shop
+from tapme.orders.models import OrderRecord
 from tapme.shared.domain import Conflict, InvalidInput, NotFound
 
 
@@ -92,6 +94,30 @@ class DjangoBusinessSettingsRepository:
             if phone is not None:
                 row.phone = phone
             row.save(update_fields=["role", "is_active", "phone"])
+
+    def delete_staff(self, business_id, user_id):
+        with transaction.atomic():
+            row = (
+                Membership.objects.select_for_update()
+                .filter(business_id=business_id, user_id=user_id)
+                .first()
+            )
+            if row is None:
+                raise NotFound("Сотрудник не найден.")
+            if row.role == "owner":
+                raise InvalidInput("Нельзя удалить владельца магазина.")
+            if (
+                OrderRecord.objects.filter(business_id=business_id)
+                .filter(Q(florist_id=user_id) | Q(courier_id=user_id))
+                .exclude(status__in=["done", "cancelled"])
+                .exists()
+            ):
+                raise Conflict(
+                    "У сотрудника есть незавершённые заказы. Передайте их другому сотруднику "
+                    "или завершите, затем повторите удаление. Заказы в пути нужно сначала завершить."
+                )
+            # Keep the user: historical orders, payments and events reference this account.
+            row.delete()
 
     def reset_staff(self, business_id, user_id, password):
         with transaction.atomic():

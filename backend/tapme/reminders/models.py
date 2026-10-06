@@ -21,6 +21,7 @@ class ReminderSettings(models.Model):
     start_hour = models.PositiveSmallIntegerField(default=9)
     end_hour = models.PositiveSmallIntegerField(default=20)
     templates = models.JSONField(default=dict)
+    custom_templates = models.JSONField(default=list)
     template = models.TextField(default=DEFAULT_TEMPLATE)
     inactive_template = models.TextField(
         default="{name}, здравствуйте! Давно не выбирали цветы у нас. Подобрать букет для вас? {shop}"

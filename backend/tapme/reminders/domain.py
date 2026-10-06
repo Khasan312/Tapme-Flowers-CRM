@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from string import Formatter
+from typing import TypedDict
+from uuid import UUID
 
 from tapme.shared.domain import InvalidInput
 
@@ -23,6 +25,12 @@ TEMPLATE_FIELDS = {
 TEMPLATE_IDS = {"d14", "d7", "d3", "d1", "lapsed", "confirm", "ready", "done", "feedback", "sorry"}
 
 
+class CustomTemplate(TypedDict):
+    id: str
+    name: str
+    text: str
+
+
 def render_template(template: str, values: dict[str, str]) -> str:
     values = {**values, **{ru: values.get(en, "") for ru, en in TEMPLATE_FIELDS.items()}}
 
@@ -36,7 +44,11 @@ def render_template(template: str, values: dict[str, str]) -> str:
                 raise ValueError
         return template.format_map(values)
     except (ValueError, KeyError):
-        raise InvalidInput("Допустимые подстановки: {name}, {person}, {event}, {shop}.") from None
+        raise InvalidInput(
+            "Проверьте подстановки: "
+            + ", ".join("{" + name + "}" for name in TEMPLATE_FIELDS)
+            + ". Также допустимы их английские имена."
+        ) from None
 
 
 @dataclass(frozen=True)
@@ -52,8 +64,25 @@ class ReminderRules:
     )
 
     templates: dict[str, str] = field(default_factory=dict)
+    custom_templates: list[CustomTemplate] = field(default_factory=list)
 
     def validate(self) -> None:
+        if len(self.custom_templates) > 50:
+            raise InvalidInput("Можно сохранить до 50 своих шаблонов.")
+        seen: set[str] = set()
+        for item in self.custom_templates:
+            try:
+                identity = str(UUID(item["id"]))
+            except ValueError:
+                raise InvalidInput("Некорректный идентификатор шаблона.") from None
+            if identity in seen:
+                raise InvalidInput("Шаблоны не должны повторяться.")
+            seen.add(identity)
+            if not item["name"].strip() or len(item["name"]) > 100:
+                raise InvalidInput("Название шаблона должно содержать от 1 до 100 символов.")
+            if not item["text"].strip() or len(item["text"]) > 2000:
+                raise InvalidInput("Текст шаблона должен содержать от 1 до 2000 символов.")
+            render_template(item["text"], {name: "Пример" for name in TEMPLATE_FIELDS.values()})
         for key, text in self.templates.items():
             if key not in TEMPLATE_IDS or not 1 <= len(text) <= 2000:
                 raise InvalidInput("Проверьте название и длину шаблона.")

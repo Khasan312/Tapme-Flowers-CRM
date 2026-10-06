@@ -12,6 +12,12 @@ from tapme.businesses.application.contracts import Scope
 from tapme.reminders.domain import ReminderRules
 
 
+class CustomTemplateInput(StrictSerializer):
+    id = serializers.CharField(max_length=36)
+    name = serializers.CharField(max_length=100)
+    text = serializers.CharField(max_length=2000)
+
+
 class RulesInput(StrictSerializer):
     enabled = serializers.BooleanField()
     offsets = serializers.ListField(
@@ -21,6 +27,7 @@ class RulesInput(StrictSerializer):
     start_hour = serializers.IntegerField(min_value=0, max_value=23)
     end_hour = serializers.IntegerField(min_value=1, max_value=24)
     templates = serializers.DictField(child=serializers.CharField(max_length=2000), default=dict)
+    custom_templates = CustomTemplateInput(many=True, max_length=50, required=False)
     template = serializers.CharField(max_length=2000)
     inactive_template = serializers.CharField(
         max_length=2000, default=ReminderRules().inactive_template
@@ -73,6 +80,11 @@ class RulesView(APIView):
     def put(self, request, business_id):
         data = validated(RulesInput, request.data)
         data["offsets"] = tuple(data["offsets"])
+        if "custom_templates" not in data:
+            # Older clients editing reminder rules must not erase saved custom messages.
+            data["custom_templates"] = (
+                composition.reminders().rules(Scope(request.user.id, business_id)).custom_templates
+            )
         return Response(
             asdict(
                 composition.reminders().save_rules(

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { businessPath, errorText, price, request, ApiError } from "./api";
 import { Modal, Notice, Pager } from "./components";
+import { PhoneInput } from "./phone-input";
 import { useRemote } from "./hooks";
 import type {
   Business,
@@ -57,13 +58,7 @@ export function CustomerForm({ business, close, saved }: FormProps) {
           </label>
           <label>
             Телефон
-            <input
-              name="phone"
-              type="tel"
-              required
-              defaultValue="+996"
-              maxLength={40}
-            />
+            <PhoneInput name="phone" required />
           </label>
           <label>
             Заметка
@@ -487,11 +482,7 @@ export function OrderForm({
                   </label>
                   <label>
                     Телефон нового клиента
-                    <input
-                      type="tel"
-                      value={quickPhone}
-                      onChange={(e) => setQuickPhone(e.target.value)}
-                    />
+                    <PhoneInput value={quickPhone} onChange={setQuickPhone} />
                   </label>
                 </div>
                 <button
@@ -657,13 +648,10 @@ export function OrderForm({
               </label>
               <label>
                 Телефон получателя
-                <input
+                <PhoneInput
                   value={recipientPhone}
-                  onChange={(e) => setRecipientPhone(e.target.value)}
+                  onChange={setRecipientPhone}
                   name="recipient_phone"
-                  type="tel"
-                  maxLength={40}
-                  placeholder="+996"
                 />
               </label>
               <label>

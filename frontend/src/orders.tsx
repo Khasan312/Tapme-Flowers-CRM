@@ -1,4 +1,5 @@
 import { useRef, useState, type FormEvent } from "react";
+import { Check } from "lucide-react";
 import { ApiError, businessPath, errorText, price, request } from "./api";
 import { Modal, Notice, Pager } from "./components";
 import { OrderForm } from "./forms";
@@ -363,8 +364,10 @@ export function OrderPanel({
                   className={`tl-i ${i < steps.indexOf(o.status) ? "done" : status === o.status ? "cur" : "todo"}`}
                   key={status}
                 >
-                  <div className="dot">
-                    {i < steps.indexOf(o.status) ? "✓" : ""}
+                  <div className="dot" aria-hidden="true">
+                    {i < steps.indexOf(o.status) && (
+                      <Check size={12} strokeWidth={3} />
+                    )}
                   </div>
                   <div>
                     <div className="tt">{statusNames[status]}</div>
@@ -451,7 +454,7 @@ export function OrderPanel({
             {!["route", "done", "cancelled"].includes(o.status) && (
               <form
                 key={`assign-${o.version}`}
-                className="inline-form"
+                className="inline-form assignment-form"
                 onSubmit={(e) => {
                   e.preventDefault();
                   const d = new FormData(e.currentTarget);
@@ -479,15 +482,24 @@ export function OrderPanel({
                       ))}
                   </select>
                 </label>
-                <label>
+                <label className="courier-field">
                   Курьер
                   <select
                     aria-label="Курьер"
+                    aria-describedby={
+                      o.fulfillment === "pickup"
+                        ? `courier-pickup-${o.id}`
+                        : undefined
+                    }
                     name="courier"
                     defaultValue={o.courier_id || ""}
                     disabled={o.fulfillment === "pickup"}
                   >
-                    <option value="">Не назначен</option>
+                    <option value="">
+                      {o.fulfillment === "pickup"
+                        ? "Не требуется"
+                        : "Не назначен"}
+                    </option>
                     {staff.data
                       ?.filter((s) => s.role === "courier" && s.is_active)
                       .map((s) => (
@@ -496,6 +508,11 @@ export function OrderPanel({
                         </option>
                       ))}
                   </select>
+                  {o.fulfillment === "pickup" && (
+                    <span className="field-hint" id={`courier-pickup-${o.id}`}>
+                      Самовывоз — клиент заберёт заказ в магазине.
+                    </span>
+                  )}
                 </label>
                 <button disabled={busy}>Назначить сотрудников</button>
               </form>

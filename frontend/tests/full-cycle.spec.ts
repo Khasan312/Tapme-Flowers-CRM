@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
+import { submitLogin } from "./login";
 let account: { username: string; password: string; business_id: string };
 const python = resolve("../backend/.venv/bin/python"),
   fixture = resolve("../backend/tests/browser_fixture.py");
@@ -23,9 +24,7 @@ test("команда, редактирование, флорист, достав
   page.on("pageerror", (e) => errors.push(e.message));
   async function login(username: string) {
     await page.goto("/");
-    await page.getByLabel("Логин", { exact: true }).fill(username);
-    await page.getByLabel("Пароль", { exact: true }).fill(account.password);
-    await page.getByRole("button", { name: "Войти в CRM" }).click();
+    await submitLogin(page, username, account.password);
   }
   const florist = account.username + "_florist",
     courier = account.username + "_courier";

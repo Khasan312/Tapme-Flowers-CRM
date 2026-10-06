@@ -137,6 +137,7 @@ export type ReminderRules = {
   template: string;
   inactive_template: string;
   templates: Record<string, string>;
+  custom_templates: { id: string; name: string; text: string }[];
 };
 export type Reminder = {
   kind: "date" | "inactive";
