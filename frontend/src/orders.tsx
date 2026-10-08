@@ -1,8 +1,10 @@
+import { newUuid } from "./uuid";
 import { useRef, useState, type FormEvent } from "react";
 import { Check } from "lucide-react";
 import { ApiError, businessPath, errorText, price, request } from "./api";
 import { Modal, Notice, Pager } from "./components";
 import { OrderForm } from "./forms";
+import { ProductPhoto } from "./product-photo";
 import { useRemote } from "./hooks";
 import type {
   Business,
@@ -36,6 +38,7 @@ const eventNames: Record<string, string> = {
   created: "Заказ принят",
   edited: "Заказ изменён",
   assigned: "Назначены сотрудники",
+  courier_reassigned: "Курьер заменён",
   payment: "Оплата",
   refund: "Возврат",
   photo: "Добавлено фото",
@@ -79,7 +82,7 @@ function PaymentForm({ path, changed }: { path: string; changed: () => void }) {
     if (!attempt.current) {
       const data = new FormData(form);
       attempt.current = {
-        key: crypto.randomUUID(),
+        key: newUuid(),
         body: JSON.stringify(Object.fromEntries(data)),
       };
     }
@@ -244,7 +247,10 @@ export function OrderPanel({
   const [share, setShare] = useState("");
   const base = businessPath(business.id, `orders/${orderId}`);
   const order = useRemote<Order>(base, revision);
-  const staff = useRemote<Staff[]>(businessPath(business.id, "staff"));
+  const staff = useRemote<Staff[]>(
+    businessPath(business.id, "staff"),
+    revision,
+  );
   const payments = useRemote<Payment[]>(base + "payments/", revision);
   const history = useRemote<HistoryEvent[]>(base + "history/", revision);
   const feedback = useRemote<Feedback[]>(base + "feedback/", revision);
@@ -406,7 +412,8 @@ export function OrderPanel({
             </div>
             {o.lines.map((l) => (
               <div className="detail-line" key={l.product_id}>
-                <span>
+                <span className="product-name">
+                  <ProductPhoto url={l.photo_url} name={l.name} />
                   {l.name} × {l.quantity}
                 </span>
                 <strong>{price(l.total)}</strong>
@@ -451,7 +458,7 @@ export function OrderPanel({
               )}
               <button onClick={() => window.print()}>Печатать талон</button>
             </div>
-            {!["route", "done", "cancelled"].includes(o.status) && (
+            {!["done", "cancelled"].includes(o.status) && staff.data && (
               <form
                 key={`assign-${o.version}`}
                 className="inline-form assignment-form"
@@ -460,7 +467,10 @@ export function OrderPanel({
                   const d = new FormData(e.currentTarget);
                   void act(base + "assignment/", {
                     version: o.version,
-                    florist_id: d.get("florist") || null,
+                    florist_id:
+                      o.status === "route"
+                        ? o.florist_id
+                        : d.get("florist") || null,
                     courier_id: d.get("courier") || null,
                   });
                 }}
@@ -471,13 +481,24 @@ export function OrderPanel({
                     aria-label="Флорист"
                     name="florist"
                     defaultValue={o.florist_id || ""}
+                    disabled={o.status === "route"}
                   >
                     <option value="">Не назначен</option>
                     {staff.data
-                      ?.filter((s) => s.role === "florist" && s.is_active)
+                      ?.filter(
+                        (s) =>
+                          (s.role === "florist" && s.is_active) ||
+                          s.id === o.florist_id,
+                      )
                       .map((s) => (
-                        <option key={s.id} value={s.id}>
+                        <option
+                          key={s.id}
+                          value={s.id}
+                          disabled={!s.is_active || s.role !== "florist"}
+                        >
                           {s.name}
+                          {(!s.is_active || s.role !== "florist") &&
+                            " — недоступен"}
                         </option>
                       ))}
                   </select>
@@ -494,6 +515,7 @@ export function OrderPanel({
                     name="courier"
                     defaultValue={o.courier_id || ""}
                     disabled={o.fulfillment === "pickup"}
+                    required={o.status === "route"}
                   >
                     <option value="">
                       {o.fulfillment === "pickup"
@@ -501,10 +523,20 @@ export function OrderPanel({
                         : "Не назначен"}
                     </option>
                     {staff.data
-                      ?.filter((s) => s.role === "courier" && s.is_active)
+                      ?.filter(
+                        (s) =>
+                          (s.role === "courier" && s.is_active) ||
+                          s.id === o.courier_id,
+                      )
                       .map((s) => (
-                        <option key={s.id} value={s.id}>
+                        <option
+                          key={s.id}
+                          value={s.id}
+                          disabled={!s.is_active || s.role !== "courier"}
+                        >
                           {s.name}
+                          {(!s.is_active || s.role !== "courier") &&
+                            " — недоступен"}
                         </option>
                       ))}
                   </select>
@@ -513,8 +545,18 @@ export function OrderPanel({
                       Самовывоз — клиент заберёт заказ в магазине.
                     </span>
                   )}
+                  {o.status === "route" && (
+                    <span className="field-hint">
+                      Можно передать доставку другому курьеру. Заказ останется в
+                      пути.
+                    </span>
+                  )}
                 </label>
-                <button disabled={busy}>Назначить сотрудников</button>
+                <button disabled={busy || staff.loading}>
+                  {o.status === "route"
+                    ? "Заменить курьера"
+                    : "Назначить сотрудников"}
+                </button>
               </form>
             )}
             <div className="inline-form">
@@ -793,9 +835,10 @@ export function TaskBoard({
                 <a href={`tel:${o.recipient_phone}`}>{o.recipient_phone}</a>
               )}
               {("lines" in o ? o.lines : o.items).map((l, i) => (
-                <p key={i}>
+                <div className="product-name" key={i}>
+                  <ProductPhoto url={l.photo_url} name={l.name} />
                   {l.name} × {l.quantity}
-                </p>
+                </div>
               ))}
               {o.card && <p>Открытка: {o.card}</p>}
               {office ? (

@@ -101,6 +101,11 @@ export function CustomerPage({
                 <div className="row small muted">
                   <span className="tag mono">ID {c.code}</span>
                   <span className="mono ink">{c.phone}</span>
+                  {(c.additional_phones || []).map((phone) => (
+                    <a className="mono" href={`tel:${phone}`} key={phone}>
+                      {phone}
+                    </a>
+                  ))}
                   {c.source && <span>· {c.source}</span>}
                   <span>· клиент с {shortDate(c.created_at.slice(0, 10))}</span>
                 </div>

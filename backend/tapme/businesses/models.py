@@ -26,6 +26,7 @@ def default_windows():
 
 
 class Shop(models.Model):
+    version = models.PositiveIntegerField(default=1)
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     business = models.OneToOneField(Business, on_delete=models.PROTECT, related_name="shop")
     name = models.CharField(max_length=150)

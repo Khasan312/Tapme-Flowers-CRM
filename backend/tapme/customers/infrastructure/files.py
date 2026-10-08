@@ -1,10 +1,12 @@
 import csv
+import re
 from io import BytesIO, StringIO
 from zipfile import BadZipFile, ZipFile
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.cell import WriteOnlyCell
 
+from tapme.customers.infrastructure.vcards import read_vcards
 from tapme.shared.domain import InvalidInput
 
 HEADERS = {
@@ -15,6 +17,8 @@ HEADERS = {
     "телефон": "phone",
     "notes": "notes",
     "заметка": "notes",
+    "additional_phones": "additional_phones",
+    "дополнительные телефоны": "additional_phones",
 }
 
 
@@ -22,6 +26,8 @@ def read_customers(upload):
     if upload.size > 2 * 1024 * 1024:
         raise InvalidInput("Файл должен занимать не более 2 МБ.")
     data = upload.read()
+    if upload.name.lower().endswith((".vcf", ".vcard")):
+        return read_vcards(data)
     workbook = None
     try:
         if upload.name.lower().endswith(".csv"):
@@ -43,7 +49,7 @@ def read_customers(upload):
             )
             iterator = iter(workbook.worksheets[0].iter_rows(values_only=True))
         else:
-            raise InvalidInput("Поддерживаются CSV в UTF-8 и XLSX.")
+            raise InvalidInput("Поддерживаются CSV в UTF-8, XLSX и VCF (vCard).")
         header = [HEADERS.get(str(cell or "").strip().lower(), "") for cell in next(iterator)]
         if "name" not in header or "phone" not in header:
             raise InvalidInput(
@@ -60,6 +66,10 @@ def read_customers(upload):
                     if key
                 }
             )
+            extra = rows[-1].get("additional_phones", "")
+            rows[-1]["additional_phones"] = [
+                number.strip() for number in re.split(r"[;\n]", extra) if number.strip()
+            ]
             if len(rows) > 1000:
                 raise InvalidInput("Не более 1000 строк в одном импорте.")
         return rows
@@ -71,7 +81,7 @@ def read_customers(upload):
 
 
 def export_customers(rows, kind):
-    fields = ("name", "phone", "notes")
+    fields = ("name", "phone", "notes", "additional_phones")
     if kind == "xlsx":
         book = Workbook(write_only=True)
         sheet = book.create_sheet("Клиенты")
@@ -79,7 +89,7 @@ def export_customers(rows, kind):
         for row in rows:
             cells = []
             for key in fields:
-                cell = WriteOnlyCell(sheet, value=row[key])
+                cell = WriteOnlyCell(sheet, value=row.get(key, ""))
                 cell.data_type = "s"
                 cells.append(cell)
             sheet.append(cells)
@@ -95,7 +105,9 @@ def export_customers(rows, kind):
     for row in rows:
         writer.writerow(
             [
-                "'" + row[key] if row[key].lstrip().startswith(("=", "+", "-", "@")) else row[key]
+                "'" + row.get(key, "")
+                if row.get(key, "").lstrip().startswith(("=", "+", "-", "@"))
+                else row.get(key, "")
                 for key in fields
             ]
         )

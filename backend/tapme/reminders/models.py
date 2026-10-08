@@ -12,6 +12,8 @@ def default_offsets():
 
 
 class ReminderSettings(models.Model):
+    version = models.PositiveIntegerField(default=1)
+    last_generated_at = models.DateTimeField(null=True, blank=True)
     business = models.OneToOneField(
         "businesses.Business", primary_key=True, on_delete=models.CASCADE
     )
@@ -29,6 +31,7 @@ class ReminderSettings(models.Model):
 
 
 class ReminderRecord(models.Model):
+    recovered = models.BooleanField(default=False)
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     business = models.ForeignKey("businesses.Business", on_delete=models.CASCADE)
     customer = models.ForeignKey(

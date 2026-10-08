@@ -1,9 +1,12 @@
+import { newUuid } from "./uuid";
 import { messageTemplates } from "./message-templates";
 import { useEffect, useState, type FormEvent } from "react";
-import { businessPath, errorText, price, request } from "./api";
-import { Modal, Notice, Pager } from "./components";
+import { ApiError, businessPath, errorText, price, request } from "./api";
+import { Modal, Notice, Pager, SettingsConflict } from "./components";
 import { PhoneInput } from "./phone-input";
 import { ProductForm } from "./forms";
+import { ProductPhoto } from "./product-photo";
+import { Pencil } from "lucide-react";
 import { useRemote } from "./hooks";
 import { Avatar, roleNames, roleAccess, Toggle } from "./ui";
 import type {
@@ -39,7 +42,8 @@ export function Settings({
   const [revision, setRevision] = useState(0),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [conflict, setConflict] = useState(false);
   const source = useRemote<ShopSettings>(
     businessPath(business.id, "settings"),
     revision,
@@ -60,12 +64,18 @@ export function Settings({
     setNotice("");
     try {
       await request(path, { method, body: JSON.stringify(body) });
+      setConflict(false);
       setNotice("Сохранено");
       setRevision((r) => r + 1);
       changed();
       return true;
     } catch (e) {
       setError(errorText(e));
+      setConflict(
+        path === businessPath(business.id, "settings") &&
+          e instanceof ApiError &&
+          e.status === 409,
+      );
       return false;
     } finally {
       setBusy(false);
@@ -96,6 +106,16 @@ export function Settings({
       </div>
       {(error || source.error || staff.error) && (
         <Notice>{error || source.error || staff.error}</Notice>
+      )}
+      {conflict && (
+        <SettingsConflict
+          busy={busy || source.loading}
+          reload={() => {
+            setRevision((r) => r + 1);
+            setConflict(false);
+            setError("");
+          }}
+        />
       )}
       {notice && (
         <p role="status" className="save-notice">
@@ -534,8 +554,8 @@ function StaffEditor({
             </p>
             <p className="muted">
               Если на сотруднике есть незавершённые заказы, сначала передайте их
-              другому сотруднику или завершите. Заказы в пути нужно сначала
-              завершить.
+              другому сотруднику или завершите. Курьера можно заменить и в
+              заказе в пути.
             </p>
           </div>
           <footer className="modal-footer">
@@ -744,7 +764,7 @@ function PriceSettings({ business }: { business: Business }) {
         </div>
         {(error || page.error) && <Notice>{error || page.error}</Notice>}
         <div className="tbl-wrap">
-          <table className="tbl">
+          <table className="tbl price-table">
             <thead>
               <tr>
                 <th>Позиция</th>
@@ -756,12 +776,15 @@ function PriceSettings({ business }: { business: Business }) {
               {page.data?.results.map((p) => (
                 <tr key={`${p.id}-${p.version}`}>
                   <td className="ink">
-                    <button
-                      className="plain-button"
-                      onClick={() => setEditor(p)}
-                    >
-                      {p.name}
-                    </button>
+                    <div className="product-name">
+                      <ProductPhoto url={p.photo_url} name={p.name} />
+                      <button
+                        className="plain-button"
+                        onClick={() => setEditor(p)}
+                      >
+                        {p.name}
+                      </button>
+                    </div>
                   </td>
                   <td className="num">
                     <input
@@ -778,31 +801,41 @@ function PriceSettings({ business }: { business: Business }) {
                     />
                   </td>
                   <td>
-                    <button
-                      className="iconbtn"
-                      aria-label={`${p.active === false ? "Вернуть" : "Скрыть"} ${p.name}`}
-                      onClick={async () => {
-                        try {
-                          await request(
-                            businessPath(business.id, `products/${p.id}`),
-                            {
-                              method: "PUT",
-                              body: JSON.stringify({
-                                name: p.name,
-                                price: p.price,
-                                version: p.version,
-                                active: p.active === false,
-                              }),
-                            },
-                          );
-                          setRevision((r) => r + 1);
-                        } catch (e) {
-                          setError(errorText(e));
-                        }
-                      }}
-                    >
-                      {p.active === false ? "↶" : "×"}
-                    </button>
+                    <div className="product-actions">
+                      <button
+                        className="iconbtn"
+                        aria-label={`${p.active === false ? "Вернуть" : "Скрыть"} ${p.name}`}
+                        onClick={async () => {
+                          try {
+                            await request(
+                              businessPath(business.id, `products/${p.id}`),
+                              {
+                                method: "PUT",
+                                body: JSON.stringify({
+                                  name: p.name,
+                                  price: p.price,
+                                  version: p.version,
+                                  active: p.active === false,
+                                }),
+                              },
+                            );
+                            setRevision((r) => r + 1);
+                          } catch (e) {
+                            setError(errorText(e));
+                          }
+                        }}
+                      >
+                        {p.active === false ? "↶" : "×"}
+                      </button>
+                      <button
+                        className="iconbtn"
+                        aria-label={`Изменить ${p.name}`}
+                        title="Изменить позицию"
+                        onClick={() => setEditor(p)}
+                      >
+                        <Pencil size={16} aria-hidden="true" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -835,8 +868,11 @@ function PriceSettings({ business }: { business: Business }) {
   );
 }
 function MessageTemplates({ business }: { business: Business }) {
+  const [revision, setRevision] = useState(0),
+    [conflict, setConflict] = useState(false);
   const source = useRemote<ReminderRules>(
     businessPath(business.id, "reminder-rules"),
+    revision,
   );
   const [draft, setDraft] = useState<ReminderRules | null>(null),
     [error, setError] = useState(""),
@@ -868,20 +904,37 @@ function MessageTemplates({ business }: { business: Business }) {
         if (!draft) return;
         setBusy(true);
         setError("");
+        setNotice("");
         try {
-          await request(businessPath(business.id, "reminder-rules"), {
-            method: "PUT",
-            body: JSON.stringify(draft),
-          });
+          const saved = await request<ReminderRules>(
+            businessPath(business.id, "reminder-rules"),
+            {
+              method: "PUT",
+              body: JSON.stringify(draft),
+            },
+          );
+          setDraft(saved);
+          setConflict(false);
           setNotice("Шаблоны сохранены");
         } catch (e) {
           setError(errorText(e));
+          setConflict(e instanceof ApiError && e.status === 409);
         } finally {
           setBusy(false);
         }
       }}
     >
       {(error || source.error) && <Notice>{error || source.error}</Notice>}
+      {conflict && (
+        <SettingsConflict
+          busy={busy || source.loading}
+          reload={() => {
+            setRevision((r) => r + 1);
+            setConflict(false);
+            setError("");
+          }}
+        />
+      )}
       {notice && (
         <p role="status" className="save-notice">
           {notice}
@@ -906,7 +959,7 @@ function MessageTemplates({ business }: { business: Business }) {
                     ...draft,
                     custom_templates: [
                       ...draft.custom_templates,
-                      { id: crypto.randomUUID(), name: "", text: "" },
+                      { id: newUuid(), name: "", text: "" },
                     ],
                   });
                   setNotice("");

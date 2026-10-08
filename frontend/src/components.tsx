@@ -91,3 +91,23 @@ export function Notice({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+export function SettingsConflict({
+  reload,
+  busy,
+}: {
+  reload: () => void;
+  busy: boolean;
+}) {
+  return (
+    <div className="selection">
+      <p>
+        Черновик оставлен в форме. При загрузке актуальных настроек
+        несохранённые изменения будут заменены.
+      </p>
+      <button type="button" className="btn" disabled={busy} onClick={reload}>
+        Загрузить актуальные настройки
+      </button>
+    </div>
+  );
+}

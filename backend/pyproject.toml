@@ -13,6 +13,7 @@ dependencies = [
   "pillow>=12,<13",
   "psycopg[binary]>=3.2,<4",
   "python-dotenv>=1.1,<2",
+  "vobject>=0.9.9,<0.10",
 ]
 
 [dependency-groups]

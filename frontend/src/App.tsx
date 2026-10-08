@@ -248,7 +248,9 @@ function Workspace() {
                 name="username"
                 required
                 autoComplete="username"
-                autoFocus
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
               />
             </label>
             <label>

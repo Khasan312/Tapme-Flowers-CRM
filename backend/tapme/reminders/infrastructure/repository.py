@@ -1,10 +1,11 @@
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import timedelta
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 from django.db import transaction
 from django.db.models import Count, Max
+from django.utils import timezone
 
 from tapme.businesses.models import Business
 from tapme.customers.models import CustomerRecord
@@ -17,6 +18,7 @@ from tapme.reminders.domain import (
     ensure_action,
     ensure_eligible,
     event_group,
+    reminder_due,
     render_template,
     template_for,
 )
@@ -33,6 +35,9 @@ def paused_ids(business_id):
 class DjangoReminderRepository:
     def rules(self, business_id):
         row, _ = ReminderSettings.objects.get_or_create(business_id=business_id)
+        return self._rules(row)
+
+    def _rules(self, row):
         templates = dict(row.templates)
         if not templates:
             templates = dict(DEFAULT_TEMPLATES)
@@ -50,51 +55,92 @@ class DjangoReminderRepository:
             row.inactive_template,
             templates,
             row.custom_templates,
+            row.version,
         )
 
     def save_rules(self, business_id, rules):
-        ReminderSettings.objects.update_or_create(business_id=business_id, defaults=asdict(rules))
-        return rules
-
-    def generate(self, business_id, now):
-        rules = self.rules(business_id)
-        if not rules.enabled:
-            return 0
-        business = Business.objects.get(id=business_id)
-        today = now.astimezone(ZoneInfo(business.timezone)).date()
-        customers = (
-            CustomerRecord.objects.filter(business_id=business_id, consent=True)
-            .exclude(id__in=paused_ids(business_id))
-            .prefetch_related("dates")
-            .annotate(last_order=Max("orderrecord__completed_at"))
-        )
-        suppressed = {
-            event_group(key)
-            for key in ReminderRecord.objects.filter(
-                business_id=business_id, state="skipped"
-            ).values_list("key", flat=True)
-        }
-        count = 0
-        for customer in customers.iterator(chunk_size=200):
-            last = customer.last_order
-            candidates = candidates_for_customer(
-                str(customer.id),
-                customer.name,
-                [(str(e.id), e.label, e.person, e.month, e.day) for e in customer.dates.all()],
-                last.isoformat() if last else None,
-                last.astimezone(ZoneInfo(business.timezone)).date() if last else None,
-                today,
-                rules,
-            )
-            for key, event, person in candidates:
-                if event_group(key) in suppressed:
-                    continue
-                _, created = ReminderRecord.objects.get_or_create(
-                    business_id=business_id,
-                    key=key,
-                    defaults=dict(customer=customer, event=event, person=person, due_date=today),
+        with transaction.atomic():
+            ReminderSettings.objects.get_or_create(business_id=business_id)
+            row = ReminderSettings.objects.select_for_update().get(business_id=business_id)
+            if row.version != rules.version:
+                raise Conflict(
+                    "Настройки напоминаний или шаблоны уже изменены в другой вкладке. "
+                    "Ваши изменения не сохранены. Загрузите актуальные настройки."
                 )
-                count += int(created)
+            if row.enabled != rules.enabled:
+                # An intentional pause must not be treated as a scheduler outage.
+                row.last_generated_at = timezone.now()
+            changed = replace(rules, version=row.version + 1)
+            for key, value in asdict(changed).items():
+                setattr(row, key, value)
+            row.save()
+            return changed
+
+    @transaction.atomic
+    def generate(self, business_id, now):
+        ReminderSettings.objects.get_or_create(business_id=business_id)
+        settings = ReminderSettings.objects.select_for_update().get(business_id=business_id)
+        rules = self._rules(settings)
+        business = Business.objects.get(id=business_id)
+        zone = ZoneInfo(business.timezone)
+        today = now.astimezone(zone).date()
+        since = today - timedelta(days=max(rules.offsets))
+        if settings.last_generated_at:
+            since = max(since, settings.last_generated_at.astimezone(zone).date())
+        count = 0
+        if rules.enabled:
+            customers = (
+                CustomerRecord.objects.filter(business_id=business_id, consent=True)
+                .exclude(id__in=paused_ids(business_id))
+                .prefetch_related("dates")
+                .annotate(last_order=Max("orderrecord__completed_at"))
+            )
+            suppressed = {
+                event_group(key)
+                for key in ReminderRecord.objects.filter(
+                    business_id=business_id, state="skipped"
+                ).values_list("key", flat=True)
+            }
+            for customer in customers.iterator(chunk_size=200):
+                last = customer.last_order
+                dates = list(customer.dates.all())
+                candidates = candidates_for_customer(
+                    str(customer.id),
+                    customer.name,
+                    [(str(e.id), e.label, e.person, e.month, e.day) for e in dates],
+                    last.isoformat() if last else None,
+                    last.astimezone(zone).date() if last else None,
+                    today,
+                    rules,
+                    since,
+                )
+                due_days = {}
+                for event in dates:
+                    due = reminder_due(today, event.month, event.day, rules.offsets, since)
+                    if due:
+                        target, offset = due
+                        due_days[f"date:{event.id}:{target.year}:{offset}"] = target - timedelta(
+                            days=offset
+                        )
+                for key, event, person in candidates:
+                    if event_group(key) in suppressed:
+                        continue
+                    due_date = due_days.get(key, today)
+                    _, created = ReminderRecord.objects.get_or_create(
+                        business_id=business_id,
+                        key=key,
+                        defaults=dict(
+                            customer=customer,
+                            event=event,
+                            person=person,
+                            due_date=due_date,
+                            recovered=due_date < today,
+                        ),
+                    )
+                    count += int(created)
+        # The cursor advances only when the whole run commits successfully.
+        settings.last_generated_at = max(now, settings.last_generated_at or now)
+        settings.save(update_fields=["last_generated_at"])
         return count
 
     def list(self, business_id, state, limit, offset, now, kind="all"):
@@ -129,11 +175,12 @@ class DjangoReminderRepository:
                 state=r.state,
                 message=r.message,
                 preview=render_template(
-                    template_for(r.key, rules),
+                    template_for(r.key, rules, r.recovered),
                     dict(
                         name=r.customer.name, person=r.person, event=r.event, shop=r.business.name
                     ),
                 ),
+                recovered=r.recovered,
                 paused=not enabled or not r.customer.consent or r.customer_id in paused,
             )
             for r in query[offset : offset + limit]
@@ -166,7 +213,7 @@ class DjangoReminderRepository:
             raise Conflict("Это напоминание уже обработано.")
         rules = self._eligible(row, now, require_hours=True)
         message = render_template(
-            template_for(row.key, rules),
+            template_for(row.key, rules, row.recovered),
             dict(
                 name=row.customer.name, person=row.person, event=row.event, shop=row.business.name
             ),
@@ -191,7 +238,7 @@ class DjangoReminderRepository:
                 rules = self._eligible(row, now)
                 if action == "sent":
                     row.message = render_template(
-                        template_for(row.key, rules),
+                        template_for(row.key, rules, row.recovered),
                         dict(
                             name=row.customer.name,
                             person=row.person,

@@ -1,7 +1,9 @@
+import { newUuid } from "./uuid";
 import { useEffect, useState, type FormEvent } from "react";
 import { businessPath, errorText, price, request } from "./api";
 import { Modal, Notice } from "./components";
-import { PhoneInput } from "./phone-input";
+import { AdditionalPhones, PhoneInput } from "./phone-input";
+import { CustomerCategory } from "./customer-category";
 import { useRemote } from "./hooks";
 import { Status } from "./orders";
 import type { Business, CustomerProfile } from "./types";
@@ -97,6 +99,14 @@ export function CustomerPanel({
                   />
                 </label>
               </div>
+              <AdditionalPhones
+                phone={draft.phone}
+                values={draft.additional_phones || []}
+                disabled={busy}
+                onChange={(phone, additional_phones) =>
+                  setDraft({ ...draft, phone, additional_phones })
+                }
+              />
               <div className="fgrid">
                 <label>
                   Источник клиента
@@ -108,22 +118,11 @@ export function CustomerPanel({
                     }
                   />
                 </label>
-                <label>
-                  Метки клиента
-                  <input
-                    value={(draft.tags || []).join(", ")}
-                    onChange={(e) =>
-                      setDraft({
-                        ...draft,
-                        tags: e.target.value
-                          .split(",")
-                          .map((t) => t.trim())
-                          .filter(Boolean),
-                      })
-                    }
-                  />
-                  <span className="hint">Например: VIP, Корпоративный</span>
-                </label>
+                <CustomerCategory
+                  tags={draft.tags || []}
+                  disabled={busy}
+                  onChange={(tags) => setDraft({ ...draft, tags })}
+                />
               </div>
               <label>
                 Заметка клиента
@@ -214,7 +213,7 @@ export function CustomerPanel({
                       recipients: [
                         ...draft.recipients,
                         {
-                          id: crypto.randomUUID(),
+                          id: newUuid(),
                           name: "",
                           relation: "",
                           phone: "",
@@ -325,7 +324,7 @@ export function CustomerPanel({
                       dates: [
                         ...draft.dates,
                         {
-                          id: crypto.randomUUID(),
+                          id: newUuid(),
                           label: "День рождения",
                           person: "",
                           month: 1,
@@ -413,10 +412,96 @@ type ImportResult = {
     row: number;
     name: string;
     phone: string;
+    additional_phones?: string[];
     status: string;
     error: string;
   }[];
 };
+
+function ContactImportHelp() {
+  return (
+    <details className="import-help">
+      <summary>Как перенести контакты с телефона?</summary>
+      <div className="stack">
+        <p>
+          Сначала сохраните телефонную книгу в файл VCF, затем выберите его
+          здесь. Кнопка выбора файла открывает «Файлы», а не список контактов.
+        </p>
+        <section aria-label="Экспорт с iPhone">
+          <h3>iPhone</h3>
+          <ol>
+            <li>Откройте приложение «Контакты» и перейдите в «Списки».</li>
+            <li>
+              Нажмите и удерживайте нужный список, например «Все iCloud», затем
+              выберите «Экспортировать».
+            </li>
+            <li>
+              Оставьте имя, фамилию и все нужные поля телефонов: мобильный,
+              домашний и другие. Уберите фотографии, чтобы уменьшить файл, и
+              нажмите «Готово».
+            </li>
+            <li>
+              В меню отправки нажмите «Сохранить в Файлы» и запомните папку.
+              Если контакты есть в нескольких списках аккаунтов, повторите
+              экспорт для каждого.
+            </li>
+          </ol>
+          <a
+            href="https://support.apple.com/ru-ru/guide/iphone/iph075ddebf2/ios"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Инструкция Apple
+          </a>
+        </section>
+        <section aria-label="Экспорт с Android">
+          <h3>Android · Google Контакты</h3>
+          <ol>
+            <li>Откройте приложение «Контакты» от Google.</li>
+            <li>Перейдите в «Управление контактами» → «Экспорт в файл».</li>
+            <li>
+              Отметьте все нужные аккаунты, выберите экспорт в VCF и сохраните
+              файл, например в «Загрузки».
+            </li>
+          </ol>
+          <p className="muted">
+            В других приложениях контактов названия пунктов могут отличаться.
+          </p>
+          <a
+            href="https://support.google.com/contacts/answer/7199294?hl=ru&co=GENIE.Platform%3DAndroid"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Инструкция Google
+          </a>
+        </section>
+        <section aria-label="Загрузка в CRM">
+          <h3>Вернитесь в CRM</h3>
+          <ol>
+            <li>
+              В этом окне выберите сохранённый VCF. Проверка запустится
+              автоматически.
+            </li>
+            <li>
+              В появившемся списке отметьте нужные контакты или нажмите «Выбрать
+              все готовые».
+            </li>
+            <li>
+              Нажмите «Импортировать выбранные». Только после этого контакты
+              сохранятся в базе.
+            </li>
+          </ol>
+          <p className="muted">
+            За один раз — до 1000 номеров и 2 МБ. Если контактов больше,
+            экспортируйте их отдельными списками. Дубли по телефону пропустим, а
+            строки с ошибками покажем перед импортом.
+          </p>
+        </section>
+      </div>
+    </details>
+  );
+}
+
 export function CustomerTransfer({
   business,
   close,
@@ -426,60 +511,102 @@ export function CustomerTransfer({
   close: () => void;
   changed: () => void;
 }) {
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [search, setSearch] = useState("");
   const [file, setFile] = useState<File | null>(null),
     [result, setResult] = useState<ImportResult | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [committed, setCommitted] = useState(false);
-  async function send(commit: boolean) {
-    if (!file) return;
+  async function send(commit: boolean, upload = file) {
+    if (!upload || busy) return;
     setBusy(true);
     setError("");
+    if (!commit) setResult(null);
+    const controller = new AbortController();
+    const timeout = !commit
+      ? window.setTimeout(() => controller.abort(), 30000)
+      : undefined;
     const data = new FormData();
-    data.set("file", file);
+    data.set("file", upload);
     data.set("commit", String(commit));
+    if (commit) data.set("selected_rows", JSON.stringify([...selected]));
     try {
-      setResult(
-        await request<ImportResult>(
-          businessPath(business.id, "customers/import"),
-          { method: "POST", body: data },
+      const response = await request<ImportResult>(
+        businessPath(business.id, "customers/import"),
+        { method: "POST", body: data, signal: controller.signal },
+      );
+      setResult(response);
+      setSelected(
+        new Set(
+          response.results
+            .filter((r) => r.status === (commit ? "created" : "ready"))
+            .map((r) => r.row),
         ),
       );
       setCommitted(commit);
       if (commit) changed();
     } catch (e) {
-      setError(errorText(e));
+      setError(
+        controller.signal.aborted
+          ? "Проверка файла заняла слишком много времени. Проверьте соединение и повторите."
+          : errorText(e),
+      );
     } finally {
+      window.clearTimeout(timeout);
       setBusy(false);
     }
   }
   return (
     <Modal title="Импорт клиентов" close={close} busy={busy}>
       <div className="modal-body stack">
-        <p>
-          CSV в UTF-8 или Excel. Колонки: name — имя, phone — телефон, notes —
-          заметка. До 1000 строк и 2 МБ.
-        </p>
-        <p className="muted">
-          Дубли по телефону будут пропущены. Согласие на сообщения не
-          импортируется.
-        </p>
-        <label>
-          Файл клиентов
-          <input
-            type="file"
-            accept=".csv,.xlsx"
-            onChange={(e) => {
-              setFile(e.target.files?.[0] || null);
-              setResult(null);
-              setCommitted(false);
-            }}
-          />
-        </label>
         {error && <Notice>{error}</Notice>}
-        <button onClick={() => void send(false)} disabled={!file || busy}>
-          Проверить файл
-        </button>
+        <details className="import-file" open={!result && !busy && !error}>
+          <summary>
+            {file ? `Файл: ${file.name} · изменить` : "Выбор файла контактов"}
+          </summary>
+          <div className="stack">
+            <p>
+              Выберите файл контактов VCF с телефона или таблицу CSV / Excel. До
+              1000 номеров и 2 МБ. Для таблиц: name — имя, phone — телефон,
+              notes — заметка.
+            </p>
+            <ContactImportHelp />
+            <p className="muted">
+              После выбора файла список появится автоматически. Имя и фамилия
+              сохранятся вместе. Все разные номера одного контакта попадут в
+              одну карточку, первый — основной. Пустые поля пропускаем,
+              одинаковые номера объединяем. Отметьте нужные контакты и
+              подтвердите импорт. Дубли существующих клиентов по любому номеру
+              будут пропущены. Согласие на сообщения не импортируется.
+            </p>
+            <label>
+              Файл клиентов
+              <input
+                type="file"
+                accept=".csv,.xlsx,.vcf,.vcard,text/vcard,text/x-vcard"
+                disabled={busy}
+                onChange={(e) => {
+                  const upload = e.target.files?.[0];
+                  if (!upload) return;
+                  setFile(upload);
+                  setResult(null);
+                  setSelected(new Set());
+                  setSearch("");
+                  setError("");
+                  setCommitted(false);
+                  void send(false, upload);
+                }}
+              />
+            </label>
+          </div>
+        </details>
+        {busy && !result && <p role="status">Проверяем файл контактов…</p>}
+        {error && !result && file && (
+          <button disabled={busy} onClick={() => void send(false)}>
+            Повторить проверку
+          </button>
+        )}
         {result && (
           <>
             <p role="status">
@@ -487,49 +614,117 @@ export function CustomerTransfer({
               {result.results.filter((r) => r.status === "ready").length} ·
               Создано: {result.created}
             </p>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Строка</th>
-                    <th>Клиент</th>
-                    <th>Телефон</th>
-                    <th>Результат</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.results.map((r) => (
-                    <tr key={r.row}>
-                      <td>{r.row}</td>
-                      <td>{r.name}</td>
-                      <td>{r.phone}</td>
-                      <td>
+            {!committed && (
+              <>
+                <label>
+                  Найти контакт в файле
+                  <input
+                    type="search"
+                    className="import-search"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Имя или телефон"
+                  />
+                </label>
+                <div className="import-actions">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      setSelected(
+                        new Set(
+                          result.results
+                            .filter((r) => r.status === "ready")
+                            .map((r) => r.row),
+                        ),
+                      )
+                    }
+                  >
+                    Выбрать все готовые
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy || selected.size === 0}
+                    onClick={() => setSelected(new Set())}
+                  >
+                    Снять выбор
+                  </button>
+                  <span>Выбрано: {selected.size}</span>
+                </div>
+              </>
+            )}
+            <div className="import-contacts" aria-label="Контакты из файла">
+              {result.results
+                .filter(
+                  (r) =>
+                    committed ||
+                    `${r.name} ${r.phone} ${(r.additional_phones || []).join(" ")}`
+                      .toLocaleLowerCase()
+                      .includes(search.trim().toLocaleLowerCase()),
+                )
+                .map((r) => (
+                  <label className="import-contact" key={r.row}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Выбрать ${r.name || "контакт"} ${r.phone || "без телефона"}`}
+                      checked={selected.has(r.row)}
+                      disabled={busy || committed || r.status !== "ready"}
+                      onChange={(e) => {
+                        const next = new Set(selected);
+                        if (e.target.checked) next.add(r.row);
+                        else next.delete(r.row);
+                        setSelected(next);
+                      }}
+                    />
+                    <span className="import-contact-info">
+                      <strong>{r.name || "Без имени"}</strong>
+                      <span className="mono">{r.phone || "Без телефона"}</span>
+                      {(r.additional_phones || []).map((number) => (
+                        <span className="mono" key={number}>
+                          {number}
+                        </span>
+                      ))}
+                      <span
+                        className={
+                          r.status === "error" ? "import-error" : "muted"
+                        }
+                      >
                         {r.error ||
                           (
                             {
-                              ready: "Готово",
+                              ready: "Готово к импорту",
                               duplicate: "Дубль — пропускаем",
                               created: "Создан",
+                              unselected: "Не выбран",
                             } as Record<string, string>
                           )[r.status]}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              {!committed &&
+                !result.results.some((r) =>
+                  `${r.name} ${r.phone} ${(r.additional_phones || []).join(" ")}`
+                    .toLocaleLowerCase()
+                    .includes(search.trim().toLocaleLowerCase()),
+                ) && <p className="muted">Контакты не найдены.</p>}
             </div>
           </>
         )}
       </div>
       <footer className="modal-footer">
-        <button onClick={close}>Закрыть</button>
+        <button onClick={close} disabled={busy}>
+          Закрыть
+        </button>
         {result && !committed && (
           <button
             className="primary"
-            disabled={busy || !result.results.some((r) => r.status === "ready")}
+            disabled={busy || selected.size === 0}
             onClick={() => void send(true)}
           >
-            Импортировать проверенные строки
+            {busy
+              ? "Импортируем…"
+              : `Импортировать выбранные (${selected.size})`}
           </button>
         )}
       </footer>

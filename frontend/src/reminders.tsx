@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { businessPath, errorText, request } from "./api";
+import { ApiError, businessPath, errorText, request } from "./api";
 import { Avatar } from "./ui";
-import { Notice, Pager, Modal } from "./components";
+import { Notice, Pager, Modal, SettingsConflict } from "./components";
 import { useRemote } from "./hooks";
 import type { Business, Page, Reminder, ReminderRules } from "./types";
 
@@ -21,6 +21,7 @@ export function Reminders({
   templates: () => void;
   openCustomer: (id: string) => void;
 }) {
+  const [conflict, setConflict] = useState(false);
   const [kind, setKind] = useState("all");
   const [tab, setTab] = useState("queue"),
     [state, setState] = useState("wait"),
@@ -96,15 +97,22 @@ export function Reminders({
     if (!rules) return;
     setBusy(true);
     setError("");
+    setNotice("");
     try {
-      await request(businessPath(business.id, "reminder-rules"), {
-        method: "PUT",
-        body: JSON.stringify(rules),
-      });
+      const saved = await request<ReminderRules>(
+        businessPath(business.id, "reminder-rules"),
+        {
+          method: "PUT",
+          body: JSON.stringify(rules),
+        },
+      );
+      setRules(saved);
+      setConflict(false);
       setRevision((v) => v + 1);
       setNotice("Настройки напоминаний сохранены");
     } catch (e) {
       setError(errorText(e));
+      setConflict(e instanceof ApiError && e.status === 409);
     } finally {
       setBusy(false);
     }
@@ -132,6 +140,16 @@ export function Reminders({
       </div>
       {(error || source.error || page.error) && (
         <Notice>{error || source.error || page.error}</Notice>
+      )}
+      {conflict && (
+        <SettingsConflict
+          busy={busy || source.loading}
+          reload={() => {
+            setRevision((r) => r + 1);
+            setConflict(false);
+            setError("");
+          }}
+        />
       )}
       {notice && (
         <p role="status" className="selection">
@@ -242,6 +260,11 @@ export function Reminders({
                           <div className="s">
                             {r.message || r.preview || r.phone}
                           </div>
+                          {r.recovered && (
+                            <span className="tag">
+                              Восстановлено после перерыва
+                            </span>
+                          )}
                           {r.paused && (
                             <span className="tag crit">
                               Приостановлено: согласие, жалоба или правила

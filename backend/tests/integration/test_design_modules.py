@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -140,6 +141,69 @@ def test_directory_metadata_recipient_search_and_totals(setup, base, payload):
     assert other.code > customer.code
     c.force_login(setup["other_owner"])
     assert c.get(base + "/customers/directory/").status_code == 403
+
+
+def test_directory_combined_category_requires_both_tags_and_keeps_other_filters(setup, base):
+    c = setup["client"]
+    both = setup["customer"]
+    both.tags = ["VIP", "Корпоративный", "Постоянный"]
+    both.save()
+    for name, phone, tags in [
+        ("Только VIP", "+996555000001", ["VIP"]),
+        ("Только корпоративный", "+996555000002", ["Корпоративный"]),
+        ("Обычный", "+996555000003", []),
+    ]:
+        CustomerRecord.objects.create(business=setup["business"], name=name, phone=phone, tags=tags)
+    foreign = setup["other_customer"]
+    foreign.tags = both.tags
+    foreign.save()
+    url = base + "/customers/directory/"
+    result = c.get(url, {"group": "vip_corp"})
+    assert result.status_code == 200, result.data
+    assert [row["id"] for row in result.json()["results"]] == [str(both.id)]
+    assert result.json()["total_count"] == 4
+    for group in ("vip", "corp"):
+        rows = c.get(url, {"group": group}).json()["results"]
+        assert len(rows) == 2 and str(both.id) in {row["id"] for row in rows}
+    assert c.get(url, {"group": "vip_corp", "search": "Только"}).json()["count"] == 0
+    assert c.get(url, {"group": "vip_corp", "offset": 1}).json()["results"] == []
+    c.force_login(setup["other_owner"])
+    assert c.get(url, {"group": "vip_corp"}).status_code == 403
+
+
+@pytest.mark.parametrize(
+    ("orders", "expected"),
+    [
+        ([], 0),
+        ([(89, "done")], 0),
+        ([(90, "done")], 1),
+        ([(91, "done")], 1),
+        ([(100, "cancelled")], 0),
+        ([(90, "done"), (1, "cancelled")], 1),
+        ([(100, "done"), (89, "done")], 0),
+        ([(100, "done"), (-1, "new")], 0),
+    ],
+)
+def test_lapsed_directory_boundary_uses_local_date_and_latest_non_cancelled_order(
+    setup, base, payload, monkeypatch, orders, expected
+):
+    # UTC is still the previous day: exactly 90 local days must be included.
+    now = datetime(2026, 11, 20, 20, tzinfo=UTC)
+    today = (now + timedelta(hours=6)).date()
+    business = setup["business"]
+    business.timezone = "Asia/Bishkek"
+    business.save()
+    monkeypatch.setattr("tapme.customers.directory_api.timezone.now", lambda: now)
+    setup["client"].force_login(setup["owner"])
+    for days, status in orders:
+        result = create(
+            setup, base, {**payload, "delivery_date": str(today - timedelta(days=days))}
+        )
+        assert result.status_code == 201, result.data
+        OrderRecord.objects.filter(id=result.json()["id"]).update(status=status)
+    response = setup["client"].get(base + "/customers/directory/", {"group": "lapsed"})
+    assert response.status_code == 200, response.data
+    assert response.json()["count"] == expected
 
 
 def test_russian_templates_saved_and_used_by_offset(setup, base):

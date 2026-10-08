@@ -56,6 +56,15 @@ test("команда, редактирование, флорист, достав
     .click();
   await page.getByLabel("Название", { exact: true }).fill("Розы для теста");
   await page.getByLabel("Цена, сом").fill("1000");
+  const referencePhoto = execFileSync(python, [
+    "-c",
+    "import sys; from PIL import Image; Image.new('RGB', (20, 20), 'pink').save(sys.stdout.buffer, 'PNG')",
+  ]);
+  await page.getByLabel("Фото букета").setInputFiles({
+    name: "reference.png",
+    mimeType: "image/png",
+    buffer: referencePhoto,
+  });
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Добавить позицию", exact: true })
@@ -129,6 +138,14 @@ test("команда, редактирование, флорист, достав
   await page.getByRole("button", { name: "Меню пользователя" }).click();
   await page.getByRole("menuitem", { name: "Выйти", exact: true }).click();
   await login(florist);
+  const reference = page.getByRole("img", {
+    name: "Розы для теста",
+    exact: true,
+  });
+  await expect(reference).toBeVisible();
+  await expect
+    .poll(() => reference.evaluate((el: HTMLImageElement) => el.naturalWidth))
+    .toBeGreaterThan(0);
   await page
     .getByRole("button", { name: "Взять в работу", exact: true })
     .click();

@@ -4,10 +4,19 @@ from tapme.shared.domain import Conflict, NotFound, Page
 
 
 def to_domain(row):
-    return Product(row.id, row.business_id, row.name, row.price, row.version, row.active)
+    return Product(
+        row.id, row.business_id, row.name, row.price, row.version, row.active, row.photo_key
+    )
 
 
 class DjangoProductRepository:
+    def photo_versions(self, business_id, product_ids):
+        return dict(
+            ProductRecord.objects.filter(business_id=business_id, id__in=product_ids)
+            .exclude(photo_key="")
+            .values_list("id", "version")
+        )
+
     def get(self, business_id, product_id):
         row = ProductRecord.objects.filter(business_id=business_id, id=product_id).first()
         if row is None:
@@ -16,7 +25,11 @@ class DjangoProductRepository:
 
     def add(self, product):
         ProductRecord.objects.create(
-            id=product.id, business_id=product.business_id, name=product.name, price=product.price
+            id=product.id,
+            business_id=product.business_id,
+            name=product.name,
+            price=product.price,
+            photo_key=product.photo_key,
         )
         return product
 
@@ -30,7 +43,11 @@ class DjangoProductRepository:
         changed = ProductRecord.objects.filter(
             id=product.id, business_id=product.business_id, version=expected_version
         ).update(
-            name=product.name, price=product.price, version=product.version, active=product.active
+            name=product.name,
+            price=product.price,
+            version=product.version,
+            active=product.active,
+            photo_key=product.photo_key,
         )
         if not changed:
             raise Conflict("Позиция уже изменена. Обновите прайс.")

@@ -9,7 +9,7 @@ from django.core.files.base import ContentFile
 from django.core.files.storage import storages
 from django.core.management.base import BaseCommand, CommandError
 
-from tapme.media.models import PhotoRecord
+from tapme.media.infrastructure.references import photo_keys
 
 
 class Command(BaseCommand):
@@ -22,7 +22,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         storage = storages["photos"]
-        keys = set(PhotoRecord.objects.values_list("key", flat=True))
+        keys = set(photo_keys())
         if any(
             PurePosixPath(key).is_absolute() or ".." in PurePosixPath(key).parts for key in keys
         ):

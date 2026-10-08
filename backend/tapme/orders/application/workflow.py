@@ -102,13 +102,6 @@ class WorkflowService:
             if order.status not in {"new", "work"}:
                 raise InvalidInput("Редактирование доступно до готовности букета.")
             customer = self.customers.get(scope.business_id, command.customer_id)
-            fee = work.delivery.lock(
-                scope.business_id,
-                command.delivery_date,
-                command.window_start,
-                command.window_end,
-                order_id,
-            ).quote(command.fulfillment)
             if (
                 command.delivery_date,
                 command.window_start,
@@ -116,6 +109,14 @@ class WorkflowService:
                 command.fulfillment,
             ) == (order.delivery_date, order.window_start, order.window_end, order.fulfillment):
                 fee = order.delivery_fee
+            else:
+                fee = work.delivery.lock(
+                    scope.business_id,
+                    command.delivery_date,
+                    command.window_start,
+                    command.window_end,
+                    order_id,
+                ).quote(command.fulfillment)
             previous = {line.product_id: line for line in order.lines}
             lines = []
             for item in command.items:
@@ -164,11 +165,18 @@ class WorkflowService:
         with self.uow() as work:
             order = work.orders.lock(scope.business_id, order_id)
             ensure_version(order, version)
-            if order.status in {"route", "done", "cancelled"}:
-                raise InvalidInput("Назначения нельзя менять после отправки или закрытия заказа.")
-            for staff_id in sorted({uid for uid in (florist_id, courier_id) if uid}):
+            if order.status in {"done", "cancelled"}:
+                raise InvalidInput("Назначения нельзя менять после закрытия заказа.")
+            if order.status == "route" and (florist_id != order.florist_id or not courier_id):
+                raise InvalidInput(
+                    "В заказе в пути можно только заменить курьера на другого активного курьера."
+                )
+            assignments = [(courier_id, Role.COURIER)]
+            if order.status != "route":
+                assignments.append((florist_id, Role.FLORIST))
+            for staff_id in sorted({uid for uid, _ in assignments if uid}):
                 work.orders.lock_staff(scope.business_id, staff_id)
-            for user_id, role in ((florist_id, Role.FLORIST), (courier_id, Role.COURIER)):
+            for user_id, role in assignments:
                 if user_id and self.access.role_for(Scope(user_id, scope.business_id)) != role:
                     raise InvalidInput("Выберите активного сотрудника нужной роли своего магазина.")
             if order.status != "new" and not florist_id:
@@ -181,8 +189,10 @@ class WorkflowService:
             work.orders.save(
                 changed,
                 scope.user_id,
-                "assigned",
-                "Обновлены ответственные сотрудники",
+                "courier_reassigned" if order.status == "route" else "assigned",
+                "Курьер заменён. Статус «В пути» сохранён."
+                if order.status == "route"
+                else "Обновлены ответственные сотрудники",
                 self.clock(),
             )
             return changed

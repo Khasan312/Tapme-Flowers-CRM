@@ -34,6 +34,7 @@ class ShopSettings:
     opening_hours: str = ""
     pickup_unlimited: bool = True
     enforce_capacity: bool = False
+    version: int = 1
 
     def validate(self) -> None:
         text(self.name, "Название", 150)

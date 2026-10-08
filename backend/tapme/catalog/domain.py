@@ -13,6 +13,7 @@ class Product:
     price: Decimal
     version: int = 1
     active: bool = True
+    photo_key: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "name", text(self.name, "Название", 200))

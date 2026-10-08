@@ -1,8 +1,11 @@
+import { newUuid } from "./uuid";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { businessPath, errorText, price, request, ApiError } from "./api";
 import { Modal, Notice, Pager } from "./components";
-import { PhoneInput } from "./phone-input";
+import { AdditionalPhones, PhoneInput } from "./phone-input";
+import { CustomerCategory } from "./customer-category";
+import { ProductPhoto } from "./product-photo";
 import { useRemote } from "./hooks";
 import type {
   Business,
@@ -17,6 +20,9 @@ import type {
 type FormProps = { business: Business; close: () => void; saved: () => void };
 
 export function CustomerForm({ business, close, saved }: FormProps) {
+  const [phone, setPhone] = useState("");
+  const [additionalPhones, setAdditionalPhones] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -30,6 +36,8 @@ export function CustomerForm({ business, close, saved }: FormProps) {
         body: JSON.stringify({
           name: data.get("name"),
           phone: data.get("phone"),
+          additional_phones: additionalPhones,
+          tags,
           notes: data.get("notes"),
           consent: data.get("consent") === "on",
         }),
@@ -58,8 +66,22 @@ export function CustomerForm({ business, close, saved }: FormProps) {
           </label>
           <label>
             Телефон
-            <PhoneInput name="phone" required />
+            <PhoneInput
+              name="phone"
+              required
+              value={phone}
+              onChange={setPhone}
+            />
           </label>
+          <AdditionalPhones
+            phone={phone}
+            values={additionalPhones}
+            disabled={busy}
+            onChange={(main, others) => {
+              setPhone(main);
+              setAdditionalPhones(others);
+            }}
+          />
           <label>
             Заметка
             <textarea
@@ -68,6 +90,7 @@ export function CustomerForm({ business, close, saved }: FormProps) {
               placeholder="Предпочтения клиента"
             />
           </label>
+          <CustomerCategory tags={tags} onChange={setTags} disabled={busy} />
           <label className="checkbox">
             <input name="consent" type="checkbox" />
             Клиент согласился получать сообщения
@@ -92,6 +115,19 @@ export function ProductForm({
   saved,
   initial,
 }: FormProps & { initial?: Product }) {
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [removePhoto, setRemovePhoto] = useState(false);
+  const [preview, setPreview] = useState("");
+  const fileInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!photo) {
+      setPreview("");
+      return;
+    }
+    const url = URL.createObjectURL(photo);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [photo]);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -99,6 +135,13 @@ export function ProductForm({
     setBusy(true);
     setError("");
     const data = new FormData(event.currentTarget);
+    data.delete("photo");
+    if (photo) data.set("photo", photo);
+    if (initial) {
+      data.set("version", String(initial.version));
+      data.set("active", String(initial.active !== false));
+      data.set("remove_photo", String(removePhoto));
+    }
     try {
       await request(
         businessPath(
@@ -107,13 +150,7 @@ export function ProductForm({
         ),
         {
           method: initial ? "PUT" : "POST",
-          body: JSON.stringify({
-            name: data.get("name"),
-            price: data.get("price"),
-            ...(initial
-              ? { version: initial.version, active: initial.active }
-              : {}),
-          }),
+          body: data,
         },
       );
       saved();
@@ -132,6 +169,50 @@ export function ProductForm({
       <form onSubmit={submit}>
         <div className="modal-body stack">
           {error && <Notice>{error}</Notice>}
+          <label>
+            Фото букета
+            <input
+              ref={fileInput}
+              type="file"
+              name="photo"
+              accept="image/jpeg,image/png,image/webp"
+              disabled={busy}
+              onChange={(e) => {
+                const file = e.target.files?.[0] || null;
+                if (file && file.size > 10 * 1024 * 1024) {
+                  setError("Фотография должна занимать не более 10 МБ.");
+                  setPhoto(null);
+                  e.target.value = "";
+                  return;
+                }
+                setError("");
+                setPhoto(file);
+                setRemovePhoto(false);
+              }}
+            />
+            <small>
+              JPEG, PNG или WebP, до 10 МБ. Фото можно добавить позже.
+            </small>
+          </label>
+          {(preview || (initial?.photo_url && !removePhoto)) && (
+            <div className="row">
+              <ProductPhoto
+                url={preview || initial?.photo_url}
+                name={initial?.name || "Новый букет"}
+              />
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setPhoto(null);
+                  setRemovePhoto(true);
+                  if (fileInput.current) fileInput.current.value = "";
+                }}
+              >
+                Убрать фото
+              </button>
+            </div>
+          )}
           <label>
             Название
             <input
@@ -209,13 +290,19 @@ export function OrderForm({
     [fulfillment, setFulfillment] = useState(initial?.fulfillment || "pickup");
   const [lines, setLines] = useState<{ product: Product; quantity: number }[]>(
     initial?.lines.map((line) => ({
-      product: { id: line.product_id, name: line.name, price: line.unit_price },
+      product: {
+        id: line.product_id,
+        name: line.name,
+        price: line.unit_price,
+        photo_url: line.photo_url,
+      },
       quantity: line.quantity,
     })) || [],
   );
   const [recipientPhone, setRecipientPhone] = useState(
-    initial?.recipient_phone || "",
+    initial?.recipient_phone ?? initialCustomer?.phone ?? "",
   );
+  const [savedRecipientId, setSavedRecipientId] = useState("");
   const [address, setAddress] = useState(initial?.address || "");
   const [windowStart, setWindowStart] = useState(
     initial?.window_start.slice(0, 5) || "10:00",
@@ -229,9 +316,20 @@ export function OrderForm({
   const profile = useRemote<CustomerProfile>(
     customer ? businessPath(business.id, `customers/${customer.id}`) : null,
   );
+  const currentCustomer =
+    profile.data?.id === customer?.id ? profile.data : customer;
+  const customerPhones = currentCustomer
+    ? [currentCustomer.phone, ...(currentCustomer.additional_phones || [])]
+    : [];
   const [productId, setProductId] = useState("");
   const [quickName, setQuickName] = useState("");
   const [quickPhone, setQuickPhone] = useState("");
+  function selectCustomer(next: Customer) {
+    setCustomer(next);
+    setRecipient(next.name);
+    setRecipientPhone(next.phone);
+    setSavedRecipientId("");
+  }
   async function createCustomerHere() {
     setBusy(true);
     setError("");
@@ -243,9 +341,8 @@ export function OrderForm({
           body: JSON.stringify({ name: quickName, phone: quickPhone }),
         },
       );
-      setCustomer(created);
+      selectCustomer(created);
       setQuery(created.name);
-      if (!recipient) setRecipient(created.name);
       setQuickName("");
       setQuickPhone("");
     } catch (e) {
@@ -356,7 +453,7 @@ export function OrderForm({
       }
       const data = new FormData(event.currentTarget);
       attempt.current = {
-        key: crypto.randomUUID(),
+        key: newUuid(),
         body: JSON.stringify({
           ...(initial ? { version: initial.version } : {}),
           customer_id: customer.id,
@@ -426,6 +523,10 @@ export function OrderForm({
           <fieldset disabled={busy || uncertain} className="stack">
             <div>
               <h3>Клиент</h3>
+              <p className="muted">
+                Кто заказывает букет. Если получает другой человек, измените имя
+                и телефон получателя ниже.
+              </p>
               <label>
                 Поиск по имени или телефону
                 <input
@@ -446,13 +547,12 @@ export function OrderForm({
                       type="button"
                       key={c.id}
                       className={customer?.id === c.id ? "selected" : ""}
-                      onClick={() => {
-                        setCustomer(c);
-                        if (!recipient) setRecipient(c.name);
-                      }}
+                      onClick={() => selectCustomer(c)}
                     >
                       {c.name}
-                      <span>{c.phone}</span>
+                      <span>
+                        {[c.phone, ...(c.additional_phones || [])].join(" · ")}
+                      </span>
                     </button>
                   ))
                 )}
@@ -502,6 +602,19 @@ export function OrderForm({
             <div>
               <h3>Состав заказа</h3>
               <div className="add-line">
+                {products.results.find((p) => p.id === productId)
+                  ?.photo_url && (
+                  <ProductPhoto
+                    url={
+                      products.results.find((p) => p.id === productId)
+                        ?.photo_url
+                    }
+                    name={
+                      products.results.find((p) => p.id === productId)?.name ||
+                      "Букет"
+                    }
+                  />
+                )}
                 <label>
                   Позиция прайса
                   <select
@@ -541,10 +654,16 @@ export function OrderForm({
               )}
               {lines.map((line) => (
                 <div className="order-line" key={line.product.id}>
-                  <span>
-                    {line.product.name}
-                    <small>{price(line.product.price)} за шт.</small>
-                  </span>
+                  <div className="product-name">
+                    <ProductPhoto
+                      url={line.product.photo_url}
+                      name={line.product.name}
+                    />
+                    <span>
+                      {line.product.name}
+                      <small>{price(line.product.price)} за шт.</small>
+                    </span>
+                  </div>
                   <input
                     aria-label={`Количество ${line.product.name}`}
                     type="number"
@@ -578,32 +697,35 @@ export function OrderForm({
                 </div>
               ))}
             </div>
-            {profile.data && profile.data.recipients.length > 0 && (
-              <label>
-                Получатель из карточки
-                <select
-                  aria-label="Получатель из карточки"
-                  defaultValue=""
-                  onChange={(e) => {
-                    const r = profile.data?.recipients.find(
-                      (r) => r.id === e.target.value,
-                    );
-                    if (r) {
-                      setRecipient(r.name);
-                      setRecipientPhone(r.phone);
-                      setAddress(r.address);
-                    }
-                  }}
-                >
-                  <option value="">Указать вручную</option>
-                  {profile.data.recipients.map((r) => (
-                    <option value={r.id} key={r.id}>
-                      {r.name} · {r.relation}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
+            {profile.data &&
+              profile.data.id === customer?.id &&
+              profile.data.recipients.length > 0 && (
+                <label>
+                  Получатель из карточки
+                  <select
+                    aria-label="Получатель из карточки"
+                    value={savedRecipientId}
+                    onChange={(e) => {
+                      setSavedRecipientId(e.target.value);
+                      const r = profile.data?.recipients.find(
+                        (r) => r.id === e.target.value,
+                      );
+                      if (r) {
+                        setRecipient(r.name);
+                        setRecipientPhone(r.phone);
+                        setAddress(r.address);
+                      }
+                    }}
+                  >
+                    <option value="">Указать вручную</option>
+                    {profile.data.recipients.map((r) => (
+                      <option value={r.id} key={r.id}>
+                        {r.name} · {r.relation}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
             {settings.data && (
               <label>
                 Окно магазина
@@ -634,6 +756,18 @@ export function OrderForm({
                       </option>
                     ))}
                 </select>
+                {initial &&
+                  !settings.data.windows.some(
+                    (w) =>
+                      w.start === initial.window_start.slice(0, 5) &&
+                      w.end === initial.window_end.slice(0, 5),
+                  ) && (
+                    <span className="hint">
+                      Прежнее окно удалено из настроек. В этом заказе время и
+                      стоимость сохранятся; при переносе выберите действующее
+                      окно.
+                    </span>
+                  )}
               </label>
             )}
             <div className="form-grid">
@@ -698,6 +832,33 @@ export function OrderForm({
                 />
               </label>
             </div>
+            {customerPhones.length > 1 && (
+              <label>
+                Телефон клиента для получателя
+                <select
+                  aria-label="Телефон клиента для получателя"
+                  value={
+                    customerPhones.includes(recipientPhone)
+                      ? recipientPhone
+                      : ""
+                  }
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setRecipientPhone(e.target.value);
+                      setSavedRecipientId("");
+                    }
+                  }}
+                >
+                  <option value="">Указать вручную</option>
+                  {customerPhones.map((number, i) => (
+                    <option value={number} key={number}>
+                      {number}
+                      {i === 0 ? " · основной" : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             {fulfillment === "courier" && (
               <label>
                 Адрес доставки

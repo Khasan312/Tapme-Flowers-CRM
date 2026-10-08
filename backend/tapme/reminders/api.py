@@ -19,6 +19,7 @@ class CustomTemplateInput(StrictSerializer):
 
 
 class RulesInput(StrictSerializer):
+    version = serializers.IntegerField(min_value=1)
     enabled = serializers.BooleanField()
     offsets = serializers.ListField(
         child=serializers.IntegerField(min_value=0, max_value=60), min_length=1, max_length=61
@@ -42,6 +43,7 @@ class ReminderQuery(ListQuery):
 
 
 class ReminderOutput(serializers.Serializer):
+    recovered = serializers.BooleanField()
     kind = serializers.CharField()
     id = serializers.UUIDField()
     customer_id = serializers.UUIDField()

@@ -11,12 +11,14 @@ export type Customer = {
   id: string;
   name: string;
   phone: string;
+  additional_phones?: string[];
   notes: string;
   consent: boolean;
   source?: string;
   tags?: string[];
 };
 export type Product = {
+  photo_url?: string;
   active?: boolean;
   id: string;
   name: string;
@@ -53,6 +55,7 @@ export type Order = {
   total: string;
   created_at: string;
   lines: {
+    photo_url?: string;
     product_id: string;
     name: string;
     quantity: number;
@@ -70,6 +73,7 @@ export type Staff = {
   phone: string;
 };
 export type ShopSettings = {
+  version: number;
   name: string;
   address: string;
   phone: string;
@@ -129,6 +133,7 @@ export type CustomerProfile = Customer & {
   dates: ImportantDate[];
 };
 export type ReminderRules = {
+  version: number;
   enabled: boolean;
   offsets: number[];
   inactive_days: number;
@@ -151,6 +156,7 @@ export type Reminder = {
   state: string;
   message: string;
   paused: boolean;
+  recovered: boolean;
   preview?: string;
 };
 export type Task = Pick<
@@ -168,7 +174,7 @@ export type Task = Pick<
   | "courier_id"
   | "card"
 > & {
-  items: { name: string; quantity: number }[];
+  items: { name: string; quantity: number; photo_url?: string }[];
   delivery_issue?: string;
   address?: string;
   recipient_phone?: string;

@@ -2,7 +2,7 @@ from dataclasses import asdict
 
 from django.db import IntegrityError, transaction
 
-from tapme.customers.infrastructure.repository import DjangoCustomerRepository
+from tapme.customers.infrastructure.repository import DjangoCustomerRepository, lock_customer_phones
 from tapme.customers.models import CustomerRecord, ImportantDateRecord, RecipientRecord
 from tapme.shared.domain import Conflict, NotFound
 
@@ -29,6 +29,7 @@ class DjangoProfileRepository:
     def save(self, customer, version, recipients, dates):
         try:
             with transaction.atomic():
+                lock_customer_phones(customer)
                 row = (
                     CustomerRecord.objects.select_for_update()
                     .filter(id=customer.id, business_id=customer.business_id)
@@ -38,7 +39,15 @@ class DjangoProfileRepository:
                     raise NotFound("Клиент не найден.")
                 if row.version != version:
                     raise Conflict("Карточку уже изменили. Обновите её.")
-                for field in ("name", "phone", "notes", "consent", "source", "tags"):
+                for field in (
+                    "name",
+                    "phone",
+                    "notes",
+                    "consent",
+                    "source",
+                    "tags",
+                    "additional_phones",
+                ):
                     setattr(row, field, getattr(customer, field))
                 row.version += 1
                 row.save()

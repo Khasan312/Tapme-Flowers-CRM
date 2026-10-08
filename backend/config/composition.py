@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 from tapme.businesses.infrastructure.access import DjangoMembershipReader
+from tapme.catalog.application.ports import ProductPhotoReader
 from tapme.catalog.application.services import CatalogService
 from tapme.catalog.infrastructure.repository import DjangoProductRepository
 from tapme.customers.application.services import CustomerService
@@ -14,7 +15,13 @@ def customers():
 
 
 def catalog():
-    return CatalogService(DjangoMembershipReader(), DjangoProductRepository())
+    from tapme.media.infrastructure.storage import DjangoPhotoStorage
+
+    return CatalogService(DjangoMembershipReader(), DjangoProductRepository(), DjangoPhotoStorage())
+
+
+def product_photos() -> ProductPhotoReader:
+    return DjangoProductRepository()
 
 
 def orders():

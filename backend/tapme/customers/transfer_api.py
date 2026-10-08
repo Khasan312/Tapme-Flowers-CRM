@@ -15,6 +15,17 @@ from tapme.customers.infrastructure.files import export_customers, read_customer
 class ImportInput(StrictSerializer):
     file = serializers.FileField()
     commit = serializers.BooleanField(default=False)
+    selected_rows = serializers.JSONField(required=False)
+
+    def validate_selected_rows(self, value):
+        if (
+            not isinstance(value, list)
+            or len(value) > 1000
+            or any(type(row) is not int or row < 2 for row in value)
+            or len(set(value)) != len(value)
+        ):
+            raise serializers.ValidationError("Выберите строки из предпросмотра файла.")
+        return value
 
 
 class ImportOutput(serializers.Serializer):
@@ -32,7 +43,11 @@ class ImportView(APIView):
         authorize(DjangoMembershipReader(), scope, OFFICE_ROLES)
         data = validated(ImportInput, request.data)
         rows = read_customers(data["file"])
-        return Response(composition.transfers().import_rows(scope, rows, data["commit"]))
+        return Response(
+            composition.transfers().import_rows(
+                scope, rows, data["commit"], data.get("selected_rows")
+            )
+        )
 
 
 class ExportQuery(StrictSerializer):

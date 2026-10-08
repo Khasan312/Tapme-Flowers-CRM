@@ -25,10 +25,21 @@ class CustomerService:
         consent: bool = False,
         source: str = "",
         tags: tuple[str, ...] = (),
+        additional_phones: tuple[str, ...] = (),
     ) -> Customer:
         authorize(self.access, scope, OFFICE_ROLES)
         return self.repository.add(
-            Customer(uuid4(), scope.business_id, name, phone, notes, consent, source, tuple(tags))
+            Customer(
+                uuid4(),
+                scope.business_id,
+                name,
+                phone,
+                notes,
+                consent,
+                source,
+                tuple(tags),
+                tuple(additional_phones),
+            )
         )
 
     def list(

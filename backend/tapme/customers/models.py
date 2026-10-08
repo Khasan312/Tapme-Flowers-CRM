@@ -33,6 +33,7 @@ class CustomerRecord(models.Model):
     business = models.ForeignKey("businesses.Business", on_delete=models.PROTECT)
     name = models.CharField(max_length=150)
     phone = models.CharField(max_length=16)
+    additional_phones = models.JSONField(default=list)
     notes = models.TextField(blank=True)
     consent = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)

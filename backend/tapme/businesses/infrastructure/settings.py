@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -24,10 +26,17 @@ class DjangoBusinessSettingsRepository:
             shop.opening_hours,
             shop.pickup_unlimited,
             shop.enforce_capacity,
+            shop.version,
         )
 
     def save(self, business_id, settings):
         with transaction.atomic():
+            shop = Shop.objects.select_for_update().get(business_id=business_id)
+            if shop.version != settings.version:
+                raise Conflict(
+                    "Настройки уже изменены в другой вкладке. Ваши изменения не сохранены. "
+                    "Загрузите актуальные настройки перед повторным редактированием."
+                )
             Business.objects.filter(id=business_id).update(
                 name=settings.name, timezone=settings.timezone
             )
@@ -41,8 +50,9 @@ class DjangoBusinessSettingsRepository:
                 opening_hours=settings.opening_hours,
                 pickup_unlimited=settings.pickup_unlimited,
                 enforce_capacity=settings.enforce_capacity,
+                version=shop.version + 1,
             )
-        return settings
+        return replace(settings, version=shop.version + 1)
 
     def staff(self, business_id):
         return [
@@ -114,7 +124,7 @@ class DjangoBusinessSettingsRepository:
             ):
                 raise Conflict(
                     "У сотрудника есть незавершённые заказы. Передайте их другому сотруднику "
-                    "или завершите, затем повторите удаление. Заказы в пути нужно сначала завершить."
+                    "или завершите, затем повторите удаление. Курьера можно заменить и в заказе в пути."
                 )
             # Keep the user: historical orders, payments and events reference this account.
             row.delete()

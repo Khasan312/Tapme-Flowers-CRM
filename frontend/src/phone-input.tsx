@@ -45,3 +45,81 @@ export function PhoneInput({
     />
   );
 }
+
+export function AdditionalPhones({
+  phone,
+  values,
+  onChange,
+  disabled = false,
+}: {
+  phone: string;
+  values: string[];
+  onChange: (phone: string, values: string[]) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <section
+      className="stack additional-phones"
+      aria-label="Дополнительные телефоны"
+    >
+      {values.map((number, index) => (
+        <div className="phone-extra-row" key={index}>
+          <label>
+            Дополнительный телефон {index + 1}
+            <PhoneInput
+              value={number}
+              disabled={disabled}
+              onChange={(value) =>
+                onChange(
+                  phone,
+                  values.map((v, i) => (i === index ? value : v)),
+                )
+              }
+            />
+          </label>
+          <button
+            type="button"
+            disabled={disabled || !number.trim() || number === "+996"}
+            aria-label={`Сделать телефон ${index + 1} основным`}
+            onClick={() =>
+              onChange(
+                number,
+                values.map((v, i) => (i === index ? phone : v)),
+              )
+            }
+          >
+            Основной
+          </button>
+          <button
+            type="button"
+            disabled={disabled}
+            aria-label={`Удалить дополнительный телефон ${index + 1}`}
+            onClick={() =>
+              onChange(
+                phone,
+                values.filter((_, i) => i !== index),
+              )
+            }
+          >
+            Удалить
+          </button>
+        </div>
+      ))}
+      <div>
+        <button
+          type="button"
+          disabled={disabled || values.length >= 9}
+          onClick={() => onChange(phone, [...values, ""])}
+        >
+          Добавить телефон
+        </button>
+      </div>
+      {values.length > 0 && (
+        <p className="hint">
+          Первый телефон — основной для связи и заказов. Одинаковые номера
+          сохранятся один раз.
+        </p>
+      )}
+    </section>
+  );
+}

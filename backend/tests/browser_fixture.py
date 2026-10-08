@@ -53,7 +53,10 @@ with transaction.atomic():
             User.objects.filter(username__in=removed_staff).values_list("id", flat=True)
         )
         PaymentRecord.objects.filter(business=business).delete()
-        if PhotoRecord.objects.filter(business=business).exists():
+        if (
+            PhotoRecord.objects.filter(business=business).exists()
+            or ProductRecord.objects.filter(business=business).exists()
+        ):
             # Uploads live in the API container's configured storage, not on the test host.
             subprocess.run(
                 [
@@ -71,11 +74,20 @@ import django
 django.setup()
 from django.core.files.storage import storages
 from tapme.businesses.models import Business
-from tapme.media.models import PhotoRecord
 business = Business.objects.get(id=json.load(sys.stdin)['business_id'], name__startswith='E2E ')
-for key in PhotoRecord.objects.filter(business=business).values_list('key', flat=True):
-    assert key.startswith(f'{business.id}/')
-    storages['photos'].delete(key)
+storage = storages['photos']
+pending = [str(business.id)]
+while pending:
+    prefix = pending.pop()
+    try:
+        directories, files = storage.listdir(prefix)
+    except FileNotFoundError:
+        continue
+    pending.extend(f'{prefix}/{name}' for name in directories)
+    for name in files:
+        key = f'{prefix}/{name}'
+        assert key.startswith(f'{business.id}/')
+        storage.delete(key)
 """,
                 ],
                 cwd=Path(__file__).resolve().parents[2],

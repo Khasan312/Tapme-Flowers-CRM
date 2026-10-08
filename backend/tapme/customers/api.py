@@ -11,6 +11,9 @@ from tapme.businesses.application.contracts import Scope
 class CustomerInput(StrictSerializer):
     name = serializers.CharField(max_length=150)
     phone = serializers.CharField(max_length=40)
+    additional_phones = serializers.ListField(
+        child=serializers.CharField(max_length=40, allow_blank=True), max_length=9, default=list
+    )
     notes = serializers.CharField(max_length=2000, allow_blank=True, default="")
     consent = serializers.BooleanField(default=False)
     source = serializers.CharField(max_length=80, allow_blank=True, default="")

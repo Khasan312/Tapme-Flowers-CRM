@@ -5,7 +5,7 @@ from zipfile import ZIP_STORED, ZipFile
 from django.core.files.storage import storages
 from django.core.management.base import BaseCommand, CommandError
 
-from tapme.media.models import PhotoRecord
+from tapme.media.infrastructure.references import photo_keys
 
 
 class Command(BaseCommand):
@@ -14,7 +14,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         storage = storages["photos"]
         with ZipFile(sys.stdout.buffer, "w", compression=ZIP_STORED) as archive:
-            for key in PhotoRecord.objects.values_list("key", flat=True).iterator():
+            for key in photo_keys():
                 path = PurePosixPath(key)
                 if path.is_absolute() or ".." in path.parts:
                     raise CommandError("Invalid photo key.")

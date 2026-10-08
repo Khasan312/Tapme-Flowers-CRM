@@ -180,6 +180,12 @@ test("местные телефоны принимаются в магазине
   await expect(page.getByText(/Выбран: Покупатель теста/)).toContainText(
     "+996555333444",
   );
+  await expect(page.getByLabel("Получатель", { exact: true })).toHaveValue(
+    "Покупатель теста",
+  );
+  await expect(
+    page.getByLabel("Телефон получателя", { exact: true }),
+  ).toHaveValue("+996555333444");
   await page
     .getByRole("button", { name: "Добавить в заказ", exact: true })
     .click();

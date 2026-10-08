@@ -7,7 +7,7 @@ from config.health import health
 from tapme.accounts.api import CsrfView, LoginView, LogoutView, MeView, PasswordView
 from tapme.businesses.api import BusinessListView
 from tapme.businesses.settings_api import ResetStaffView, SettingsView, StaffDetailView, StaffView
-from tapme.catalog.api import ProductDetailView, ProductListView
+from tapme.catalog.api import ProductDetailView, ProductListView, ProductPhotoView
 from tapme.customers.api import CustomerListView
 from tapme.customers.directory_api import DirectoryView
 from tapme.customers.profile_api import ActivityView, CustomerDetailView
@@ -52,6 +52,10 @@ urlpatterns = [
     path("api/v1/businesses/<uuid:business_id>/customers/directory/", DirectoryView.as_view()),
     path("api/v1/businesses/<uuid:business_id>/customers/", CustomerListView.as_view()),
     path("api/v1/businesses/<uuid:business_id>/products/", ProductListView.as_view()),
+    path(
+        "api/v1/businesses/<uuid:business_id>/products/<uuid:product_id>/photo/",
+        ProductPhotoView.as_view(),
+    ),
     path("api/v1/businesses/<uuid:business_id>/orders/", OrderListView.as_view()),
     path("api/v1/businesses/<uuid:business_id>/orders/<uuid:order_id>/", OrderDetailView.as_view()),
     path(

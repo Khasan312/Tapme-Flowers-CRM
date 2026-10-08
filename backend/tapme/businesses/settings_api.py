@@ -19,6 +19,7 @@ class WindowInput(StrictSerializer):
 
 
 class SettingsInput(StrictSerializer):
+    version = serializers.IntegerField(min_value=1)
     name = serializers.CharField(max_length=150)
     address = serializers.CharField(max_length=500, allow_blank=True)
     phone = serializers.CharField(max_length=40, allow_blank=True)

@@ -133,6 +133,12 @@ test("макет: настройки, общий поиск, виды заказ
   await expect(
     page.getByText("Выбран: Алия Тестовая", { exact: false }),
   ).toBeVisible();
+  await expect(page.getByLabel("Получатель", { exact: true })).toHaveValue(
+    "Алия Тестовая",
+  );
+  await expect(
+    page.getByLabel("Телефон получателя", { exact: true }),
+  ).toHaveValue("+996555444333");
   await page
     .getByRole("button", { name: "Добавить в заказ", exact: true })
     .click();

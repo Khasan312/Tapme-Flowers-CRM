@@ -87,3 +87,17 @@ def test_delivery_deadline_uses_shop_timezone_and_includes_exact_end():
         datetime(2026, 9, 22, 12, 0, 1, tzinfo=UTC), day, end, "Asia/Bishkek"
     )
     assert delivered_on_time(datetime(2026, 9, 22, 12, 0, 1, tzinfo=UTC), day, end, "UTC")
+
+
+@pytest.mark.parametrize(
+    "today,month,day,since,expected",
+    [
+        (date(2026, 12, 29), 1, 3, date(2026, 12, 25), (date(2027, 1, 3), 7)),
+        (date(2027, 2, 23), 2, 29, date(2027, 2, 20), (date(2027, 2, 28), 7)),
+        (date(2028, 2, 24), 2, 29, date(2028, 2, 20), (date(2028, 2, 29), 7)),
+        (date(2026, 10, 14), 10, 13, date(2026, 10, 5), None),
+        (date(2026, 10, 13), 10, 13, date(2026, 10, 1), (date(2026, 10, 13), 1)),
+    ],
+)
+def test_recovery_calendar_boundaries(today, month, day, since, expected):
+    assert reminder_due(today, month, day, (14, 7, 3, 1), since) == expected

@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_field
 from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 from config import composition
 from config.api import ListQuery, StrictSerializer, validated
 from tapme.businesses.application.contracts import Scope
+from tapme.catalog.api import order_product_photos
 from tapme.orders.application.services import CreateOrder, ItemInput
 from tapme.orders.domain import Fulfillment
 
@@ -40,6 +41,7 @@ class LineOutput(serializers.Serializer):
     unit_price = serializers.DecimalField(max_digits=12, decimal_places=2)
     quantity = serializers.IntegerField()
     total = serializers.DecimalField(max_digits=12, decimal_places=2)
+    photo_url = serializers.CharField(default="", allow_blank=True)
 
 
 class OrderOutput(serializers.Serializer):
@@ -60,7 +62,7 @@ class OrderOutput(serializers.Serializer):
     address = serializers.CharField()
     notes = serializers.CharField()
     card = serializers.CharField()
-    lines = LineOutput(many=True)
+    lines = serializers.SerializerMethodField()
     total = serializers.DecimalField(max_digits=12, decimal_places=2)
     status = serializers.CharField()
     created_at = serializers.DateTimeField()
@@ -72,6 +74,14 @@ class OrderOutput(serializers.Serializer):
     delivery_issue = serializers.CharField()
     delivery_fee = serializers.DecimalField(max_digits=12, decimal_places=2)
     paid_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+    @extend_schema_field(LineOutput(many=True))
+    def get_lines(self, order):
+        photos = order_product_photos(order)
+        return [
+            {**LineOutput(line).data, "photo_url": photos.get(line.product_id, "")}
+            for line in order.lines
+        ]
 
 
 class OrderPage(serializers.Serializer):

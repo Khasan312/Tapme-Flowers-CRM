@@ -30,6 +30,9 @@ class DateInput(StrictSerializer):
 
 
 class ProfileInput(CustomerInput):
+    additional_phones = serializers.ListField(
+        child=serializers.CharField(max_length=40, allow_blank=True), max_length=9, required=False
+    )
     code = serializers.IntegerField(read_only=True)
     created_at = serializers.DateTimeField(read_only=True)
     version = serializers.IntegerField(min_value=1)
@@ -55,6 +58,9 @@ class CustomerDetailView(APIView):
     @extend_schema(request=ProfileInput, responses=ProfileOutput)
     def put(self, request, business_id, customer_id):
         data = validated(ProfileInput, request.data)
+        if "additional_phones" not in data:
+            current = composition.profiles().get(Scope(request.user.id, business_id), customer_id)
+            data["additional_phones"] = current["additional_phones"]
         version = data.pop("version")
         recipients = tuple(Recipient(**r) for r in data.pop("recipients"))
         dates = tuple(ImportantDate(**d) for d in data.pop("dates"))

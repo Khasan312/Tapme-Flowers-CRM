@@ -65,6 +65,7 @@ class ReminderRules:
 
     templates: dict[str, str] = field(default_factory=dict)
     custom_templates: list[CustomTemplate] = field(default_factory=list)
+    version: int = 1
 
     def validate(self) -> None:
         if len(self.custom_templates) > 50:
@@ -125,11 +126,12 @@ def event_day(today: date, month: int, day: int) -> date:
 
 
 def reminder_due(
-    today: date, month: int, day: int, offsets: tuple[int, ...]
+    today: date, month: int, day: int, offsets: tuple[int, ...], since: date | None = None
 ) -> tuple[date, int] | None:
     target = event_day(today, month, day)
-    for offset in offsets:
-        if today == target - timedelta(days=offset):
+    # Recover only the most recent missed interval for an upcoming anniversary.
+    for offset in sorted(offsets):
+        if (since or today) <= target - timedelta(days=offset) <= today:
             return target, offset
     return None
 
@@ -142,10 +144,11 @@ def candidates_for_customer(
     last_order_day: date | None,
     today: date,
     rules: ReminderRules,
+    since: date | None = None,
 ) -> list[tuple[str, str, str]]:
     candidates = []
     for event_id, label, person, month, day in events:
-        due = reminder_due(today, month, day, rules.offsets)
+        due = reminder_due(today, month, day, rules.offsets, since)
         if due:
             target, offset = due
             candidates.append((f"date:{event_id}:{target.year}:{offset}", label, person))
@@ -183,7 +186,10 @@ def ensure_action(state: str, action: str) -> None:
         raise Conflict("Напоминание уже изменено. Обновите список.")
 
 
-def template_for(key: str, rules: ReminderRules) -> str:
+def template_for(key: str, rules: ReminderRules, recovered: bool = False) -> str:
+    if recovered and key.startswith("date:"):
+        # Offset-specific text (e.g. "in seven days") is stale after downtime.
+        return DEFAULT_TEMPLATE
     template_id = "lapsed" if key.startswith("inactive:") else "d" + key.rsplit(":", 1)[-1]
     return rules.templates.get(template_id) or (
         rules.inactive_template if key.startswith("inactive:") else rules.template

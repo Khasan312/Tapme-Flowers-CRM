@@ -38,6 +38,8 @@ class DjangoDirectoryReader:
             query = query.filter(tags__contains=["VIP"])
         elif group == "corp":
             query = query.filter(tags__contains=["Корпоративный"])
+        elif group == "vip_corp":
+            query = query.filter(tags__contains=["VIP", "Корпоративный"])
         elif group == "new":
             query = query.filter(created_at__gte=now - timedelta(days=30))
         elif group == "lapsed":
@@ -54,6 +56,7 @@ class DjangoDirectoryReader:
                     code=c.code,
                     name=c.name,
                     phone=c.phone,
+                    additional_phones=c.additional_phones,
                     source=c.source,
                     tags=c.tags,
                     consent=c.consent,

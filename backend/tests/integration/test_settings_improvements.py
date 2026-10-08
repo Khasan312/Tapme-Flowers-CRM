@@ -70,16 +70,23 @@ def test_custom_templates_persist_edit_remove_and_do_not_affect_defaults(setup, 
     }
     result = client.put(url, {**rules, "custom_templates": [custom]}, format="json")
     assert result.status_code == 200, result.data
-    assert client.get(url).json() == {**rules, "custom_templates": [custom]}
+    assert client.get(url).json() == {
+        **rules,
+        "custom_templates": [custom],
+        "version": rules["version"] + 1,
+    }
+    rules = result.json()
     # Editing rules from a client that does not know the new field preserves messages.
     rules.pop("custom_templates")
     assert client.put(url, rules, format="json").status_code == 200
     assert client.get(url).json()["custom_templates"] == [custom]
+    rules = client.get(url).json()
     custom["text"] = "{имя}, забрать заказ №{номер} можно завтра."
     assert (
         client.put(url, {**rules, "custom_templates": [custom]}, format="json").status_code == 200
     )
     assert client.get(url).json()["custom_templates"][0]["text"] == custom["text"]
+    rules = client.get(url).json()
     assert client.put(url, {**rules, "custom_templates": []}, format="json").status_code == 200
     assert client.get(url).json()["custom_templates"] == []
 

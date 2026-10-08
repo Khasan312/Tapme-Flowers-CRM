@@ -86,6 +86,26 @@ def main():
                 capture_output=True,
                 text=True,
             ).stdout.splitlines()
+            has_product_photos = (
+                command(
+                    options,
+                    'psql -X -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$1" -c "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name=\'catalog_productrecord\' AND column_name=\'photo_key\');"',
+                    database,
+                    capture_output=True,
+                    text=True,
+                ).stdout.strip()
+                == "t"
+            )
+            if has_product_photos:
+                keys.extend(
+                    command(
+                        options,
+                        'psql -X -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$1" -c "SELECT photo_key FROM catalog_productrecord WHERE photo_key <> \'\';"',
+                        database,
+                        capture_output=True,
+                        text=True,
+                    ).stdout.splitlines()
+                )
             with (
                 ZipFile(folder / "photos.zip") as archive,
                 TemporaryDirectory(prefix="tapme-photo-restore-") as tmp,

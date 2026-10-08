@@ -9,6 +9,7 @@ from config import composition
 from config.api import ListQuery, StrictSerializer, validated
 from tapme.businesses.application.contracts import OFFICE_ROLES, Scope, authorize
 from tapme.businesses.infrastructure.access import DjangoMembershipReader
+from tapme.catalog.api import order_product_photos
 from tapme.orders.api import OrderInput, OrderOutput
 from tapme.orders.application.services import CreateOrder, ItemInput
 from tapme.orders.domain import Fulfillment
@@ -67,7 +68,15 @@ class TaskOutput(serializers.Serializer):
 
     @extend_schema_field(serializers.ListField(child=serializers.DictField()))
     def get_items(self, order):
-        return [{"name": line.name, "quantity": line.quantity} for line in order.lines]
+        photos = order_product_photos(order)
+        return [
+            {
+                "name": line.name,
+                "quantity": line.quantity,
+                "photo_url": photos.get(line.product_id, ""),
+            }
+            for line in order.lines
+        ]
 
 
 class CourierTaskOutput(TaskOutput):

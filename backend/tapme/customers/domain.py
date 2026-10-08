@@ -14,6 +14,11 @@ class Customer:
     consent: bool = False
     source: str = ""
     tags: tuple[str, ...] = ()
+    additional_phones: tuple[str, ...] = ()
+
+    @property
+    def phones(self) -> tuple[str, ...]:
+        return (self.phone, *self.additional_phones)
 
     def __post_init__(self) -> None:
         from tapme.shared.domain import InvalidInput
@@ -25,6 +30,14 @@ class Customer:
 
         object.__setattr__(self, "name", text(self.name, "Имя", 150))
         object.__setattr__(self, "phone", phone(self.phone))
+        numbers = [self.phone]
+        for value in self.additional_phones:
+            number = phone(value, required=False)
+            if number and number not in numbers:
+                numbers.append(number)
+        if len(numbers) > 10:
+            raise InvalidInput("Не более 10 разных номеров у одного клиента.")
+        object.__setattr__(self, "additional_phones", tuple(numbers[1:]))
         object.__setattr__(self, "notes", text(self.notes, "Заметка", 2000, required=False))
 
 

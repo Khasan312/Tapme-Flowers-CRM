@@ -10,6 +10,7 @@ type Entry = {
   code: number;
   name: string;
   phone: string;
+  additional_phones?: string[];
   source: string;
   tags: string[];
   recipients: { name: string; relation: string }[];
@@ -93,12 +94,14 @@ export function CustomerDirectory({
             all: "Все",
             vip: "VIP",
             corp: "Корпоративные",
+            vip_corp: "VIP и корпоративные",
             new: "Новые",
             lapsed: "Давно не заказывали",
           }).map(([key, label]) => (
             <button
               className={`pill${key === group ? " is-on" : ""}`}
               key={key}
+              aria-pressed={key === group}
               onClick={() => {
                 setGroup(key);
                 setOffset(0);
@@ -109,6 +112,12 @@ export function CustomerDirectory({
           ))}
         </div>
       </div>
+      {group === "lapsed" && (
+        <p className="small muted">
+          Прошло 90 дней или больше от даты получения в последнем заказе.
+          Отменённые заказы не учитываются; клиенты без заказов сюда не входят.
+        </p>
+      )}
       {source.error && <Notice>{source.error}</Notice>}
       <div className="card">
         <div className="tbl-wrap">
@@ -158,7 +167,11 @@ export function CustomerDirectory({
                       </span>
                     </button>
                   </td>
-                  <td className="mono">{c.phone}</td>
+                  <td className="mono">
+                    {[c.phone, ...(c.additional_phones || [])].map((phone) => (
+                      <div key={phone}>{phone}</div>
+                    ))}
+                  </td>
                   <td>
                     {c.recipients.map((r, i) => (
                       <span key={i} className="chip">

@@ -10,6 +10,7 @@ class ProductRecord(models.Model):
     business = models.ForeignKey("businesses.Business", on_delete=models.PROTECT)
     name = models.CharField(max_length=200)
     price = models.DecimalField(max_digits=12, decimal_places=2)
+    photo_key = models.CharField(max_length=500, blank=True)
 
     class Meta:
         constraints = [
