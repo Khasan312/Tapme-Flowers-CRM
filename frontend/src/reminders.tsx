@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import { ApiError, businessPath, errorText, request } from "./api";
 import { Avatar } from "./ui";
-import { Notice, Pager, Modal, SettingsConflict } from "./components";
+import {
+  Notice,
+  Pager,
+  Modal,
+  SettingsConflict,
+  RefreshIndicator,
+} from "./components";
 import { useRemote } from "./hooks";
 import type { Business, Page, Reminder, ReminderRules } from "./types";
 
@@ -128,6 +134,7 @@ export function Reminders({
           </div>
         </div>
         <span className="spacer" />
+        <RefreshIndicator active={page.refreshing || source.refreshing} />
         <button className="btn" onClick={templates}>
           Шаблоны
         </button>
@@ -158,6 +165,41 @@ export function Reminders({
       )}
       {tab === "queue" && (
         <>
+          {rules && (
+            <aside
+              className="reminder-help"
+              aria-label="Как появляются напоминания"
+            >
+              <strong>Когда появится напоминание?</strong>
+              <p>
+                Важные даты появляются{" "}
+                {rules.offsets.some((day) => day > 0) &&
+                  `за ${rules.offsets
+                    .filter((day) => day > 0)
+                    .sort((a, b) => b - a)
+                    .join(", ")} дн. до события`}
+                {rules.offsets.includes(0) &&
+                  `${rules.offsets.some((day) => day > 0) ? " и " : ""}в день события`}
+                .
+                {rules.offsets.includes(1) &&
+                  " Например, событие на завтра попадает в очередь сегодня."}
+              </p>
+              <p>
+                Очередь обновляется каждые 15 минут. После сохранения даты
+                нажмите «Сформировать очередь на сегодня», чтобы увидеть
+                подходящие напоминания сразу, или обновите раздел после
+                очередной проверки. У клиента должно быть согласие на сообщения.
+              </p>
+              {!rules.enabled && (
+                <p>
+                  <strong>
+                    Сейчас напоминания выключены. Включите их в разделе
+                    «Правила».
+                  </strong>
+                </p>
+              )}
+            </aside>
+          )}
           <div className="kpis reminder-kpis">
             {[
               ["wait", "Ждут сообщения", "на сегодня"],

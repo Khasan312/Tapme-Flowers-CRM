@@ -1,5 +1,6 @@
 import { newUuid } from "./uuid";
 import { messageTemplates } from "./message-templates";
+import { DeliveryWindowHelp } from "./delivery-window-help";
 import { useEffect, useState, type FormEvent } from "react";
 import { ApiError, businessPath, errorText, price, request } from "./api";
 import { Modal, Notice, Pager, SettingsConflict } from "./components";
@@ -54,6 +55,11 @@ export function Settings({
   );
   const [draft, setDraft] = useState<ShopSettings | null>(null),
     [staffEditor, setStaffEditor] = useState<Staff | "new" | null>(null);
+  useEffect(() => {
+    setStaffEditor(null);
+    setNotice("");
+    setError("");
+  }, [tab]);
   useEffect(() => {
     if (source.data) setDraft(source.data);
   }, [source.data]);
@@ -196,6 +202,7 @@ export function Settings({
               Сколько доставок берёт магазин в каждое окно
             </span>
           </div>
+          <DeliveryWindowHelp settings />
           <fieldset disabled={!owner || busy}>
             <div className="tbl-wrap">
               <table className="tbl">

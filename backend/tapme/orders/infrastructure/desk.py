@@ -40,6 +40,7 @@ class DjangoOrderDesk:
             "upcoming": Q(delivery_date__gt=today),
             "pickup": Q(fulfillment="pickup", delivery_date__gte=today),
             "unpaid": Q(balance__lt=F("total")) & ~Q(status__in=["done", "cancelled"]),
+            "cancelled": Q(status="cancelled"),
             "all": Q(),
         }
         counts = {key: all_orders.filter(condition).count() for key, condition in filters.items()}

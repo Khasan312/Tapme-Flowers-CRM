@@ -19,7 +19,7 @@ test.afterAll(() => {
 
 test("команда, редактирование, флорист, доставка, оплата, клиент и напоминания", async ({
   page,
-}) => {
+}, info) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   async function login(username: string) {
@@ -163,6 +163,12 @@ test("команда, редактирование, флорист, достав
   await page.getByRole("menuitem", { name: "Выйти", exact: true }).click();
   await page.goto(link);
   await expect(page.getByText("Вручён", { exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: `/tmp/tapme-${info.project.name}-public-timeline.png`,
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByLabel("Ваш отзыв").fill("Красивый букет");
   await page.getByRole("button", { name: "Отправить отзыв" }).click();
   await expect(page.getByRole("status")).toContainText("Спасибо за отзыв");
@@ -171,10 +177,31 @@ test("команда, редактирование, флорист, достав
   await page
     .getByRole("button", { name: "Покупатель цикла", exact: true })
     .click();
+  await expect(page.getByRole("img", { name: "Оценка: 5 из 5" })).toBeVisible();
+  await expect(page.locator(".customer-feedback-message")).toHaveText(
+    "Красивый букет",
+  );
+  const reviews = page.locator("section.card").filter({
+    has: page.getByRole("heading", { name: "Отзывы", exact: true }),
+  });
+  await reviews.screenshot({
+    path: `/tmp/tapme-${info.project.name}-customer-reviews.png`,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await reviews.screenshot({
+    path: `/tmp/tapme-${info.project.name}-customer-reviews-phone.png`,
+  });
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(390);
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page
     .getByRole("button", { name: "Изменить", exact: true })
     .first()
     .click();
+  await expect(
+    page.getByRole("dialog").getByRole("img", { name: "Оценка: 5 из 5" }),
+  ).toBeVisible();
   await page.getByLabel("Заметка клиента", { exact: true }).fill("Любит розы");
   await page.getByLabel("Клиент согласился получать сообщения").check();
   await page

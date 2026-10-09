@@ -92,6 +92,14 @@ export function Notice({ children }: { children: ReactNode }) {
   );
 }
 
+export function RefreshIndicator({ active }: { active: boolean }) {
+  return (
+    <span className="refresh-indicator" aria-live="polite">
+      {active ? "Обновляем…" : ""}
+    </span>
+  );
+}
+
 export function SettingsConflict({
   reload,
   busy,

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { businessPath, errorText, request } from "./api";
-import { Notice, Pager } from "./components";
+import { Notice, Pager, RefreshIndicator } from "./components";
+import { DeliveryWindowHelp } from "./delivery-window-help";
 import { useRemote } from "./hooks";
 import { Status } from "./orders";
 import { Avatar, shopDay } from "./ui";
@@ -68,6 +69,7 @@ export function DeliveryDesk({
           </div>
         </div>
         <span className="spacer" />
+        <RefreshIndicator active={source.refreshing} />
         <div className="seg">
           {[0, 1].map((n) => (
             <button
@@ -101,6 +103,7 @@ export function DeliveryDesk({
           <div className="card-hd">
             <h2>По окнам</h2>
           </div>
+          <DeliveryWindowHelp />
           <div className="card-bd tight">
             {Array.from(new Set(orders.map(windowKey)))
               .sort()
@@ -145,7 +148,7 @@ export function DeliveryDesk({
                               className="btn sm"
                               aria-label={`Курьер заказа №${o.number}`}
                               value=""
-                              disabled={busy}
+                              disabled={busy || source.loading}
                               onChange={(e) => void assign(o, e.target.value)}
                             >
                               <option value="">Назначить</option>

@@ -1,12 +1,16 @@
 import { newUuid } from "./uuid";
 import { useEffect, useState, type FormEvent } from "react";
 import { businessPath, errorText, price, request } from "./api";
-import { Modal, Notice } from "./components";
+import { Modal, Notice, RefreshIndicator } from "./components";
 import { AdditionalPhones, PhoneInput } from "./phone-input";
 import { CustomerCategory } from "./customer-category";
+import { RecipientHelp } from "./recipient-help";
+import { FeedbackHelp } from "./feedback-help";
+import { MessagesHelp } from "./messages-help";
+import { CustomerFeedback } from "./customer-feedback";
 import { useRemote } from "./hooks";
 import { Status } from "./orders";
-import type { Business, CustomerProfile } from "./types";
+import type { Business, CustomerProfile, Feedback } from "./types";
 
 export function CustomerPanel({
   business,
@@ -34,12 +38,7 @@ export function CustomerPanel({
       total: string;
       delivery_date: string;
     }[];
-    feedback: {
-      id: string;
-      message: string;
-      outcome: string;
-      status: string;
-    }[];
+    feedback: Feedback[];
     reminders: { id: string; state: string; event: string; message: string }[];
   }>(path + "activity/", revision);
   const [draft, setDraft] = useState<CustomerProfile | null>(null);
@@ -205,27 +204,30 @@ export function CustomerPanel({
                     </button>
                   </div>
                 ))}
-                <button
-                  type="button"
-                  onClick={() =>
-                    setDraft({
-                      ...draft,
-                      recipients: [
-                        ...draft.recipients,
-                        {
-                          id: newUuid(),
-                          name: "",
-                          relation: "",
-                          phone: "",
-                          address: "",
-                          notes: "",
-                        },
-                      ],
-                    })
-                  }
-                >
-                  Добавить получателя
-                </button>
+                <div className="recipient-help-action">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDraft({
+                        ...draft,
+                        recipients: [
+                          ...draft.recipients,
+                          {
+                            id: newUuid(),
+                            name: "",
+                            relation: "",
+                            phone: "",
+                            address: "",
+                            notes: "",
+                          },
+                        ],
+                      })
+                    }
+                  >
+                    Добавить получателя
+                  </button>
+                  <RecipientHelp />
+                </div>
               </section>
               <section className="stack">
                 <h3>Важные даты</h3>
@@ -356,15 +358,18 @@ export function CustomerPanel({
               </section>
               <section className="stack">
                 <h3>Отзывы и жалобы</h3>
+                <FeedbackHelp />
                 {activity.data.feedback.map((f) => (
-                  <div className="detail-box" key={f.id}>
-                    <p>{f.message}</p>
-                    {f.outcome && <p>Решение: {f.outcome}</p>}
-                  </div>
+                  <CustomerFeedback
+                    key={f.id}
+                    feedback={f}
+                    timezone={business.timezone}
+                  />
                 ))}
               </section>
               <section className="stack">
                 <h3>Напоминания и сообщения</h3>
+                <MessagesHelp />
                 {activity.data.reminders.map((r) => (
                   <div className="detail-box" key={r.id}>
                     <strong>
@@ -389,15 +394,16 @@ export function CustomerPanel({
           )}
         </div>
         <footer className="modal-footer">
+          <RefreshIndicator active={source.refreshing || activity.refreshing} />
           <button
             type="button"
-            disabled={busy}
+            disabled={busy || source.loading || activity.loading}
             onClick={() => setRevision((r) => r + 1)}
           >
             Обновить карточку
           </button>
           <button disabled={busy || !draft} className="primary">
-            Сохранить клиента
+            {busy ? "Сохраняем…" : "Сохранить клиента"}
           </button>
         </footer>
       </form>

@@ -12,7 +12,7 @@ from tapme.orders.api import OrderOutput
 
 class DeskQuery(ListQuery):
     scope = serializers.ChoiceField(
-        choices=["today", "tomorrow", "upcoming", "pickup", "unpaid", "all", "date"],
+        choices=["today", "tomorrow", "upcoming", "pickup", "unpaid", "cancelled", "all", "date"],
         default="today",
     )
     day = serializers.DateField(required=False)

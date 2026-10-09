@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Search, Download } from "lucide-react";
 import { businessPath, price } from "./api";
-import { Notice, Pager } from "./components";
+import { Notice, Pager, RefreshIndicator } from "./components";
 import { useRemote } from "./hooks";
 import { Avatar } from "./ui";
 import type { Business } from "./types";
@@ -71,6 +71,7 @@ export function CustomerDirectory({
           </div>
         </div>
         <span className="spacer" />
+        <RefreshIndicator active={source.refreshing} />
         <button className="btn" onClick={importClients}>
           <Download size={14} />
           Импорт

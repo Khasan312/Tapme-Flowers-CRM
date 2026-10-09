@@ -29,8 +29,14 @@ import { CustomerDirectory } from "./customer-directory";
 import { CustomerPage } from "./customer-page";
 import { DeliveryDesk } from "./deliveries";
 import { OrderDesk } from "./order-desk";
+import {
+  accessibleRoute,
+  homeRoute,
+  routeUrl,
+  useWorkspaceRoute,
+  type View,
+} from "./navigation";
 
-type View = "orders" | "customers" | "reminders" | "deliveries" | "settings";
 const labels = {
   orders: "Заказы",
   customers: "Клиенты",
@@ -58,25 +64,44 @@ function Workspace() {
   );
   const [user, setUser] = useState<User | null>(null),
     [businesses, setBusinesses] = useState<Business[]>([]);
-  const [businessId, setBusinessId] = useState(""),
-    [starting, setStarting] = useState(true),
+  const [starting, setStarting] = useState(true),
     [loginBusy, setLoginBusy] = useState(false);
-  const [view, setView] = useState<View>("orders"),
-    [error, setError] = useState("");
+  const { route: requestedRoute, go } = useWorkspaceRoute();
+  const route = user
+    ? accessibleRoute(requestedRoute, businesses)
+    : requestedRoute;
+  const {
+    view,
+    settingsTab,
+    businessId,
+    customerId: customerDetail,
+    orderId,
+  } = route;
+  const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
+  const [settingsRevision, setSettingsRevision] = useState(0);
   const [form, setForm] = useState<"orders" | "customers" | null>(null);
-  const [detail, setDetail] = useState<Order | null>(null),
-    [notice, setNotice] = useState("");
-  const [customerDetail, setCustomerDetail] = useState<string | null>(null);
+  const [notice, setNotice] = useState("");
   const [importOpen, setImportOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<SettingsTab>("staff");
   const [menuOpen, setMenuOpen] = useState(false);
   const business = businesses.find((b) => b.id === businessId);
   const office = business && ["owner", "manager"].includes(business.role);
+  useEffect(() => {
+    if (user && !starting) go(route, "replace");
+  }, [user, starting, route, go]);
+  useEffect(() => {
+    setForm(null);
+    setImportOpen(false);
+    setPasswordOpen(false);
+    setMenuOpen(false);
+    setNewOrderCustomer(null);
+    setError("");
+    setNotice("");
+  }, [requestedRoute]);
   const shop = useRemote<ShopSettings>(
     office && businessId ? businessPath(businessId, "settings") : null,
-    revision,
+    settingsRevision,
   );
   const overview = useRemote<{
     in_progress: number;
@@ -120,7 +145,6 @@ function Workspace() {
         if (live) {
           setUser(current);
           setBusinesses(choices);
-          setBusinessId(choices[0]?.id || "");
         }
       } catch (e) {
         if (live && !(e instanceof ApiError && e.status === 403))
@@ -155,7 +179,6 @@ function Workspace() {
       const choices = await request<Business[]>("/businesses/");
       setUser(result.user);
       setBusinesses(choices);
-      setBusinessId(choices[0]?.id || "");
       setRevision((r) => r + 1);
     } catch (e) {
       setError(errorText(e));
@@ -168,33 +191,39 @@ function Workspace() {
       await request("/auth/logout/", { method: "POST" });
       setUser(null);
       setBusinesses([]);
-      setBusinessId("");
+      go(homeRoute, "replace");
 
       setError("");
       setForm(null);
-      setDetail(null);
-      setCustomerDetail(null);
 
       setPasswordOpen(false);
       setImportOpen(false);
-      setView("orders");
       setMenuOpen(false);
       setNewOrderCustomer(null);
     } catch (e) {
       setError(errorText(e));
     }
   }
-  function navigate(next: View) {
+  function navigate(next: View, tab = settingsTab) {
     setMenuOpen(false);
-    setCustomerDetail(null);
-    if (next === view) {
+    const destination = {
+      ...route,
+      view: next,
+      settingsTab: tab,
+      customerId: null,
+      orderId: null,
+    };
+    if (routeUrl(destination) === routeUrl(route)) {
       setRevision((r) => r + 1);
       return;
     }
-
-    setView(next);
-
-    setError("");
+    go(destination);
+  }
+  function openCustomer(id: string) {
+    go({ ...route, view: "customers", customerId: id, orderId: null });
+  }
+  function openOrder(order: Order) {
+    go({ ...route, orderId: order.id });
   }
   function saved() {
     setForm(null);
@@ -329,8 +358,7 @@ function Workspace() {
               className="plain-button shop-n"
               onClick={() => {
                 if (office) {
-                  setSettingsTab("shop");
-                  navigate("settings");
+                  navigate("settings", "shop");
                 }
               }}
             >
@@ -346,12 +374,17 @@ function Workspace() {
                 aria-label="Магазин"
                 value={businessId}
                 onChange={(e) => {
-                  setBusinessId(e.target.value);
-                  setForm(null);
-                  setDetail(null);
-                  setCustomerDetail(null);
-                  setImportOpen(false);
-                  setPasswordOpen(false);
+                  go(
+                    accessibleRoute(
+                      {
+                        ...route,
+                        businessId: e.target.value,
+                        customerId: null,
+                        orderId: null,
+                      },
+                      businesses,
+                    ),
+                  );
                 }}
               >
                 {businesses.map((b) => (
@@ -383,11 +416,8 @@ function Workspace() {
             <GlobalSearch
               key={business.id}
               business={business}
-              openCustomer={(id) => {
-                navigate("customers");
-                setCustomerDetail(id);
-              }}
-              openOrder={setDetail}
+              openCustomer={openCustomer}
+              openOrder={openOrder}
             />
           )}
           <span className="spacer" />
@@ -480,9 +510,9 @@ function Workspace() {
                 business={business}
                 customerId={customerDetail}
                 externalRevision={revision}
-                close={() => setCustomerDetail(null)}
+                close={() => navigate("customers")}
                 changed={() => setRevision((r) => r + 1)}
-                openOrder={setDetail}
+                openOrder={openOrder}
                 newOrder={(c) => {
                   setNewOrderCustomer(c);
                   setForm("orders");
@@ -492,7 +522,7 @@ function Workspace() {
               <CustomerDirectory
                 business={business}
                 revision={revision}
-                openCustomer={setCustomerDetail}
+                openCustomer={openCustomer}
                 add={() => setForm("customers")}
                 importClients={() => setImportOpen(true)}
               />
@@ -502,19 +532,19 @@ function Workspace() {
               key={business.id}
               business={business}
               revision={revision}
-              openOrder={setDetail}
+              openOrder={openOrder}
             />
           ) : office && view === "deliveries" ? (
             <DeliveryDesk
               business={business}
               revision={revision}
-              openOrder={setDetail}
+              openOrder={openOrder}
             />
           ) : !office ? (
             <TaskBoard
               key={business.id + business.role}
               business={business}
-              openOrder={setDetail}
+              openOrder={openOrder}
               refresh={revision}
             />
           ) : view === "settings" ? (
@@ -522,10 +552,11 @@ function Workspace() {
               key={business.id}
               business={business}
               tab={settingsTab}
-              setTab={setSettingsTab}
+              setTab={(tab: SettingsTab) => navigate("settings", tab)}
               importClients={() => setImportOpen(true)}
               changed={() => {
                 setRevision((r) => r + 1);
+                setSettingsRevision((r) => r + 1);
                 void request<Business[]>("/businesses/")
                   .then(setBusinesses)
                   .catch((e) => setError(errorText(e)));
@@ -536,13 +567,9 @@ function Workspace() {
               key={business.id}
               business={business}
               templates={() => {
-                setSettingsTab("templates");
-                navigate("settings");
+                navigate("settings", "templates");
               }}
-              openCustomer={(id) => {
-                navigate("customers");
-                setCustomerDetail(id);
-              }}
+              openCustomer={openCustomer}
             />
           ) : null}
         </div>
@@ -568,12 +595,12 @@ function Workspace() {
         />
       )}
       {passwordOpen && <PasswordPanel close={() => setPasswordOpen(false)} />}
-      {business && detail && (
+      {business && orderId && (
         <OrderPanel
-          key={detail.id}
+          key={business.id + orderId}
           business={business}
-          orderId={detail.id}
-          close={() => setDetail(null)}
+          orderId={orderId}
+          close={() => go({ ...route, orderId: null })}
           changed={() => setRevision((r) => r + 1)}
         />
       )}

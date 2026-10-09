@@ -2,9 +2,10 @@ import { newUuid } from "./uuid";
 import { useRef, useState, type FormEvent } from "react";
 import { Check } from "lucide-react";
 import { ApiError, businessPath, errorText, price, request } from "./api";
-import { Modal, Notice, Pager } from "./components";
+import { Modal, Notice, Pager, RefreshIndicator } from "./components";
 import { OrderForm } from "./forms";
 import { ProductPhoto } from "./product-photo";
+import { OrderTicket } from "./order-ticket";
 import { useRemote } from "./hooks";
 import type {
   Business,
@@ -247,6 +248,7 @@ export function OrderPanel({
   const [share, setShare] = useState("");
   const base = businessPath(business.id, `orders/${orderId}`);
   const order = useRemote<Order>(base, revision);
+  const actionBusy = busy || order.loading;
   const staff = useRemote<Staff[]>(
     businessPath(business.id, "staff"),
     revision,
@@ -259,6 +261,7 @@ export function OrderPanel({
     changed();
   }
   async function act(path: string, data: object) {
+    if (actionBusy) return;
     setBusy(true);
     setError("");
     try {
@@ -315,31 +318,11 @@ export function OrderPanel({
       busy={busy}
     >
       {o && (
-        <section className="print-ticket">
-          <h1>Талон заказа №{o.number}</h1>
-          <p>
-            {business.name} · {statusNames[o.status]}
-          </p>
-          <h2>
-            {o.fulfillment === "courier" ? "Доставка" : "Самовывоз"} ·{" "}
-            {o.delivery_date}
-          </h2>
-          <p>
-            {o.window_start.slice(0, 5)}–{o.window_end.slice(0, 5)}
-          </p>
-          <p>
-            {o.recipient_name} · {o.recipient_phone}
-          </p>
-          <p>{o.address}</p>
-          <h2>Состав букета</h2>
-          {o.lines.map((line) => (
-            <p key={line.product_id}>
-              {line.name} × {line.quantity}
-            </p>
-          ))}
-          {o.card && <p className="preserve">Открытка: {o.card}</p>}
-          {o.notes && <p className="preserve">Для команды: {o.notes}</p>}
-        </section>
+        <OrderTicket
+          order={o}
+          business={business}
+          status={statusNames[o.status]}
+        />
       )}
       <div className="modal-body stack">
         {[
@@ -355,7 +338,11 @@ export function OrderPanel({
             <Notice key={i}>{m}</Notice>
           ))}
         {!o ? (
-          <p>Загружаем карточку…</p>
+          <p>
+            {order.loading
+              ? "Загружаем карточку…"
+              : "Не удалось открыть заказ. Закройте карточку и попробуйте ещё раз."}
+          </p>
         ) : (
           <>
             <div className="timeline">
@@ -436,7 +423,7 @@ export function OrderPanel({
               <Notice>
                 Проблема доставки: {o.delivery_issue}{" "}
                 <button
-                  disabled={busy}
+                  disabled={actionBusy}
                   onClick={() =>
                     void act(base + "resolve-delivery-issue/", {
                       version: o.version,
@@ -452,7 +439,7 @@ export function OrderPanel({
             )}
             <div className="inline-form">
               {["new", "work"].includes(o.status) && (
-                <button onClick={() => setEditing(true)}>
+                <button disabled={actionBusy} onClick={() => setEditing(true)}>
                   Редактировать заказ
                 </button>
               )}
@@ -481,7 +468,9 @@ export function OrderPanel({
                     aria-label="Флорист"
                     name="florist"
                     defaultValue={o.florist_id || ""}
-                    disabled={o.status === "route"}
+                    disabled={
+                      actionBusy || staff.loading || o.status === "route"
+                    }
                   >
                     <option value="">Не назначен</option>
                     {staff.data
@@ -514,7 +503,9 @@ export function OrderPanel({
                     }
                     name="courier"
                     defaultValue={o.courier_id || ""}
-                    disabled={o.fulfillment === "pickup"}
+                    disabled={
+                      actionBusy || staff.loading || o.fulfillment === "pickup"
+                    }
                     required={o.status === "route"}
                   >
                     <option value="">
@@ -552,7 +543,7 @@ export function OrderPanel({
                     </span>
                   )}
                 </label>
-                <button disabled={busy || staff.loading}>
+                <button disabled={actionBusy || staff.loading}>
                   {o.status === "route"
                     ? "Заменить курьера"
                     : "Назначить сотрудников"}
@@ -566,7 +557,7 @@ export function OrderPanel({
                   <button
                     key={s}
                     className="primary"
-                    disabled={busy}
+                    disabled={actionBusy}
                     onClick={() =>
                       void act(base + "transition/", {
                         status: s,
@@ -596,7 +587,7 @@ export function OrderPanel({
                     Причина отмены
                     <input name="reason" required maxLength={1000} />
                   </label>
-                  <button disabled={busy} className="danger">
+                  <button disabled={actionBusy} className="danger">
                     Отменить заказ
                   </button>
                 </form>
@@ -737,7 +728,15 @@ export function OrderPanel({
         )}
       </div>
       <footer className="modal-footer">
-        <button onClick={reload} disabled={busy}>
+        <RefreshIndicator
+          active={
+            order.refreshing ||
+            payments.refreshing ||
+            history.refreshing ||
+            feedback.refreshing
+          }
+        />
+        <button onClick={reload} disabled={busy || order.loading}>
           Обновить карточку
         </button>
         <button onClick={close} disabled={busy}>
@@ -798,12 +797,16 @@ export function TaskBoard({
             }}
           />
         </label>
-        <button onClick={() => setRevision((r) => r + 1)}>
+        <button
+          disabled={page.loading}
+          onClick={() => setRevision((r) => r + 1)}
+        >
           Обновить задания
         </button>
+        <RefreshIndicator active={page.refreshing} />
       </div>
       {(error || page.error) && <Notice>{error || page.error}</Notice>}
-      {page.loading ? (
+      {page.initialLoading ? (
         <p>Загружаем задания…</p>
       ) : !page.data?.count ? (
         <div className="empty">
@@ -858,7 +861,7 @@ export function TaskBoard({
                         <button
                           className="primary"
                           key={s}
-                          disabled={busy}
+                          disabled={busy || page.loading}
                           onClick={() => void transition(o, s)}
                         >
                           {actionNames[s]}
@@ -903,7 +906,9 @@ export function TaskBoard({
                           required
                         />
                       </label>
-                      <button disabled={busy}>Сообщить менеджеру</button>
+                      <button disabled={busy || page.loading}>
+                        Сообщить менеджеру
+                      </button>
                     </form>
                   )}
                   <Photos

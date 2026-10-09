@@ -276,9 +276,12 @@ test("старое окно редактируется, отключённого
     "PUT",
   );
   await page.reload();
-  await page
-    .getByRole("button", { name: "Открыть заказ №1", exact: true })
-    .click();
+  // The open order now survives refresh through its URL.
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByRole("heading", { name: "Заказ №1", exact: true }),
+  ).toBeVisible();
   await expect(page.getByLabel("Флорист", { exact: true })).toBeDisabled();
   await expect(page.getByLabel("Курьер", { exact: true })).toHaveValue(
     staff[1].id,

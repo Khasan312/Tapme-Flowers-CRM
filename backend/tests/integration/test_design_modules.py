@@ -63,6 +63,65 @@ def test_manual_tasks_are_scoped_and_complete_once(setup, base):
     assert c.get(base + "/office-tasks/").json() == []
 
 
+def test_cancelled_scope_covers_all_dates_search_pagination_and_store_boundary(
+    setup, base, payload
+):
+    c = setup["client"]
+    assert create(setup, base, payload).status_code == 201
+    cancelled = []
+    for day in ("2000-01-01", "2099-12-31"):
+        response = create(setup, base, {**payload, "delivery_date": day})
+        assert response.status_code == 201, response.data
+        order = response.json()
+        result = c.post(
+            base + f"/orders/{order['id']}/transition/",
+            {"version": 1, "status": "cancelled", "reason": "По просьбе клиента"},
+            format="json",
+        )
+        assert result.status_code == 200, result.data
+        cancelled.append(order)
+    c.force_login(setup["other_owner"])
+    other_base = f"/api/v1/businesses/{setup['other_business'].id}"
+    foreign = create(
+        setup,
+        other_base,
+        {
+            **payload,
+            "customer_id": str(setup["other_customer"].id),
+            "items": [{"product_id": str(setup["other_product"].id), "quantity": 1}],
+        },
+    ).json()
+    assert (
+        c.post(
+            other_base + f"/orders/{foreign['id']}/transition/",
+            {"version": 1, "status": "cancelled", "reason": "Другая отмена"},
+            format="json",
+        ).status_code
+        == 200
+    )
+    url = base + "/orders/desk/"
+    assert c.get(url, {"scope": "cancelled"}).status_code == 403
+    c.force_login(setup["owner"])
+    response = c.get(url, {"scope": "cancelled"})
+    assert response.status_code == 200, response.data
+    result = response.json()
+    assert result["count"] == result["scopes"]["cancelled"] == 2
+    assert result["scopes"]["all"] == 3
+    assert result["scopes"]["unpaid"] == 1
+    assert {o["id"] for o in result["results"]} == {o["id"] for o in cancelled}
+    assert all(o["cancellation_reason"] == "По просьбе клиента" for o in result["results"])
+    assert result["summary"]["late"] == 0
+    assert result["summary"]["total"] == "0.00"
+    assert (
+        c.get(url, {"scope": "cancelled", "search": f"#{cancelled[1]['number']}"}).json()["count"]
+        == 1
+    )
+    page = c.get(url, {"scope": "cancelled", "limit": 1, "offset": 1}).json()
+    assert page["count"] == 2 and page["results"][0]["id"] == cancelled[1]["id"]
+    c.force_login(setup["florist"])
+    assert c.get(url, {"scope": "cancelled"}).status_code == 403
+
+
 def configure_slot(setup):
     shop = Shop.objects.get(business=setup["business"])
     shop.delivery_windows = [dict(start="10:00", end="12:00", capacity=1, price="300.00")]

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Search, MapPin, MoreHorizontal, RefreshCw } from "lucide-react";
 import { businessPath, errorText, price, request } from "./api";
-import { Notice, Pager } from "./components";
+import { Notice, Pager, RefreshIndicator } from "./components";
 import { useRemote } from "./hooks";
 import { Status, statusNames } from "./orders";
 import { shopDay, shortDate } from "./ui";
@@ -33,6 +33,7 @@ const scopes: Record<string, string> = {
   upcoming: "Предстоящие",
   pickup: "Самовывоз",
   unpaid: "Не оплачены",
+  cancelled: "Отменённые",
   all: "Все",
 };
 const modes: Record<string, string> = {
@@ -98,6 +99,7 @@ export function OrderDesk({
     [offset, setOffset] = useState(0),
     [tasksOpen, setTasksOpen] = useState(true),
     [refresh, setRefresh] = useState(0),
+    [notesRevision, setNotesRevision] = useState(0),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [now, setNow] = useState(new Date()),
@@ -126,10 +128,10 @@ export function OrderDesk({
       businessPath(business.id, "orders/desk") + "?" + params,
       revision + refresh,
     ),
-    staff = useRemote<Staff[]>(businessPath(business.id, "staff"), revision),
+    staff = useRemote<Staff[]>(businessPath(business.id, "staff"), refresh),
     notes = useRemote<{ id: string; content: string }[]>(
       businessPath(business.id, "office-tasks"),
-      revision + refresh,
+      notesRevision,
     );
   const source = data.data,
     orders = source?.results || [];
@@ -299,7 +301,11 @@ export function OrderDesk({
               className="iconbtn"
               type="button"
               aria-label="Обновить заказы"
-              onClick={() => setRefresh((r) => r + 1)}
+              disabled={data.loading}
+              onClick={() => {
+                setRefresh((r) => r + 1);
+                setNotesRevision((r) => r + 1);
+              }}
             >
               <RefreshCw size={14} />
             </button>
@@ -326,7 +332,8 @@ export function OrderDesk({
               ))}
             </div>
           )}
-          {data.loading ? (
+          <RefreshIndicator active={data.refreshing} />
+          {data.initialLoading ? (
             <div className="card empty">Загружаем заказы…</div>
           ) : mode === "calendar" ? (
             <>
@@ -445,8 +452,8 @@ export function OrderDesk({
                     <div className="tk-foot">
                       {action(o) ? (
                         <button
-                          className={`tk-btn${timer.tone === "crit" || o.status === "new" ? " primary" : ""}`}
-                          disabled={busy}
+                          className="tk-btn primary"
+                          disabled={busy || data.loading}
                           onClick={() => void advance(o)}
                         >
                           {action(o)}
@@ -468,7 +475,19 @@ export function OrderDesk({
             </div>
           ) : mode === "board" ? (
             <div className="kanban">
-              {["new", "work", "ready", "route", "done"].map((status) => (
+              {(scope === "cancelled"
+                ? ["cancelled"]
+                : [
+                    "new",
+                    "work",
+                    "ready",
+                    "route",
+                    "done",
+                    ...(orders.some((o) => o.status === "cancelled")
+                      ? ["cancelled"]
+                      : []),
+                  ]
+              ).map((status) => (
                 <section className="kcol" key={status}>
                   <div className="kcol-hd">
                     {statusNames[status]}
@@ -589,6 +608,7 @@ export function OrderDesk({
             <div className="card">
               <div className="card-hd">
                 <h2>Задачи</h2>
+                <RefreshIndicator active={notes.refreshing} />
                 <span
                   className={`tag${source?.tasks.length ? " crit" : " ok"}`}
                 >
@@ -628,7 +648,7 @@ export function OrderDesk({
                             ),
                             { method: "POST" },
                           );
-                          setRefresh((r) => r + 1);
+                          setNotesRevision((r) => r + 1);
                         } catch (e) {
                           setError(errorText(e));
                         }
@@ -652,7 +672,7 @@ export function OrderDesk({
                         body: JSON.stringify({ content }),
                       });
                       form.reset();
-                      setRefresh((r) => r + 1);
+                      setNotesRevision((r) => r + 1);
                     } catch (e) {
                       setError(errorText(e));
                     }

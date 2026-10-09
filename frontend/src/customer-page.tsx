@@ -1,11 +1,15 @@
 import { useState } from "react";
 import { businessPath, errorText, price, request } from "./api";
-import { Notice } from "./components";
+import { Notice, RefreshIndicator } from "./components";
 import { CustomerPanel } from "./customers";
+import { RecipientHelp } from "./recipient-help";
+import { FeedbackHelp } from "./feedback-help";
+import { MessagesHelp } from "./messages-help";
+import { CustomerFeedback } from "./customer-feedback";
 import { useRemote } from "./hooks";
 import { Status } from "./orders";
 import { Avatar, shortDate, shopDay } from "./ui";
-import type { Business, CustomerProfile, Order } from "./types";
+import type { Business, CustomerProfile, Feedback, Order } from "./types";
 type Activity = {
   order_count: number;
   total: string;
@@ -18,7 +22,7 @@ type Activity = {
     delivery_date: string;
     recipient_name: string;
   }[];
-  feedback: { id: string; message: string; outcome: string; status: string }[];
+  feedback: Feedback[];
   reminders: { id: string; event: string; state: string; message: string }[];
 };
 export function CustomerPage({
@@ -78,12 +82,17 @@ export function CustomerPage({
         <button className="btn ghost sm" onClick={close}>
           ← Клиенты
         </button>
+        <RefreshIndicator active={source.refreshing || activity.refreshing} />
       </div>
       {(error || source.error || activity.error) && (
         <Notice>{error || source.error || activity.error}</Notice>
       )}
       {!c ? (
-        <div className="empty">Загружаем карточку…</div>
+        <div className="empty">
+          {source.loading
+            ? "Загружаем карточку…"
+            : "Не удалось открыть карточку клиента. Вернитесь к списку клиентов и попробуйте ещё раз."}
+        </div>
       ) : (
         <>
           <section className="card customer-intro">
@@ -164,15 +173,18 @@ export function CustomerPage({
               </div>
             ))}
           </div>
-          <div className="g-main">
+          <div className="g-main customer-content">
             <div className="stack">
               <section className="card">
                 <div className="card-hd">
                   <h2>Получатели и даты</h2>
                   <span className="spacer" />
-                  <button className="btn sm" onClick={() => setEditing(true)}>
-                    Добавить получателя
-                  </button>
+                  <div className="recipient-help-action">
+                    <button className="btn sm" onClick={() => setEditing(true)}>
+                      Добавить получателя
+                    </button>
+                    <RecipientHelp />
+                  </div>
                   <button className="btn sm" onClick={() => setEditing(true)}>
                     Добавить дату
                   </button>
@@ -295,14 +307,14 @@ export function CustomerPage({
                 <div className="card-hd">
                   <h2>Отзывы</h2>
                 </div>
-                <div className="card-bd tight">
+                <FeedbackHelp />
+                <div className="card-bd customer-feedback-list">
                   {a?.feedback.map((f) => (
-                    <div className="message-row" key={f.id}>
-                      <p>{f.message}</p>
-                      {f.outcome && (
-                        <p className="small muted">Решение: {f.outcome}</p>
-                      )}
-                    </div>
+                    <CustomerFeedback
+                      key={f.id}
+                      feedback={f}
+                      timezone={business.timezone}
+                    />
                   ))}
                   {!a?.feedback.length && (
                     <div className="empty">Отзывов ещё нет</div>
@@ -313,6 +325,7 @@ export function CustomerPage({
                 <div className="card-hd">
                   <h2>Сообщения</h2>
                 </div>
+                <MessagesHelp />
                 <div className="card-bd tight">
                   {a?.reminders.map((r) => (
                     <div className="message-row" key={r.id}>

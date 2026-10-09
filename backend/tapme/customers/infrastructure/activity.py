@@ -30,7 +30,9 @@ class DjangoActivityReader:
                 ]
             ),
             feedback=list(
-                feedback.values("id", "message", "kind", "status", "outcome", "created_at")[:50]
+                feedback.values(
+                    "id", "message", "kind", "rating", "status", "outcome", "created_at"
+                )[:50]
             ),
             reminders=list(
                 messages.values("id", "state", "event", "message", "acted_at", "due_date")[:50]

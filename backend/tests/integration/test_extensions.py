@@ -92,6 +92,21 @@ def test_public_link_revocation_data_minimization_feedback(setup, base, payload)
         == 409
     )
     assert not public.get(public_url).json()["can_review"]
+    # Customer history must preserve the actual public rating, including low scores.
+    activity_url = base + f"/customers/{setup['customer'].id}/activity/"
+    feedback = c.get(activity_url).json()["feedback"]
+    assert len(feedback) == 1
+    assert feedback[0]["rating"] == 2
+    assert feedback[0]["message"] == "Повреждён"
+    manual = c.post(
+        base + f"/orders/{order['id']}/feedback/",
+        {"kind": "review", "message": "Отзыв из разговора"},
+        format="json",
+    )
+    assert manual.status_code == 201, manual.data
+    feedback = c.get(activity_url).json()["feedback"]
+    assert len(feedback) == 2
+    assert next(f for f in feedback if f["id"] == manual.json()["id"])["rating"] is None
     c.post(url, {"revoke": True}, format="json")
     assert public.get(public_url).status_code == 404
 

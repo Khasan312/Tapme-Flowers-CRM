@@ -582,10 +582,12 @@
   gap: 0;
   padding-left: 6px;
 }
-.crm .timeline .dot {
+.crm .tl-i .dot {
+  position: relative;
+  z-index: 1;
   line-height: 1;
 }
-.crm .timeline .dot svg {
+.crm .tl-i .dot svg {
   display: block;
 }
 .crm .lrow .t,
@@ -640,6 +642,9 @@
 .crm .customer-intro {
   margin-bottom: 16px;
 }
+.crm .customer-content > .stack {
+  min-width: 0;
+}
 .crm .customer-identity {
   flex: 1;
   min-width: 180px;
@@ -675,6 +680,9 @@
   }
   .crm .g-main {
     grid-template-columns: 1fr;
+  }
+  .crm .customer-content {
+    grid-template-columns: minmax(0, 1fr);
   }
   .crm .customer-intro .row {
     flex-wrap: wrap;

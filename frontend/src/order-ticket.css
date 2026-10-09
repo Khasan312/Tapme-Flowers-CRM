@@ -1,0 +1,129 @@
+.print-ticket {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 12mm;
+  }
+
+  /* Print in normal document flow, outside the modal and its fixed viewport. */
+  body:has(> .print-ticket) {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    min-width: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  body:has(> .print-ticket) > :not(.print-ticket),
+  body:has(> .print-ticket) dialog {
+    display: none !important;
+  }
+  body:has(> .print-ticket) dialog::backdrop {
+    display: none !important;
+  }
+  body > .print-ticket {
+    display: block;
+    width: auto;
+    margin: 0;
+    padding: 0;
+    color: #111;
+    background: #fff;
+    font-family: "Golos Text", Arial, sans-serif;
+    font-size: 10pt;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+  .print-ticket .ticket-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 4mm;
+    padding-bottom: 5mm;
+    border-bottom: 2px solid #222;
+    break-inside: avoid;
+  }
+  .print-ticket .ticket-store {
+    margin-bottom: 2mm;
+    color: #444;
+  }
+  .print-ticket h1 {
+    margin: 0;
+    font-size: 20pt;
+    line-height: 1.25;
+  }
+  .print-ticket .ticket-status {
+    padding: 1mm 3mm;
+    border: 1px solid #777;
+    border-radius: 2mm;
+    font-size: 9pt;
+  }
+  .print-ticket .ticket-section {
+    margin-top: 6mm;
+  }
+  .print-ticket h2 {
+    margin: 0 0 3mm;
+    font-size: 12pt;
+    line-height: 1.3;
+    break-after: avoid;
+  }
+  .print-ticket p {
+    margin: 0;
+    white-space: pre-wrap;
+    orphans: 3;
+    widows: 3;
+  }
+  .print-ticket .ticket-schedule {
+    margin-bottom: 4mm;
+    font-weight: 600;
+  }
+  .print-ticket .ticket-details {
+    margin: 0;
+  }
+  .print-ticket .ticket-details > div {
+    display: flex;
+    gap: 3mm;
+    margin-top: 2mm;
+    break-inside: avoid;
+  }
+  .print-ticket dt {
+    flex: 0 0 24mm;
+    color: #555;
+  }
+  .print-ticket dd {
+    margin: 0;
+    min-width: 0;
+  }
+  .print-ticket table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: inherit;
+  }
+  .print-ticket thead {
+    display: table-header-group;
+  }
+  .print-ticket tr {
+    break-inside: avoid;
+  }
+  .print-ticket th,
+  .print-ticket td {
+    padding: 2.5mm 0;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid #ccc;
+  }
+  .print-ticket th {
+    font-size: 9pt;
+    color: #555;
+  }
+  .print-ticket th:last-child,
+  .print-ticket td:last-child {
+    width: 18mm;
+    text-align: right;
+    padding-left: 3mm;
+  }
+}

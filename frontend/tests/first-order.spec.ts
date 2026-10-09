@@ -200,8 +200,9 @@ test("смена клиента обновляет получателя и те�
   await expect(name).toHaveValue(second.name);
   await expect(phone).toHaveValue(second.phone);
   await page
-    .getByLabel("Позиция прайса", { exact: true })
-    .selectOption(product.id);
+    .getByRole("button", { name: "Позиция прайса", exact: true })
+    .click();
+  await page.getByRole("option", { name: new RegExp(product.name) }).click();
   await page
     .getByRole("button", { name: "Добавить в заказ", exact: true })
     .click();

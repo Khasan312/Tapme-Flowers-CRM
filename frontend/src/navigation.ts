@@ -1,0 +1,109 @@
+import { useCallback, useEffect, useState } from "react";
+import type { SettingsTab } from "./settings";
+import type { Business } from "./types";
+
+export type View =
+  "orders" | "customers" | "reminders" | "deliveries" | "settings";
+export type WorkspaceRoute = {
+  view: View;
+  settingsTab: SettingsTab;
+  businessId: string;
+  customerId: string | null;
+  orderId: string | null;
+};
+export const homeRoute: WorkspaceRoute = {
+  view: "orders",
+  settingsTab: "staff",
+  businessId: "",
+  customerId: null,
+  orderId: null,
+};
+const views: View[] = [
+  "orders",
+  "customers",
+  "reminders",
+  "deliveries",
+  "settings",
+];
+const settingsTabs: SettingsTab[] = [
+  "staff",
+  "windows",
+  "templates",
+  "prices",
+  "shop",
+];
+const uuid = (value: string | null) =>
+  value &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+    ? value.toLowerCase()
+    : null;
+
+export function readRoute(): WorkspaceRoute {
+  const params = new URLSearchParams(location.search);
+  const candidate = params.get("view") as View;
+  const view = views.includes(candidate) ? candidate : "orders";
+  const tab = params.get("tab") as SettingsTab;
+  return {
+    view,
+    settingsTab: settingsTabs.includes(tab) ? tab : "staff",
+    businessId: uuid(params.get("business")) || "",
+    customerId: view === "customers" ? uuid(params.get("customer")) : null,
+    orderId: uuid(params.get("order")),
+  };
+}
+
+export function routeUrl(route: WorkspaceRoute) {
+  const params = new URLSearchParams({ view: route.view });
+  if (route.businessId) params.set("business", route.businessId);
+  if (route.view === "settings") params.set("tab", route.settingsTab);
+  if (route.view === "customers" && route.customerId)
+    params.set("customer", route.customerId);
+  if (route.orderId) params.set("order", route.orderId);
+  return `/?${params}`;
+}
+
+export function accessibleRoute(
+  route: WorkspaceRoute,
+  businesses: Business[],
+): WorkspaceRoute {
+  const selected = businesses.find((b) => b.id === route.businessId);
+  const business = selected || businesses[0];
+  const office = business && ["owner", "manager"].includes(business.role);
+  const unavailable = Boolean(route.businessId) && !selected;
+  const next = {
+    ...route,
+    businessId: business?.id || "",
+    view: office ? route.view : ("orders" as const),
+    settingsTab: office ? route.settingsTab : ("staff" as const),
+    customerId: office && !unavailable ? route.customerId : null,
+    orderId: office && !unavailable ? route.orderId : null,
+  };
+  return Object.keys(next).every(
+    (key) =>
+      next[key as keyof WorkspaceRoute] === route[key as keyof WorkspaceRoute],
+  )
+    ? route
+    : next;
+}
+
+export function useWorkspaceRoute() {
+  const [route, setRoute] = useState(readRoute);
+  const go = useCallback(
+    (next: WorkspaceRoute, mode: "push" | "replace" = "push") => {
+      const url = routeUrl(next);
+      if (url !== location.pathname + location.search + location.hash) {
+        // Keep routing in the query string: refresh works with the existing root page hosting.
+        if (mode === "replace") history.replaceState(null, "", url);
+        else history.pushState(null, "", url);
+      }
+      setRoute(next);
+    },
+    [],
+  );
+  useEffect(() => {
+    const pop = () => setRoute(readRoute());
+    window.addEventListener("popstate", pop);
+    return () => window.removeEventListener("popstate", pop);
+  }, []);
+  return { route, go };
+}

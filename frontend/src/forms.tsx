@@ -6,6 +6,7 @@ import { Modal, Notice, Pager } from "./components";
 import { AdditionalPhones, PhoneInput } from "./phone-input";
 import { CustomerCategory } from "./customer-category";
 import { ProductPhoto } from "./product-photo";
+import { ProductPicker } from "./product-picker";
 import { useRemote } from "./hooks";
 import type {
   Business,
@@ -266,13 +267,8 @@ export function OrderForm({
     count: 0,
     results: [],
   });
-  const [products, setProducts] = useState<Page<Product>>({
-    count: 0,
-    results: [],
-  });
   const [query, setQuery] = useState(""),
-    [customerOffset, setCustomerOffset] = useState(0),
-    [productOffset, setProductOffset] = useState(0);
+    [customerOffset, setCustomerOffset] = useState(0);
   const [customer, setCustomer] = useState<Customer | null>(
     initial
       ? {
@@ -321,7 +317,7 @@ export function OrderForm({
   const customerPhones = currentCustomer
     ? [currentCustomer.phone, ...(currentCustomer.additional_phones || [])]
     : [];
-  const [productId, setProductId] = useState("");
+  const [product, setProduct] = useState<Product | null>(null);
   const [quickName, setQuickName] = useState("");
   const [quickPhone, setQuickPhone] = useState("");
   function selectCustomer(next: Customer) {
@@ -354,8 +350,7 @@ export function OrderForm({
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [optionError, setOptionError] = useState(""),
-    [customerLoading, setCustomerLoading] = useState(true),
-    [productLoading, setProductLoading] = useState(true);
+    [customerLoading, setCustomerLoading] = useState(true);
   const [uncertain, setUncertain] = useState(false);
   // Preserve both key and payload after a transport failure: the first request may have committed.
   const attempt = useRef<{ key: string; body: string } | null>(null);
@@ -384,26 +379,6 @@ export function OrderForm({
       abort.abort();
     };
   }, [business.id, query, customerOffset]);
-  useEffect(() => {
-    const abort = new AbortController();
-    setProductLoading(true);
-    request<Page<Product>>(
-      businessPath(business.id, "products") +
-        `?limit=20&offset=${productOffset}`,
-      { signal: abort.signal },
-    )
-      .then((data) => {
-        setProducts(data);
-        setProductId(data.results[0]?.id || "");
-      })
-      .catch((e) => {
-        if (!abort.signal.aborted) setOptionError(errorText(e));
-      })
-      .finally(() => {
-        if (!abort.signal.aborted) setProductLoading(false);
-      });
-    return () => abort.abort();
-  }, [business.id, productOffset]);
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: business.timezone,
     year: "numeric",
@@ -428,7 +403,6 @@ export function OrderForm({
             )?.price || 0,
           );
   function addLine() {
-    const product = products.results.find((p) => p.id === productId);
     if (!product) return;
     setLines((current) =>
       current.some((line) => line.product.id === product.id)
@@ -602,56 +576,21 @@ export function OrderForm({
             <div>
               <h3>Состав заказа</h3>
               <div className="add-line">
-                {products.results.find((p) => p.id === productId)
-                  ?.photo_url && (
-                  <ProductPhoto
-                    url={
-                      products.results.find((p) => p.id === productId)
-                        ?.photo_url
-                    }
-                    name={
-                      products.results.find((p) => p.id === productId)?.name ||
-                      "Букет"
-                    }
-                  />
-                )}
-                <label>
-                  Позиция прайса
-                  <select
-                    aria-label="Позиция прайса"
-                    disabled={productLoading}
-                    value={productId}
-                    onChange={(e) => setProductId(e.target.value)}
-                  >
-                    {products.results.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} · {price(p.price)}
-                      </option>
-                    ))}
-                    {!products.results.length && (
-                      <option value="">
-                        Добавьте товары в разделе «Прайс»
-                      </option>
-                    )}
-                  </select>
-                </label>
+                <ProductPicker
+                  businessId={business.id}
+                  value={product}
+                  onChange={setProduct}
+                  disabled={busy || uncertain}
+                />
                 <button
                   type="button"
                   onClick={addLine}
-                  disabled={!productId || productLoading || lines.length >= 50}
+                  disabled={!product || lines.length >= 50}
                   aria-label="Добавить в заказ"
                 >
                   <Plus size={18} /> Добавить в заказ
                 </button>
               </div>
-              {products.count > 20 && (
-                <Pager
-                  count={products.count}
-                  offset={productOffset}
-                  setOffset={setProductOffset}
-                  limit={20}
-                />
-              )}
               {lines.map((line) => (
                 <div className="order-line" key={line.product.id}>
                   <div className="product-name">
