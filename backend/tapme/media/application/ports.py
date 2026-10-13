@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from types import TracebackType
@@ -18,6 +19,14 @@ class Photo:
     actor_id: UUID
 
 
+@dataclass(frozen=True)
+class PhotoInfo:
+    id: UUID
+    kind: str
+    created_at: datetime
+    can_delete: bool
+
+
 class PhotoStorage(Protocol):
     def save(self, key: str, content: bytes) -> str: ...
     def read(self, key: str) -> bytes: ...
@@ -28,11 +37,14 @@ class PhotoRepository(Protocol):
     def add(self, photo: Photo) -> None: ...
     def get(self, business_id: UUID, order_id: UUID, photo_id: UUID) -> Photo: ...
     def list(self, business_id: UUID, order_id: UUID) -> tuple[Photo, ...]: ...
+    def delete(self, business_id: UUID, order_id: UUID, photo_id: UUID) -> None: ...
 
 
 class PhotoUnit(Protocol):
     orders: WorkflowRepository
     photos: PhotoRepository
+
+    def after_commit(self, callback: Callable[[], None]) -> None: ...
 
     def __enter__(self) -> "PhotoUnit": ...
     def __exit__(

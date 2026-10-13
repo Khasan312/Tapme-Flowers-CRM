@@ -405,6 +405,24 @@ export function OrderDesk({
                   <article
                     key={o.id}
                     className={`tk ${timer.tone}${o.status === "done" ? " done" : ""}`}
+                    onClick={(event) => {
+                      const target = event.target;
+                      if (
+                        target instanceof Element &&
+                        target.closest(
+                          "button, a, input, select, textarea, [role='button']",
+                        )
+                      )
+                        return;
+                      const selection = window.getSelection();
+                      if (
+                        selection &&
+                        !selection.isCollapsed &&
+                        event.currentTarget.contains(selection.anchorNode)
+                      )
+                        return;
+                      openOrder(o);
+                    }}
                   >
                     <div className="tk-top">
                       <span className="tk-win">

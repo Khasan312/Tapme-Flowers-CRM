@@ -194,6 +194,9 @@ class DjangoOrderRepository:
 
 
 class DjangoUnitOfWork:
+    def after_commit(self, callback):
+        transaction.on_commit(callback, robust=True)
+
     def __enter__(self):
         self._atomic = transaction.atomic()
         self._atomic.__enter__()

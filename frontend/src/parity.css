@@ -419,6 +419,10 @@
 .crm .tk {
   min-width: 0;
 }
+.crm .tk:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
 .crm .tk-items {
   text-align: left;
   display: block;
@@ -561,7 +565,77 @@
   width: 100%;
 }
 .crm .assignment-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px;
+}
+
+.crm .order-photo {
+  position: relative;
+  min-width: 0;
+}
+.crm .photo-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--crit);
+  box-shadow: 0 2px 8px #0002;
+}
+.crm .photo-remove:hover:not(:disabled) {
+  background: #fff0f0;
+}
+.crm .photo-delete-confirm {
+  display: flex;
   align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.crm .photo-delete-confirm > img {
+  width: 64px;
+  height: 80px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  object-fit: cover;
+}
+.crm .photo-delete-confirm p {
+  margin: 0;
+}
+.crm .photo-delete-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.crm .photo-delete-actions button {
+  min-height: 40px;
+}
+.crm .photo-delete-actions button:first-child {
+  color: var(--crit);
+}
+.crm .assignment-form > button {
+  grid-column: 1 / -1;
+  justify-self: end;
+  min-height: 40px;
+}
+@media (max-width: 600px) {
+  .crm .assignment-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .crm .assignment-form > button {
+    justify-self: stretch;
+    width: 100%;
+  }
 }
 .crm .courier-field select:disabled {
   background: #e7ebe6;
@@ -781,6 +855,27 @@
 .crm .worker-tasks {
   max-width: 980px;
   margin: 0 auto;
+  scroll-margin-top: 80px;
+}
+.crm .worker-tasks .toolbar {
+  flex-wrap: wrap;
+}
+.crm .worker-tasks .task-pagination {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.crm .worker-tasks .pager {
+  border: 0;
+  gap: 12px;
+}
+.crm .worker-tasks .pager-page {
+  display: block;
+  margin-top: 3px;
+}
+.crm .worker-tasks .pager button {
+  min-width: 40px;
+  min-height: 40px;
 }
 .crm .worker-tasks .task-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));

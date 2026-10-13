@@ -1,6 +1,6 @@
 import { newUuid } from "./uuid";
-import { useRef, useState, type FormEvent } from "react";
-import { Check } from "lucide-react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Check, X } from "lucide-react";
 import { ApiError, businessPath, errorText, price, request } from "./api";
 import { Modal, Notice, Pager, RefreshIndicator } from "./components";
 import { OrderForm } from "./forms";
@@ -43,6 +43,7 @@ const eventNames: Record<string, string> = {
   payment: "Оплата",
   refund: "Возврат",
   photo: "Добавлено фото",
+  photo_deleted: "Удалено фото",
   public_link: "Ссылка клиенту",
   complaint: "Жалоба",
   review: "Отзыв",
@@ -164,11 +165,35 @@ export function Photos({
     [busy, setBusy] = useState(false);
   const path = businessPath(business.id, `orders/${orderId}/photos`);
   const photos = useRemote<Photo[]>(path, revision + refresh);
+  const [pendingDelete, setPendingDelete] = useState<Photo | null>(null);
+  const [removed, setRemoved] = useState<string[]>([]);
+  const [message, setMessage] = useState("");
+  const actionBusy = busy || photos.loading;
+  async function remove() {
+    if (!pendingDelete || actionBusy) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      await request(`${path}${pendingDelete.id}/`, { method: "DELETE" });
+      setRemoved((ids) => [...ids, pendingDelete.id]);
+      setPendingDelete(null);
+      setMessage("Фотография удалена.");
+      setRevision((r) => r + 1);
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
   async function upload(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (actionBusy) return;
     const form = e.currentTarget;
     setBusy(true);
     setError("");
+    setMessage("");
+    setPendingDelete(null);
     try {
       await request(path, { method: "POST", body: new FormData(form) });
       form.reset();
@@ -183,22 +208,73 @@ export function Photos({
     <section className="stack">
       <h3>Фотографии</h3>
       {(error || photos.error) && <Notice>{error || photos.error}</Notice>}
+      {message && <p role="status">{message}</p>}
       <div className="photo-grid">
-        {photos.data?.map((p) => (
-          <a
-            key={p.id}
-            href={`/api/v1${path}${p.id}/`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <img
-              src={`/api/v1${path}${p.id}/`}
-              alt={p.kind === "bouquet" ? "Фото букета" : "Фото вручения"}
-            />
-            <small>{p.kind === "bouquet" ? "Букет" : "Вручение"}</small>
-          </a>
-        ))}
+        {photos.data
+          ?.filter((p) => !removed.includes(p.id))
+          .map((p, index) => (
+            <div className="order-photo" key={p.id}>
+              <a
+                href={`/api/v1${path}${p.id}/`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <img
+                  src={`/api/v1${path}${p.id}/`}
+                  alt={p.kind === "bouquet" ? "Фото букета" : "Фото вручения"}
+                />
+                <small>{p.kind === "bouquet" ? "Букет" : "Вручение"}</small>
+              </a>
+              {p.can_delete && (
+                <button
+                  type="button"
+                  className="photo-remove"
+                  aria-label={`Удалить фото ${index + 1}: ${p.kind === "bouquet" ? "букет" : "вручение"}`}
+                  title="Удалить фотографию"
+                  disabled={actionBusy}
+                  onClick={() => {
+                    setPendingDelete(p);
+                    setError("");
+                    setMessage("");
+                  }}
+                >
+                  <X size={18} aria-hidden="true" />
+                </button>
+              )}
+            </div>
+          ))}
       </div>
+      {pendingDelete && (
+        <div
+          className="photo-delete-confirm"
+          role="group"
+          aria-label="Удаление фотографии"
+        >
+          <img
+            src={`/api/v1${path}${pendingDelete.id}/`}
+            alt="Фото для удаления"
+          />
+          <div className="stack">
+            <p>Удалить выбранную фотографию?</p>
+            <div className="photo-delete-actions">
+              <button
+                type="button"
+                disabled={actionBusy}
+                onClick={() => void remove()}
+              >
+                {busy ? "Удаляем…" : "Удалить фото"}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setPendingDelete(null)}
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <form onSubmit={upload} className="inline-form">
         <label>
           Этап фото
@@ -224,7 +300,7 @@ export function Photos({
             required
           />
         </label>
-        <button disabled={busy}>Загрузить фото</button>
+        <button disabled={actionBusy}>Загрузить фото</button>
       </form>
     </section>
   );
@@ -352,24 +428,32 @@ export function OrderPanel({
                 "ready",
                 ...(o.fulfillment === "courier" ? ["route"] : []),
                 "done",
-              ].map((status, i, steps) => (
-                <div
-                  className={`tl-i ${i < steps.indexOf(o.status) ? "done" : status === o.status ? "cur" : "todo"}`}
-                  key={status}
-                >
-                  <div className="dot" aria-hidden="true">
-                    {i < steps.indexOf(o.status) && (
-                      <Check size={12} strokeWidth={3} />
-                    )}
-                  </div>
-                  <div>
-                    <div className="tt">{statusNames[status]}</div>
-                    <div className="ts">
-                      {status === o.status ? "сейчас" : ""}
+              ].map((status, i, steps) => {
+                const completed =
+                  o.status === "done" || i < steps.indexOf(o.status);
+                const active = !completed && status === o.status;
+                return (
+                  <div
+                    className={`tl-i ${completed ? "done" : active ? "cur" : "todo"}`}
+                    key={status}
+                    aria-current={active ? "step" : undefined}
+                  >
+                    <div className="dot" aria-hidden="true">
+                      {completed && <Check size={12} strokeWidth={3} />}
+                    </div>
+                    <div>
+                      <div className="tt">{statusNames[status]}</div>
+                      <div className="ts">
+                        {active
+                          ? "сейчас"
+                          : status === "done" && completed
+                            ? "заказ выполнен"
+                            : ""}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <div className="section-heading">
               <Status value={o.status} />
@@ -758,15 +842,46 @@ export function TaskBoard({
 }) {
   const [revision, setRevision] = useState(0),
     [day, setDay] = useState(""),
+    [limit, setLimit] = useState(6),
     [offset, setOffset] = useState(0),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
+  const board = useRef<HTMLElement>(null);
   const office = ["owner", "manager"].includes(business.role);
   const page = useRemote<Page<Task | Order>>(
     businessPath(business.id, "tasks") +
-      `?limit=50&offset=${offset}${day ? `&day=${day}` : ""}`,
+      `?limit=${limit}&offset=${offset}${day ? `&day=${day}` : ""}`,
     revision + refresh,
   );
+  useEffect(() => {
+    if (page.loading || !page.data) return;
+    const lastOffset = Math.max(
+      0,
+      (Math.ceil(page.data.count / limit) - 1) * limit,
+    );
+    if (offset > lastOffset) setOffset(lastOffset);
+  }, [page.data, page.loading, limit, offset]);
+  function changePage(next: number) {
+    setOffset(next);
+    board.current?.scrollIntoView({ block: "start" });
+  }
+  function pagination(position: string) {
+    return page.data ? (
+      <nav
+        className="task-pagination"
+        aria-label={`Страницы заданий ${position}`}
+      >
+        <Pager
+          count={page.data.count}
+          offset={offset}
+          setOffset={changePage}
+          limit={limit}
+          disabled={busy || page.loading}
+          showPageNumber
+        />
+      </nav>
+    ) : null;
+  }
   async function transition(o: Task | Order, status: string) {
     setBusy(true);
     setError("");
@@ -784,7 +899,7 @@ export function TaskBoard({
     }
   }
   return (
-    <section className="stack worker-tasks">
+    <section className="stack worker-tasks" ref={board}>
       <div className="toolbar">
         <label>
           Дата получения
@@ -797,6 +912,23 @@ export function TaskBoard({
             }}
           />
         </label>
+        <label>
+          Заданий на странице
+          <select
+            value={limit}
+            disabled={busy}
+            onChange={(event) => {
+              setLimit(Number(event.target.value));
+              setOffset(0);
+            }}
+          >
+            {[6, 12, 24].map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+        </label>
         <button
           disabled={page.loading}
           onClick={() => setRevision((r) => r + 1)}
@@ -805,6 +937,7 @@ export function TaskBoard({
         </button>
         <RefreshIndicator active={page.refreshing} />
       </div>
+      {pagination("сверху")}
       {(error || page.error) && <Notice>{error || page.error}</Notice>}
       {page.initialLoading ? (
         <p>Загружаем задания…</p>
@@ -822,7 +955,9 @@ export function TaskBoard({
                 <Status value={o.status} />
               </div>
               <h3 className="mb">
-                {business.role === "courier" ? o.address : o.recipient_name}
+                {business.role === "courier"
+                  ? `Адрес: ${o.address}`
+                  : o.recipient_name}
               </h3>
               <p>
                 {o.delivery_date} · {o.window_start.slice(0, 5)}–
@@ -922,9 +1057,7 @@ export function TaskBoard({
           ))}
         </div>
       )}
-      {page.data && (
-        <Pager count={page.data.count} offset={offset} setOffset={setOffset} />
-      )}
+      {pagination("снизу")}
     </section>
   );
 }

@@ -49,11 +49,15 @@ export function Pager({
   offset,
   setOffset,
   limit = 50,
+  disabled = false,
+  showPageNumber = false,
 }: {
   count: number;
   offset: number;
   setOffset: (n: number) => void;
   limit?: number;
+  disabled?: boolean;
+  showPageNumber?: boolean;
 }) {
   return (
     <div className="pager">
@@ -61,12 +65,18 @@ export function Pager({
         {count
           ? `${offset + 1}–${Math.min(offset + limit, count)} из ${count}`
           : "Нет записей"}
+        {showPageNumber && count > 0 && (
+          <small className="pager-page">
+            Страница {Math.floor(offset / limit) + 1} из{" "}
+            {Math.ceil(count / limit)}
+          </small>
+        )}
       </span>
       <div>
         <button
           className="icon-button"
           aria-label="Предыдущая страница"
-          disabled={!offset}
+          disabled={disabled || !offset}
           onClick={() => setOffset(Math.max(0, offset - limit))}
         >
           <ChevronLeft size={18} />
@@ -74,7 +84,7 @@ export function Pager({
         <button
           className="icon-button"
           aria-label="Следующая страница"
-          disabled={offset + limit >= count}
+          disabled={disabled || offset + limit >= count}
           onClick={() => setOffset(offset + limit)}
         >
           <ChevronRight size={18} />

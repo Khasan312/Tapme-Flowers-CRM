@@ -13,6 +13,9 @@ class DjangoPhotoRepository:
     def add(self, photo):
         PhotoRecord.objects.create(**asdict(photo))
 
+    def delete(self, business_id, order_id, photo_id):
+        PhotoRecord.objects.filter(business_id=business_id, order_id=order_id, id=photo_id).delete()
+
     def list(self, business_id, order_id):
         return tuple(
             to_domain(r)

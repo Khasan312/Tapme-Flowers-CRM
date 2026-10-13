@@ -93,7 +93,12 @@ export type Payment = {
   note: string;
   created_at: string;
 };
-export type Photo = { id: string; kind: string; created_at: string };
+export type Photo = {
+  id: string;
+  kind: string;
+  created_at: string;
+  can_delete: boolean;
+};
 export type HistoryEvent = {
   id: number;
   kind: string;

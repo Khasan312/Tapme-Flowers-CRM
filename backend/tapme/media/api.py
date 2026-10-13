@@ -19,6 +19,7 @@ class PhotoOutput(serializers.Serializer):
     id = serializers.UUIDField()
     kind = serializers.CharField()
     created_at = serializers.DateTimeField()
+    can_delete = serializers.BooleanField()
 
 
 class PhotoListView(APIView):
@@ -44,6 +45,11 @@ class PhotoListView(APIView):
 
 
 class PhotoFileView(APIView):
+    @extend_schema(responses={204: None})
+    def delete(self, request, business_id, order_id, photo_id):
+        composition.photos().delete(Scope(request.user.id, business_id), order_id, photo_id)
+        return Response(status=204)
+
     @extend_schema(responses={(200, "image/jpeg"): bytes})
     def get(self, request, business_id, order_id, photo_id):
         content = composition.photos().read(Scope(request.user.id, business_id), order_id, photo_id)
