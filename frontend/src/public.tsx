@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   ArrowUpRight,
   CalendarDays,
@@ -157,7 +157,40 @@ export function PublicOrderPage({ token }: { token: string }) {
     [busy, setBusy] = useState(false);
   const [rating, setRating] = useState(5);
   const path = `/public/orders/${encodeURIComponent(token)}/`;
-  const source = useRemote<PublicOrder>(path, revision);
+  // This page owns its polling and stops all automatic requests for final statuses.
+  const source = useRemote<PublicOrder>(path, revision, {
+    refreshOnAppear: false,
+  });
+  const status = source.data?.status;
+  useEffect(() => {
+    if (!status || status === "done" || status === "cancelled") return;
+    let requested = false;
+    const refresh = () => {
+      if (
+        requested ||
+        source.loading ||
+        document.visibilityState !== "visible" ||
+        !navigator.onLine
+      )
+        return;
+      requested = true;
+      setRevision((v) => v + 1);
+    };
+    // Wait for the preceding request to finish; slow connections never pile up requests.
+    const timer =
+      !source.loading &&
+      document.visibilityState === "visible" &&
+      navigator.onLine
+        ? window.setTimeout(refresh, source.error ? 30000 : 15000)
+        : undefined;
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("online", refresh);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("online", refresh);
+    };
+  }, [path, status, source.loading, source.error]);
   async function review(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
@@ -365,6 +398,11 @@ export function PublicOrderPage({ token }: { token: string }) {
                   />
                   {source.refreshing ? "Обновляем статус…" : "Обновить статус"}
                 </button>
+                {!done && !cancelled && (
+                  <p className="tracking-auto-refresh">
+                    Статус обновляется автоматически
+                  </p>
+                )}
               </section>
               <div className="tracking-side">
                 <section className="tracking-card tracking-details">

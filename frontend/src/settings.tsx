@@ -48,6 +48,7 @@ export function Settings({
   const source = useRemote<ShopSettings>(
     businessPath(business.id, "settings"),
     revision,
+    { refreshOnAppear: false },
   );
   const staff = useRemote<Staff[]>(
     businessPath(business.id, "staff"),
@@ -728,6 +729,7 @@ function PriceSettings({ business }: { business: Business }) {
     businessPath(business.id, "products") +
       `?limit=50&offset=${offset}&include_hidden=${showHidden}`,
     revision,
+    { refreshOnAppear: false },
   );
   async function update(product: Product, value: string) {
     if (value === product.price) return;
@@ -880,6 +882,7 @@ function MessageTemplates({ business }: { business: Business }) {
   const source = useRemote<ReminderRules>(
     businessPath(business.id, "reminder-rules"),
     revision,
+    { refreshOnAppear: false },
   );
   const [draft, setDraft] = useState<ReminderRules | null>(null),
     [error, setError] = useState(""),

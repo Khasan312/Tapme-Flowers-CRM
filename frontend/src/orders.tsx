@@ -323,7 +323,9 @@ export function OrderPanel({
     [editing, setEditing] = useState(false);
   const [share, setShare] = useState("");
   const base = businessPath(business.id, `orders/${orderId}`);
-  const order = useRemote<Order>(base, revision);
+  const order = useRemote<Order>(base, revision, {
+    refreshOnAppear: !editing,
+  });
   const actionBusy = busy || order.loading;
   const staff = useRemote<Staff[]>(
     businessPath(business.id, "staff"),

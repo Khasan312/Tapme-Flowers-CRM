@@ -44,6 +44,7 @@ export function Reminders({
   const source = useRemote<ReminderRules>(
     businessPath(business.id, "reminder-rules"),
     revision,
+    { refreshOnAppear: false },
   );
   const [rules, setRules] = useState<ReminderRules | null>(null);
   useEffect(() => {

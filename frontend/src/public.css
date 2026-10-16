@@ -286,6 +286,12 @@
   background: #f8faf5;
   color: #376548;
 }
+.tracking-auto-refresh {
+  margin: 4px 0 0;
+  color: #849879;
+  font-size: 11px;
+  text-align: center;
+}
 .tracking-side {
   display: grid;
   gap: 16px;

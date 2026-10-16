@@ -28,7 +28,10 @@ export function CustomerPanel({
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState("");
-  const source = useRemote<CustomerProfile>(path, revision);
+  // Server responses initialise the editor; do not replace an unsaved draft on return.
+  const source = useRemote<CustomerProfile>(path, revision, {
+    refreshOnAppear: false,
+  });
   const activity = useRemote<{
     order_count: number;
     orders: {

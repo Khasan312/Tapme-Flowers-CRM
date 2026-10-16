@@ -205,3 +205,226 @@ test("недоступная ссылка и временный сбой обн�
   ).toBeVisible();
   await expect(page.getByText("Заказ №24", { exact: true })).toHaveCount(0);
 });
+
+test("статус меняется автоматически, скрытая и офлайн-страница не делают запросов", async ({
+  page,
+}) => {
+  await page.clock.install({ time: 0 });
+  await page.clock.pauseAt(1000);
+  let current = { ...sample },
+    requests = 0;
+  await page.route(path, (route) => {
+    requests++;
+    return route.fulfill({ json: current });
+  });
+  await page.goto("/track/design-preview", { waitUntil: "networkidle" });
+  await expect(
+    page.getByRole("heading", { name: "Ваш заказ принят" }),
+  ).toBeVisible();
+  const initialRequests = requests;
+  current = { ...sample, status: "work" };
+  await page.clock.fastForward(15000);
+  await expect(
+    page.getByRole("heading", { name: "Собираем ваш букет" }),
+  ).toBeVisible();
+  expect(requests).toBe(initialRequests + 1);
+
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  current = { ...sample, status: "ready" };
+  await page.clock.fastForward(60000);
+  expect(requests).toBe(initialRequests + 1);
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "visible",
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expect(
+    page.getByRole("heading", { name: "Ваш букет готов" }),
+  ).toBeVisible();
+  expect(requests).toBe(initialRequests + 2);
+
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "onLine", {
+      configurable: true,
+      value: false,
+    });
+    window.dispatchEvent(new Event("offline"));
+  });
+  current = { ...sample, status: "route" };
+  await page.clock.fastForward(60000);
+  expect(requests).toBe(initialRequests + 2);
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "onLine", {
+      configurable: true,
+      value: true,
+    });
+    window.dispatchEvent(new Event("online"));
+  });
+  await expect(
+    page.getByRole("heading", { name: "Цветы уже в пути" }),
+  ).toBeVisible();
+  expect(requests).toBe(initialRequests + 3);
+});
+
+test("медленный запрос не перекрывается следующими проверками", async ({
+  page,
+}) => {
+  await page.clock.install({ time: 0 });
+  await page.clock.pauseAt(1000);
+  let requests = 0,
+    hold = false;
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(path, async (route) => {
+    requests++;
+    if (hold) await pending;
+    await route.fulfill({
+      json: { ...sample, status: hold ? "work" : "new" },
+    });
+  });
+  try {
+    await page.goto("/track/design-preview", { waitUntil: "networkidle" });
+    await expect(
+      page.getByRole("heading", { name: "Ваш заказ принят" }),
+    ).toBeVisible();
+    const initialRequests = requests;
+    hold = true;
+    await page.clock.fastForward(15000);
+    await expect.poll(() => requests).toBe(initialRequests + 1);
+    await expect(
+      page.getByRole("button", { name: "Обновляем статус…" }),
+    ).toBeDisabled();
+    await page.clock.fastForward(60000);
+    expect(requests).toBe(initialRequests + 1);
+    await expect(
+      page.getByRole("heading", { name: "Ваш заказ принят" }),
+    ).toBeVisible();
+    release();
+    await expect(
+      page.getByRole("heading", { name: "Собираем ваш букет" }),
+    ).toBeVisible();
+  } finally {
+    release();
+    await page.unrouteAll({ behavior: "wait" });
+  }
+});
+
+test("сбой сохраняет последний статус и повторяет проверку реже", async ({
+  page,
+}) => {
+  await page.clock.install({ time: 0 });
+  await page.clock.pauseAt(1000);
+  let requests = 0,
+    fail = false,
+    current = { ...sample };
+  await page.route(path, (route) => {
+    requests++;
+    return fail
+      ? route.fulfill({ status: 503, json: {} })
+      : route.fulfill({
+          json: current,
+        });
+  });
+  await page.goto("/track/design-preview", { waitUntil: "networkidle" });
+  await expect(
+    page.getByRole("heading", { name: "Ваш заказ принят" }),
+  ).toBeVisible();
+  const initialRequests = requests;
+  fail = true;
+  await page.clock.fastForward(15000);
+  await expect(page.getByRole("alert")).toContainText("Сервер не смог");
+  await expect(
+    page.getByRole("heading", { name: "Ваш заказ принят" }),
+  ).toBeVisible();
+  await page.clock.fastForward(29999);
+  expect(requests).toBe(initialRequests + 1);
+  fail = false;
+  current = { ...sample, status: "ready" };
+  await page.clock.fastForward(1);
+  await expect(
+    page.getByRole("heading", { name: "Ваш букет готов" }),
+  ).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  expect(requests).toBe(initialRequests + 2);
+});
+
+for (const status of ["done", "cancelled"]) {
+  test(`после ${status} автоматические проверки прекращаются`, async ({
+    page,
+  }) => {
+    await page.clock.install({ time: 0 });
+    await page.clock.pauseAt(1000);
+    let requests = 0,
+      finished = false;
+    await page.route(path, (route) => {
+      requests++;
+      return route.fulfill({
+        json: {
+          ...sample,
+          status: finished ? status : "new",
+          can_review: finished && status === "done",
+        },
+      });
+    });
+    await page.goto("/track/design-preview", { waitUntil: "networkidle" });
+    await expect(
+      page.getByRole("heading", { name: "Ваш заказ принят" }),
+    ).toBeVisible();
+    const initialRequests = requests;
+    finished = true;
+    await page.clock.fastForward(15000);
+    await expect(
+      page.getByRole("heading", {
+        name: status === "done" ? "Букет у получателя" : "Заказ отменён",
+      }),
+    ).toBeVisible();
+    if (status === "done")
+      await page.getByLabel("Ваш отзыв", { exact: true }).fill("Мой черновик");
+    await page.clock.fastForward(60000);
+    expect(requests).toBe(initialRequests + 1);
+    if (status === "done")
+      await expect(page.getByLabel("Ваш отзыв", { exact: true })).toHaveValue(
+        "Мой черновик",
+      );
+    await page
+      .getByRole("button", { name: "Обновить статус", exact: true })
+      .click();
+    await expect.poll(() => requests).toBe(initialRequests + 2);
+  });
+}
+
+test("отозванная ссылка скрывает заказ и останавливает автоматические запросы", async ({
+  page,
+}) => {
+  await page.clock.install({ time: 0 });
+  await page.clock.pauseAt(1000);
+  let requests = 0,
+    revoked = false;
+  await page.route(path, (route) => {
+    requests++;
+    return revoked
+      ? route.fulfill({ status: 404, json: { detail: "Ссылка отозвана" } })
+      : route.fulfill({ json: sample });
+  });
+  await page.goto("/track/design-preview", { waitUntil: "networkidle" });
+  await expect(page.getByText("Заказ №24", { exact: true })).toBeVisible();
+  const initialRequests = requests;
+  revoked = true;
+  await page.clock.fastForward(15000);
+  await expect(
+    page.getByRole("heading", { name: "Не удалось открыть заказ" }),
+  ).toBeVisible();
+  await expect(page.getByText("Заказ №24", { exact: true })).toHaveCount(0);
+  await page.clock.fastForward(60000);
+  expect(requests).toBe(initialRequests + 1);
+});

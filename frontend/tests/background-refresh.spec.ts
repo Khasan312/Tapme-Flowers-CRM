@@ -43,10 +43,14 @@ async function create(page: Page, path: string, data: object) {
   expect(response.status()).toBe(201);
   return response.json();
 }
-async function seedOrder(page: Page, fulfillment = "pickup") {
+async function seedOrder(
+  page: Page,
+  fulfillment = "pickup",
+  phone = "+996555800099",
+) {
   const customer = await create(page, "customers", {
     name: "Клиент обновления",
-    phone: "+996555800099",
+    phone,
   });
   const product = await create(page, "products", {
     name: "Букет обновления",
@@ -87,6 +91,197 @@ async function holdGet(page: Page, pattern: string) {
   });
   return { entered, release };
 }
+
+async function visibility(page: Page, value: "hidden" | "visible") {
+  await page.evaluate((value) => {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  }, value);
+}
+
+test("возвращение в CRM обновляет заказы без перезагрузки и повторных запросов", async ({
+  page,
+}) => {
+  await seedOrder(page);
+  await page.getByRole("button", { name: "Заказы", exact: true }).click();
+  const first = page.getByRole("button", {
+    name: "Открыть заказ №1",
+    exact: true,
+  });
+  await expect(first).toBeVisible();
+  const original = await first.elementHandle();
+  await page.clock.install({ time: new Date() });
+  await page.clock.pauseAt(new Date(Date.now() + 1000));
+  let requests = 0;
+  page.on("request", (r) => {
+    if (r.method() === "GET" && r.url().includes("/orders/desk/")) requests++;
+  });
+  await visibility(page, "hidden");
+  await seedOrder(page, "pickup", "+996555800098");
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event("focus"));
+    window.dispatchEvent(new Event("online"));
+    window.dispatchEvent(
+      new PageTransitionEvent("pageshow", { persisted: true }),
+    );
+  });
+  await page.clock.fastForward(5000);
+  expect(requests).toBe(0);
+
+  const pending = await holdGet(page, "**/orders/desk/?*");
+  try {
+    await visibility(page, "visible");
+    await pending.entered;
+    await expect(page.locator(".order-main .refresh-indicator")).toHaveText(
+      "Обновляем…",
+    );
+    expect(await original!.evaluate((node) => node.isConnected)).toBe(true);
+    await page.clock.fastForward(5000);
+    await page.evaluate(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      window.dispatchEvent(new Event("focus"));
+      window.dispatchEvent(new Event("online"));
+      window.dispatchEvent(
+        new PageTransitionEvent("pageshow", { persisted: true }),
+      );
+    });
+    expect(requests).toBe(1);
+  } finally {
+    pending.release();
+  }
+  await expect(
+    page.getByRole("button", { name: "Открыть заказ №2", exact: true }),
+  ).toBeVisible();
+  expect(await original!.evaluate((node) => node.isConnected)).toBe(true);
+  expect(requests).toBe(1);
+});
+
+test("фокус, восстановление сети и истории обновляют карточку и сохраняют ввод при сбое", async ({
+  page,
+}) => {
+  const { order } = await seedOrder(page);
+  await page.getByRole("button", { name: "Заказы", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Открыть заказ №1", exact: true })
+    .click();
+  const amount = page.getByLabel("Сумма, сом", { exact: true });
+  await amount.fill("321");
+  const original = await amount.elementHandle();
+  await page.clock.install({ time: new Date() });
+  await page.clock.pauseAt(new Date(Date.now() + 1000));
+  let status = 503;
+  let requests = 0;
+  await page.route(`**/orders/${order.id}/`, (route) => {
+    requests++;
+    if (status === 200) return route.continue();
+    return route.fulfill({ status, json: {} });
+  });
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(page.getByRole("alert")).toContainText("Сервер не смог");
+  await expect(amount).toHaveValue("321");
+  expect(await original!.evaluate((node) => node.isConnected)).toBe(true);
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event("focus"));
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  expect(requests).toBe(1);
+
+  status = 200;
+  await page.clock.fastForward(1000);
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "onLine", {
+      configurable: true,
+      value: false,
+    });
+    window.dispatchEvent(new Event("offline"));
+  });
+  await visibility(page, "hidden");
+  await visibility(page, "visible");
+  expect(requests).toBe(1);
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "onLine", {
+      configurable: true,
+      value: true,
+    });
+    window.dispatchEvent(new Event("online"));
+  });
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Обновить карточку", exact: true }),
+  ).toBeEnabled();
+  await expect(amount).toHaveValue("321");
+  expect(requests).toBe(2);
+
+  status = 403;
+  await page.clock.fastForward(1000);
+  await page.evaluate(() => {
+    window.dispatchEvent(new PageTransitionEvent("pageshow"));
+  });
+  expect(requests).toBe(2);
+  await page.evaluate(() => {
+    window.dispatchEvent(
+      new PageTransitionEvent("pageshow", { persisted: true }),
+    );
+  });
+  await expect(amount).toHaveCount(0);
+  await expect(page.getByRole("alert")).toBeVisible();
+  expect(requests).toBe(3);
+});
+
+test("возвращение сохраняет черновики клиента, заказа и настроек", async ({
+  page,
+}) => {
+  const { customer } = await seedOrder(page);
+  await page.getByRole("button", { name: "Клиенты", exact: true }).click();
+  await page.getByRole("button", { name: customer.name, exact: false }).click();
+  await page
+    .getByRole("button", { name: "Добавить дату", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog");
+  const notes = dialog.getByRole("textbox", {
+    name: "Заметка клиента",
+    exact: true,
+  });
+  await notes.fill("Несохранённая заметка");
+  await visibility(page, "hidden");
+  const activity = page.waitForResponse((r) =>
+    r.url().includes(`/customers/${customer.id}/activity/`),
+  );
+  await visibility(page, "visible");
+  await activity;
+  await expect(notes).toHaveValue("Несохранённая заметка");
+  await dialog.getByLabel("Закрыть", { exact: true }).click();
+
+  await page.getByRole("button", { name: "Заказы", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Открыть заказ №1", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Редактировать заказ", exact: true })
+    .click();
+  const recipient = page.getByLabel("Получатель", { exact: true });
+  await recipient.fill("Несохранённый получатель");
+  await visibility(page, "hidden");
+  const payments = page.waitForResponse((r) => r.url().includes("/payments/"));
+  await visibility(page, "visible");
+  await payments;
+  await expect(recipient).toHaveValue("Несохранённый получатель");
+  await page.getByRole("dialog").getByLabel("Закрыть", { exact: true }).click();
+  await page.getByRole("dialog").getByLabel("Закрыть", { exact: true }).click();
+
+  await page.getByRole("button", { name: "Настройки", exact: true }).click();
+  await page.getByRole("tab", { name: "Магазин", exact: true }).click();
+  const name = page.getByLabel("Название магазина", { exact: true });
+  await name.fill("Несохранённое название");
+  await visibility(page, "hidden");
+  const staff = page.waitForResponse((r) => r.url().endsWith("/staff/"));
+  await visibility(page, "visible");
+  await staff;
+  await expect(name).toHaveValue("Несохранённое название");
+});
 
 test("новый заказ и фоновые задачи не убирают существующие карточки", async ({
   page,
