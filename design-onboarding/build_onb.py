@@ -206,21 +206,21 @@ def channels():
         '<small>Meta оценивает по жалобам и блокировкам клиентов. За 30 дней жалоб нет.</small></span></div>'
         '<div class="kv"><span class="k">Сегодня</span><span class="v">38 входящих · 52 ответа · ответ в среднем за 3 мин</span></div>'
         '<div class="kv"><span class="k">После 24 часов</span><span class="v">Писать первыми можно только шаблонами<small>4 шаблона одобрены · «Заказ доставлен», «Оплата получена»…</small></span></div>'
-        '<div class="kv"><span class="k">Оплата Meta</span><span class="v">карта владельца в аккаунте Meta<small>за октябрь ≈ $4,20 — только шаблоны; диалоги, начатые клиентом, бесплатны</small></span></div>'
+        '<div class="kv"><span class="k">Оплата Meta</span><span class="v">карта владельца в аккаунте Meta<small>за октябрь ≈ $4,20 · оценка по категориям сообщений и тарифам Meta</small></span></div>'
         '</div><div class="chf"><span class="pulse"></span>Связь работает · последнее сообщение 10:04<span class="spacer"></span><span class="btn sm">Шаблоны</span><span class="btn sm">Проверить связь</span></div></div>')
     ig = (
         '<div class="chc"><div class="chh"><span class="logo" style="background:#C13584">' + IG + '</span>'
         '<div><b class="ink" style="font-size:15px">Instagram Direct</b><div class="small muted">@tapme.flowers</div></div>'
         '<span class="spacer"></span><span class="status ok">' + CHECK + ' Подключён</span></div><div class="chb">'
         '<div class="kv"><span class="k">Что видит CRM</span><span class="v">Все сообщения в Direct и ответы из приложения Instagram</span></div>'
-        '<div class="kv"><span class="k">Бот</span><span class="v">Отвечает в течение 24 часов после сообщения клиента<small>дальше — только человек, до 7 дней</small></span></div>'
+        '<div class="kv"><span class="k">Бот</span><span class="v">Отвечает в течение 24 часов после сообщения клиента<small>после 24 часов отправка недоступна в этом релизе</small></span></div>'
         '<div class="kv"><span class="k">Сегодня</span><span class="v">11 входящих · 3 новых клиента</span></div>'
         '</div><div class="chf"><span class="pulse"></span>Связь работает · последнее сообщение 09:51<span class="spacer"></span><span class="btn ghost sm">Отключить</span></div></div>')
     main = (
         '<div class="chc"><div class="chh"><span class="logo" style="background:var(--neutral)">' + WA13 + '</span>'
         '<div><b class="ink" style="font-size:15px">Главный номер магазина</b><div class="small muted mono">+996 555 000 111</div></div>'
         '<span class="spacer"></span><span class="status off">Не подключается</span></div><div class="chb">'
-        '<div class="small" style="color:var(--ink-2);line-height:1.5">Остаётся только на телефоне — CRM его не читает и с него не пишет. Так номер защищён от блокировки.</div>'
+        '<div class="small" style="color:var(--ink-2);line-height:1.5">Остаётся только на телефоне — CRM его не читает и с него не пишет. CRM не использует этот номер для автоматической отправки.</div>'
         '<div class="trow">' + CHECK + ' Автоответ со ссылкой на номер заказов вставлен <span class="spacer"></span><span class="small muted">15 окт</span><span class="btn ghost sm">Текст</span></div>'
         '</div></div>')
     notif = (
