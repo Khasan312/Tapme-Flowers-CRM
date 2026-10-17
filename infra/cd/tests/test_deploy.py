@@ -20,6 +20,12 @@ with (root / "calls.jsonl").open("a") as log:
     log.write(json.dumps(args) + "\n")
 if args[0] == "login":
     sys.stdin.read()
+if "tapme-core" in args and "create" in args and "gateway" in args:
+    (root / "edge-network").touch()
+if "tapme-core" not in args and ("run" in args or "up" in args):
+    if not (root / "edge-network").exists():
+        print("network tapme-edge declared as external, but could not be found", file=sys.stderr)
+        sys.exit(1)
 if "ps" in args and "gateway" in args and (root / "state/current").exists():
     print("existing-gateway-container")
 stage = os.environ.get("FAKE_FAIL", "")
@@ -65,6 +71,7 @@ class DeployTests(unittest.TestCase):
         (self.root / ".deploy-enabled").touch()
         (self.root / "state").mkdir()
         (self.root / "state/current").write_text(f"blue {OLD_SHA}\n")
+        (self.root / "edge-network").touch()
         (self.root / "gateway").mkdir()
         self.old_route = "reverse_proxy tapme-web-blue:80\n"
         (self.root / "gateway/active.caddy").write_text(self.old_route)
@@ -136,6 +143,8 @@ class DeployTests(unittest.TestCase):
             self.assertNotIn("-v", args)
             self.assertNotIn("--volumes", args)
             self.assertFalse("up" in args and "gateway" in args)
+            if "create" in args and "gateway" in args:
+                self.assertIn("--no-recreate", args)
             if "tapme-blue" in args and "stop" in args:
                 self.assertEqual(args[-2:], ["beat", "worker"])
 
@@ -176,6 +185,7 @@ class DeployTests(unittest.TestCase):
 
     def test_first_deployment_selects_blue(self):
         (self.root / "state/current").unlink()
+        (self.root / "edge-network").unlink()
         for path in (self.root / "gateway").iterdir():
             path.unlink()
         result = self.run_deploy()

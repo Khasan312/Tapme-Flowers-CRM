@@ -67,6 +67,18 @@ jobs:
           printf 'PUBLIC_DOMAIN=tapme.example\n' > "$TAPME_DEPLOY_ROOT/.env.production"
           docker compose -f infra/cd/core.yaml config --quiet
           docker compose -p tapme-blue -f infra/cd/release.yaml config --quiet
+      - name: Check first deployment network provisioning
+        env:
+          PUBLIC_DOMAIN: tapme.example
+          POSTGRES_DB: tapme_ci
+          POSTGRES_USER: tapme
+          POSTGRES_PASSWORD: ci-only
+        run: |
+          export TAPME_DEPLOY_ROOT="$RUNNER_TEMP/tapme-compose"
+          docker compose -f infra/cd/core.yaml create --no-recreate gateway
+          docker network inspect tapme-edge > /dev/null
+          test -z "$(docker compose -f infra/cd/core.yaml ps --status running -q gateway)"
+          docker run --rm --network tapme-edge caddy:2.10-alpine caddy version
       - name: Backend dependencies
         working-directory: backend
         run: |
