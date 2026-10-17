@@ -1,0 +1,89 @@
+x-app: &app
+  image: ${TAPME_IMAGE_PREFIX:?Set image prefix}-api:${IMAGE_TAG:?Set commit SHA}
+  env_file: ${TAPME_DEPLOY_ROOT:?Set deploy root}/.env.production
+  environment:
+    DJANGO_DEBUG: "false"
+    DJANGO_ALLOWED_HOSTS: ${PUBLIC_DOMAIN:?Set PUBLIC_DOMAIN}
+    DJANGO_CSRF_TRUSTED_ORIGINS: https://${PUBLIC_DOMAIN}
+    DJANGO_TRUST_PROXY: "true"
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: "5432"
+    CELERY_BROKER_URL: redis://redis:6379/0
+    CACHE_URL: redis://redis:6379/1
+  volumes: [photos:/data/media]
+  networks: [private, edge]
+  restart: unless-stopped
+  stop_grace_period: 90s
+services:
+  api:
+    <<: *app
+    container_name: tapme-api-${COLOR:?Set deployment color}
+    volumes:
+      - photos:/data/media
+      - static:/data/static
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request,os; r=urllib.request.Request('http://127.0.0.1:8000/health/',headers={'Host':os.environ['DJANGO_ALLOWED_HOSTS'],'X-Forwarded-Proto':'https'}); urllib.request.urlopen(r,timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 10s
+  web:
+    image: ${TAPME_IMAGE_PREFIX}-web:${IMAGE_TAG}
+    container_name: tapme-web-${COLOR}
+    environment:
+      API_UPSTREAM: tapme-api-${COLOR}:8000
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN}
+    volumes:
+      - ./frontend.Caddyfile:/etc/caddy/Caddyfile:ro
+      - static:/srv/django-static:ro
+      - assets:/srv/shared-assets:ro
+    networks: [edge]
+    restart: unless-stopped
+    stop_grace_period: 90s
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1/health/"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 10s
+  worker:
+    <<: *app
+    profiles: [jobs]
+    command: [celery, -A, "config.celery:app", worker, --loglevel=INFO, --concurrency=2, "--hostname=worker-${COLOR}@%h"]
+    healthcheck:
+      test: [CMD-SHELL, 'celery -A config.celery:app inspect ping --destination "worker-${COLOR}@$$HOSTNAME" --timeout 5 | grep -q pong']
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 10s
+  beat:
+    <<: *app
+    profiles: [jobs]
+    command: [celery, -A, "config.celery:app", beat, --loglevel=INFO, "--schedule=/data/celery/beat"]
+    volumes:
+      - photos:/data/media
+      - scheduler:/data/celery
+  assets:
+    image: ${TAPME_IMAGE_PREFIX}-web:${IMAGE_TAG}
+    profiles: [init]
+    entrypoint: [/bin/sh, -c]
+    command: ["cp -an /srv/frontend/assets/. /srv/shared-assets/"]
+    volumes: [assets:/srv/shared-assets]
+networks:
+  private:
+    name: tapme-private
+    external: true
+  edge:
+    name: tapme-edge
+    external: true
+volumes:
+  photos:
+    name: tapme-photos
+  scheduler:
+    name: tapme-scheduler
+  static:
+  assets:
+    name: tapme-assets

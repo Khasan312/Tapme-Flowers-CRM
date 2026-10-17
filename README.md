@@ -225,3 +225,5 @@ docker compose --profile app --profile jobs stop
 
 [Архитектура](docs/ARCHITECTURE.md) · [План](DEVELOPMENT_PLAN.md) ·
 [Точка продолжения](SESSION_HANDOFF.md).
+
+Автоматическая сборка и обновление сервера через GitHub Actions: [docs/CI_CD.md](docs/CI_CD.md).

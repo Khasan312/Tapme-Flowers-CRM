@@ -1,0 +1,173 @@
+name: CI and production
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    name: Tests and checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-bookworm
+        env:
+          POSTGRES_DB: tapme_ci
+          POSTGRES_USER: tapme
+          POSTGRES_PASSWORD: ci-test-password
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U tapme -d tapme_ci" --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:8.2-alpine
+        ports: ["6379:6379"]
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 15
+    env:
+      DJANGO_SECRET_KEY: ci-only-not-a-production-secret
+      DJANGO_DEBUG: "true"
+      POSTGRES_DB: tapme_ci
+      POSTGRES_USER: tapme
+      POSTGRES_PASSWORD: ci-test-password
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: "5432"
+      TAPME_BOOTSTRAP_PASSWORD: CiOnly-Long-Test-Password-2026
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Deployment failure and rollback checks
+        run: |
+          bash -n infra/cd/deploy.sh
+          shellcheck infra/cd/deploy.sh
+          python3 -m unittest discover -s infra/cd/tests -v
+      - name: Validate deployment Compose files
+        run: |
+          export TAPME_DEPLOY_ROOT="$RUNNER_TEMP/tapme-compose"
+          export PUBLIC_DOMAIN=tapme.example POSTGRES_DB=tapme_ci POSTGRES_USER=tapme POSTGRES_PASSWORD=ci-only
+          export TAPME_IMAGE_PREFIX=ghcr.io/khasan312/tapme-flowers-crm IMAGE_TAG="$GITHUB_SHA" COLOR=blue
+          mkdir -p "$TAPME_DEPLOY_ROOT"
+          printf 'PUBLIC_DOMAIN=tapme.example\n' > "$TAPME_DEPLOY_ROOT/.env.production"
+          docker compose -f infra/cd/core.yaml config --quiet
+          docker compose -p tapme-blue -f infra/cd/release.yaml config --quiet
+      - name: Backend dependencies
+        working-directory: backend
+        run: |
+          python -m pip install uv==0.11.8
+          uv sync --frozen
+      - name: Backend checks
+        working-directory: backend
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+          uv run mypy
+          uv run python manage.py check
+          uv run python manage.py makemigrations --check --dry-run
+          uv run pytest -q
+      - name: Frontend checks and build
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run format:check
+          npm run build
+
+  images:
+    name: Build ${{ matrix.component }} image
+    needs: checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - component: api
+            context: backend
+          - component: web
+            context: frontend
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Build image
+        env:
+          COMPONENT: ${{ matrix.component }}
+          CONTEXT: ${{ matrix.context }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}-${COMPONENT}:${GITHUB_SHA}"
+          docker build --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            -t "$image" "$CONTEXT"
+      - name: Validate Caddy configuration
+        if: matrix.component == 'web'
+        run: |
+          docker run --rm -e PUBLIC_DOMAIN=tapme.example -e API_UPSTREAM=api:8000 \
+            -v "$PWD/infra/cd/frontend.Caddyfile:/etc/caddy/Caddyfile:ro" \
+            "ghcr.io/${GITHUB_REPOSITORY,,}-web:${GITHUB_SHA}" \
+            caddy validate --config /etc/caddy/Caddyfile
+          mkdir -p "$RUNNER_TEMP/gateway"
+          cp infra/cd/gateway.Caddyfile "$RUNNER_TEMP/gateway/Caddyfile"
+          printf 'reverse_proxy candidate:80\n' > "$RUNNER_TEMP/gateway/active.caddy"
+          docker run --rm -e PUBLIC_DOMAIN=tapme.example \
+            -v "$RUNNER_TEMP/gateway:/etc/caddy:ro" \
+            "ghcr.io/${GITHUB_REPOSITORY,,}-web:${GITHUB_SHA}" \
+            caddy validate --config /etc/caddy/Caddyfile
+      - name: Publish private image
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMPONENT: ${{ matrix.component }}
+        run: |
+          export DOCKER_CONFIG="$(mktemp -d)"
+          trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push "ghcr.io/${GITHUB_REPOSITORY,,}-${COMPONENT}:${GITHUB_SHA}"
+
+  deploy:
+    name: Deploy production
+    needs: images
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: [self-hosted, linux, x64, production]
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Check explicit server opt-in
+        id: enabled
+        shell: bash
+        run: |
+          if [[ -f /srv/tapme/.deploy-enabled ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo 'Deployment is disabled. Run as deploy: touch /srv/tapme/.deploy-enabled'
+          fi
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        if: steps.enabled.outputs.enabled == 'true'
+        with:
+          persist-credentials: false
+      - name: Deploy checked commit
+        if: steps.enabled.outputs.enabled == 'true'
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash infra/cd/deploy.sh "$GITHUB_SHA"
