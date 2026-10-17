@@ -1,0 +1,10 @@
+{$PUBLIC_DOMAIN} {
+    import /etc/caddy/active.caddy
+}
+www.{$PUBLIC_DOMAIN} {
+    redir https://{$PUBLIC_DOMAIN}{uri} permanent
+}
+# This port is published exclusively on the server's loopback interface.
+:8080 {
+    import /etc/caddy/active.caddy
+}
