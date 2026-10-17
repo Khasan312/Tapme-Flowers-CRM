@@ -333,7 +333,96 @@ def first_login():
     return head + '<body><div class="stagex">' + cap + p1 + p2 + p3 + '</div></body></html>'
 
 
-OUT = {"1-setup.html": setup(), "2-channels.html": channels(), "3-points.html": points(), "4-first-login.html": first_login()}
+# ---------------- 5. Settings -> Channels: manual WhatsApp connection for the Monday pilot ----------------
+NAV_MONDAY = [("orders", "Заказы", "12"), ("chats", "Чаты", "2"), ("clients", "Клиенты", ""),
+              ("reminders", "Напоминания", "22"), ("deliveries", "Доставка", "9"), ("settings", "Настройки", "")]
+
+
+def rail_monday(active):
+    items = "".join('<div class="nav-item%s">%s%s%s</div>' % (" on" if k == active else "", ICONS[k], n,
+                    ('<span class="cnt">%s</span>' % c) if c else "") for k, n, c in NAV_MONDAY)
+    return ('<div class="rail"><div class="brand"><div class="brand-mark">' + BRAND_SVG +
+            '</div><div><div class="brand-name">Tapme Flowers</div><div class="brand-sub">Кабинет магазина</div></div></div>'
+            '<div class="nav">' + items + '</div><div class="rail-foot"><span class="av">TF</span><div>'
+            '<div class="shop-n">Tapme Flowers</div><div class="shop-c">Контакты магазина</div></div></div></div>')
+
+
+def html_monday(title, body, top, active):
+    base = ns["page"](title, "", top=top, active=active)
+    head = base.split("<body>")[0].replace("</style>", CRM_CSS + CSS + "</style>", 1)
+    return (head + '<body><div class="root">' + rail_monday(active) + '<div class="main">' + topbar(top) +
+            '<div class="canvas">' + body + '</div></div></div></body></html>')
+
+
+def channel_manual():
+    tabs = [("Сотрудники", ""), ("Окна доставки", ""), ("Шаблоны", ""), ("Прайс", ""), ("Магазин", ""), ("Каналы", "new")]
+    stab = '<div class="stabs">' + "".join('<span class="%s">%s%s</span>' % ("on" if t == "Каналы" else "", t, ' <i class="new">новое</i>' if n else "") for t, n in tabs) + '</div>'
+
+    def fl(label, value, hint="", mono=False, tall=False):
+        style = ' style="height:auto;min-height:36px;padding:7px 10px;line-height:1.4"' if tall else ""
+        return ('<div class="fl"><label>%s</label><div class="in%s"%s>%s</div>%s</div>'
+                % (label, " mono" if mono else "", style, value, ('<div class="small muted" style="margin-top:3px">%s</div>' % hint) if hint else ""))
+
+    def chk(state, text, right=""):
+        ic = {"ok": '<span class="ic ok">' + CHECK + '</span>', "wait": '<span class="ic wait">' + CLOCK + '</span>',
+              "todo": '<span class="ic todo"></span>'}[state]
+        return '<div class="r">' + ic + '<span style="flex:1">' + text + '</span>' + right + '</div>'
+
+    wa = (
+        '<div class="chc"><div class="chh"><span class="logo" style="background:var(--wa)">' + WA13 + '</span>'
+        '<div><b class="ink" style="font-size:15px">WhatsApp · номер для заказов</b><div class="small muted">Подключение вручную · приложение Meta магазина</div></div>'
+        '<span class="spacer"></span><span class="status wait">' + CLOCK + ' Ждём вебхук</span></div><div class="chb">'
+        '<div class="form" style="grid-template-columns:1fr 1fr">' +
+        fl("Phone number ID", "1093 8472 6150 0012", "Meta → WhatsApp → Настройка API", True) +
+        fl("WhatsApp Business Account ID", "2348 1190 7765 401", "там же, «ID аккаунта WhatsApp Business»", True) +
+        fl("Постоянный токен системного пользователя", "••••••••••••••••••••••", "хранится зашифрованно, показать нельзя") +
+        fl("App Secret приложения", "••••••••••••••••", "Настройки приложения → Основное") +
+        '</div>'
+        '<div class="row" style="gap:8px"><span class="btn primary sm">Сохранить и проверить</span><span class="btn sm">Зарегистрировать номер (PIN)</span>'
+        '<span class="spacer"></span><span class="btn ghost sm">Отключить</span></div>'
+        '<div class="lbl" style="margin:6px 0 0">Вставьте в Meta → WhatsApp → Конфигурация → Вебхук</div>'
+        '<div class="copybox" style="margin:0"><div class="kv" style="grid-template-columns:120px minmax(0,1fr) auto;align-items:center">'
+        '<span class="k">Callback URL</span><span class="v mono" style="font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">https://crm.example.kg/api/v1/webhooks/meta/whatsapp/7f3c9a1e…/</span><span class="btn sm">' + COPY + ' Копировать</span>'
+        '<span class="k">Verify token</span><span class="v mono" style="font-size:12.5px">tapme-wh-4QF8…</span><span class="btn sm">' + COPY + ' Копировать</span></div>'
+        '<div class="small muted" style="margin-top:6px">Подпишитесь на поля: messages, message_template_status_update, phone_number_quality_update, account_update</div></div>'
+        '<div class="subs" style="margin-top:2px">' +
+        chk("ok", "Токен работает · номер <b class=\"mono\">+996 700 555 010</b> · «Tapme Flowers · заказы»") +
+        chk("ok", "Номер зарегистрирован в Cloud API") +
+        chk("wait", "Meta ещё не подтвердила вебхук — нажмите «Verify and save» в Meta") +
+        chk("todo", "Приложение не подписано на сообщения этого аккаунта", '<span class="btn sm">Подписать</span>') +
+        chk("todo", "Тестовое сообщение не получено — напишите «Привет» на номер со своего телефона") +
+        '</div></div></div>')
+    qr = (
+        '<div class="chc"><div class="chh"><span class="logo" style="background:var(--accent)">' + IMG + '</span>'
+        '<div><b class="ink" style="font-size:15px">QR для оплаты</b><div class="small muted">кнопка «Отправить QR» в чате</div></div></div><div class="chb">'
+        '<div class="two" style="grid-template-columns:150px minmax(0,1fr);gap:14px"><div class="qrimg" style="height:130px">' + IMG + '<br>QR MBank</div>'
+        '<div style="display:flex;flex-direction:column;gap:10px">' +
+        fl("Подпись к QR", "MBank · Бермет У.") +
+        fl("Текст сообщения", "Заказ №{номер} · к оплате {сумма} сом. Пришлите, пожалуйста, скриншот оплаты", tall=True) +
+        '</div></div></div></div>')
+    auto = (
+        '<div class="chc"><div class="chh"><span class="logo" style="background:var(--ok)">' + BOT + '</span>'
+        '<div><b class="ink" style="font-size:15px">Автоответ на первое сообщение</b><div class="small muted">один раз на новый разговор, в рабочие часы и после них</div></div>'
+        '<span class="spacer"></span><span class="sw-on"></span></div><div class="chb">' +
+        fl("В рабочие часы", "Здравствуйте! Это {магазин} 🌷 Менеджер ответит в течение 10 минут.", tall=True) +
+        fl("После работы", "Здравствуйте! Мы откроемся в 9:00 и сразу ответим. Можно оставить заказ на завтра здесь.", tall=True) +
+        '</div></div>')
+    main = (
+        '<div class="chc"><div class="chh"><span class="logo" style="background:var(--neutral)">' + WA13 + '</span>'
+        '<div><b class="ink" style="font-size:15px">Главный номер магазина</b><div class="small muted mono">+996 555 000 111</div></div>'
+        '<span class="spacer"></span><span class="status off">Не подключается</span></div><div class="chb">'
+        '<div class="small" style="color:var(--ink-2);line-height:1.5">Остаётся на телефоне как раньше. Вставьте в WhatsApp Business приветствие со ссылкой на номер для заказов:</div>'
+        '<div class="copybox" style="margin:0"><div class="tx">Здравствуйте! Это Tapme Flowers 🌷 Заказ быстрее оформить здесь: <b>wa.me/996700555010</b></div>'
+        '<div class="how">' + HELP + ' WhatsApp Business → Инструменты → Приветственное сообщение<span class="spacer"></span><span class="btn sm">' + COPY + ' Скопировать</span></div></div>'
+        '</div></div>')
+    body = ('<style>.root{height:auto;min-height:900px;overflow:visible;grid-template-rows:auto}.main,.canvas{overflow:visible}</style>'
+            '<div class="page-hd" style="margin-bottom:8px"><div><h1>Настройки</h1></div></div>' + stab +
+            '<div style="display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:12px;align-items:start;padding-bottom:22px">'
+            '<div>' + wa + '</div><div style="display:flex;flex-direction:column;gap:12px">' + qr + auto + main + '</div></div>')
+    return html_monday("Настройки · Каналы (ручное подключение)", body, "Настройки", "settings")
+
+
+OUT = {"1-setup.html": setup(), "2-channels.html": channels(), "3-points.html": points(), "4-first-login.html": first_login(), "5-channel-manual.html": channel_manual()}
 for name, page_html in OUT.items():
     with open(os.path.join(HERE, name), "w", encoding="utf-8") as f:
         f.write(page_html)
