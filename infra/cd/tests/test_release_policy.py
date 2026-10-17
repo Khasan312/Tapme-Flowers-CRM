@@ -1,5 +1,6 @@
 """Check release naming and Git history using temporary repositories."""
 
+import json
 import os
 import subprocess
 import sys
@@ -44,13 +45,11 @@ class ReleasePolicyTests(unittest.TestCase):
 
     def event(self, **overrides):
         return {
-            "action": "published",
-            "release": {
-                "tag_name": self.tag,
-                "draft": False,
-                "prerelease": False,
-                **overrides,
-            },
+            "ref": f"refs/tags/{self.tag}",
+            "created": True,
+            "deleted": False,
+            "forced": False,
+            **overrides,
         }
 
     def validate(self, event=None, sha=None):
@@ -94,16 +93,14 @@ class ReleasePolicyTests(unittest.TestCase):
             with self.subTest(tag=tag), self.assertRaises(ValueError):
                 release_kind(tag)
 
-    def test_rejects_draft_or_prerelease(self):
-        for overrides in ({"draft": True}, {"prerelease": True}):
+    def test_rejects_tag_updates_and_deletion(self):
+        for overrides in ({"created": False}, {"deleted": True}, {"forced": True}):
             with self.subTest(overrides=overrides), self.assertRaises(ValueError):
                 self.validate(self.event(**overrides))
 
-    def test_requires_published_release_event(self):
-        event = self.event()
-        event["action"] = "edited"
-        with self.assertRaisesRegex(ValueError, "published"):
-            self.validate(event)
+    def test_rejects_branch_push(self):
+        with self.assertRaisesRegex(ValueError, "new tag push"):
+            self.validate(self.event(ref="refs/heads/main"))
 
     def test_rejects_unmerged_commit(self):
         self.git("checkout", "-q", "-b", "feature")
@@ -151,17 +148,40 @@ class ReleasePolicyTests(unittest.TestCase):
         self.assertEqual((self.root / "urgent-fix.txt").read_text(), "only urgent fix")
 
     def test_cli_rejects_non_release_invocation(self):
+        for event_name in ("workflow_dispatch", "release"):
+            with self.subTest(event_name=event_name):
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        str(Path(__file__).resolve().parents[1] / "release_policy.py"),
+                    ],
+                    env={**os.environ, "GITHUB_EVENT_NAME": event_name},
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("requires a new tag push", result.stderr)
+
+    def test_cli_accepts_tag_push_without_a_github_release(self):
+        event_file = self.root / "event.json"
+        event_file.write_text(json.dumps(self.event()))
         result = subprocess.run(
             [
                 sys.executable,
                 str(Path(__file__).resolve().parents[1] / "release_policy.py"),
             ],
-            env={**os.environ, "GITHUB_EVENT_NAME": "workflow_dispatch"},
+            cwd=self.root,
+            env={
+                **os.environ,
+                "GITHUB_EVENT_NAME": "push",
+                "GITHUB_EVENT_PATH": str(event_file),
+                "GITHUB_SHA": self.current,
+            },
             capture_output=True,
             text=True,
         )
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("requires a GitHub Release event", result.stderr)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(self.tag, result.stdout)
 
 
 if __name__ == "__main__":
