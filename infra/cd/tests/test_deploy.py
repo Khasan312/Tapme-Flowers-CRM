@@ -23,6 +23,10 @@ if args[0] == "login":
 if "ps" in args and "gateway" in args and (root / "state/current").exists():
     print("existing-gateway-container")
 stage = os.environ.get("FAKE_FAIL", "")
+if stage == "cancel" and "migrate" in args:
+    import signal
+    os.kill(os.getppid(), signal.SIGTERM)
+    sys.exit(0)
 is_new = os.environ.get("IMAGE_TAG") == "b" * 40
 failure = (
     (stage == "migrate" and "migrate" in args)
@@ -145,6 +149,10 @@ class DeployTests(unittest.TestCase):
         self.assertNotEqual(self.run_deploy("empty-backup").returncode, 0)
         self.assert_previous_release()
         self.assertFalse(any("migrate" in args for args in self.calls()))
+
+    def test_cancelled_deployment_preserves_previous_release(self):
+        self.assertEqual(self.run_deploy("cancel").returncode, 143)
+        self.assert_previous_release()
 
     def test_unhealthy_candidate_keeps_live_release(self):
         self.assertNotEqual(self.run_deploy("candidate").returncode, 0)

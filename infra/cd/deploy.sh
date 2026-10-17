@@ -21,7 +21,8 @@ chmod 755 "$root/gateway"
 exec 9>"$root/state/deploy.lock"
 flock -n 9 || { echo 'Another deployment is running.' >&2; exit 1; }
 
-old_color= old_sha=
+old_color=''
+old_sha=''
 if [[ -f $root/state/current ]]; then
     read -r old_color old_sha < "$root/state/current"
     [[ $old_color =~ ^(blue|green)$ && $old_sha =~ ^[0-9a-f]{40}$ ]] || { echo 'Invalid deployment state.' >&2; exit 2; }
@@ -84,6 +85,8 @@ finish() {
     exit "$status"
 }
 trap finish EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # The short-lived GITHUB_TOKEN is used only for this deployment and removed
 # with DOCKER_CONFIG on exit. A personal SSH key is never uploaded to GitHub.
@@ -100,6 +103,8 @@ app "$color" "$sha" --profile jobs down --remove-orphans
 app "$color" "$sha" pull api web
 
 backup=$root/backups/$(date -u +%Y%m%dT%H%M%SZ)-$sha.dump
+# These variables are deliberately expanded by sh inside PostgreSQL.
+# shellcheck disable=SC2016
 core exec -T postgres sh -c 'pg_dump -Fc -U "$POSTGRES_USER" -d "$POSTGRES_DB"' > "$backup"
 [[ -s $backup ]] || { echo 'Database backup is empty.' >&2; exit 1; }
 app "$color" "$sha" run --rm -T --no-deps api python manage.py migrate --noinput
