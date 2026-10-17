@@ -1,9 +1,13 @@
 # Автоматическое обновление Tapme
 
-Workflow `.github/workflows/production.yml` проверяет pull request. После push в
-`main` или ручного **Run workflow** на `main` он запускает проверки, собирает
-API и frontend в GitHub-hosted runner, публикует образы с тегом полного SHA в
-приватный GitHub Container Registry и передаёт деплой серверному агенту.
+Workflow `.github/workflows/production.yml` проверяет PR и push в `develop` и
+`main`. Сервер обновляется после публикации GitHub Release с тегом
+`release-ГГГГ-ММ-ДД` или `hotfix-release-ГГГГ-ММ-ДД[.N]`. Workflow проверяет тег
+и историю, запускает тесты, собирает API и frontend в GitHub-hosted runner,
+публикует образы с тегом полного SHA в приватный GitHub Container Registry
+и передаёт деплой серверному агенту. Обычный merge и **Run workflow** прод не меняют.
+
+Порядок работы с `develop`, `main`, тегами и hotfix: [RELEASES.md](RELEASES.md).
 
 Сам сервер не собирает образы. Для запуска он использует краткоживущий
 `GITHUB_TOKEN` с правом чтения пакетов; SSH-ключ владельца в GitHub не передаётся.
@@ -39,9 +43,11 @@ test -r /srv/tapme/.env.production
 touch /srv/tapme/.deploy-enabled
 ```
 
-Затем GitHub → **Actions → CI and production → Run workflow → main**.
-До появления файла `.deploy-enabled` job сообщает, что деплой выключен, и не
-меняет рабочие контейнеры. Само создание файла не запускает workflow.
+Затем GitHub → **Releases → Draft a new release**: создать тег на `main`,
+например `release-2026-10-18`, и нажать **Publish release**. При отсутствии
+`.deploy-enabled` серверный job завершается ошибкой и не меняет рабочие
+контейнеры. Само создание файла не запускает workflow. Черновик и pre-release
+не обновляют прод.
 
 На первом запуске скрипт создаёт постоянную БД, применяет миграции, собирает
 статику и создаёт магазин `Tapme Flowers` с логином `owner`. Пароль находится
@@ -81,6 +87,7 @@ curl --fail -H 'Host: tapme.kg' http://127.0.0.1:8080/health/
 ## Что происходит при обновлении
 
 1. `flock` запрещает одновременные деплои. Образы выбираются по точному SHA.
+   Релиз должен входить в историю `main` и сохранять уже развёрнутые коммиты.
 2. PostgreSQL и Redis остаются постоянными, их порты не публикуются.
 3. Перед миграцией создаётся `pg_dump -Fc` в `/srv/tapme/backups`.
    Ошибка или пустой файл останавливает деплой до миграции.
@@ -90,7 +97,8 @@ curl --fail -H 'Host: tapme.kg' http://127.0.0.1:8080/health/
    Одновременно два планировщика beat не работают. Очередь хранится в Redis.
 6. Gateway перечитывает конфигурацию Caddy без пересоздания контейнера.
    Дополнительно проверяются `/health/` и главная страница через gateway.
-7. Только после успеха записывается `/srv/tapme/state/current`.
+7. Только после успеха записывается `/srv/tapme/state/current`, затем сохраняется
+   имя релиза в `/srv/tapme/state/release`.
    Старые API/frontend остаются запущены, старые фоновые процессы остановлены.
 
 Хешированные frontend-ресурсы дополняются в общем томе: открытая перед
@@ -112,6 +120,7 @@ GitHub Actions показывает ход проверок, сборки и д�
 
 ```bash
 cat /srv/tapme/state/current
+cat /srv/tapme/state/release
 docker ps
 df -h /
 ```

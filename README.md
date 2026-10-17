@@ -227,3 +227,4 @@ docker compose --profile app --profile jobs stop
 [Точка продолжения](SESSION_HANDOFF.md).
 
 Автоматическая сборка и обновление сервера через GitHub Actions: [docs/CI_CD.md](docs/CI_CD.md).
+Ветки `develop`/`main`, выпуск через GitHub Releases и hotfix: [docs/RELEASES.md](docs/RELEASES.md).

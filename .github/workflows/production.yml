@@ -1,17 +1,19 @@
-name: CI and production
+name: CI and releases
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   push:
-    branches: [main]
+    branches: [main, develop]
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: production-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.event_name == 'release' && 'production-release' || format('ci-{0}', github.event.pull_request.number || github.ref) }}
   cancel-in-progress: false
 
 jobs:
@@ -45,9 +47,14 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
+          ref: ${{ github.sha }}
+          fetch-depth: 0
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.13"
+      - name: Validate published release
+        if: github.event_name == 'release'
+        run: python3 infra/cd/release_policy.py
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: "22"
@@ -57,6 +64,9 @@ jobs:
         run: |
           bash -n infra/cd/deploy.sh
           shellcheck infra/cd/deploy.sh
+          bash -n infra/github/apply-main-protection.sh
+          bash -n .githooks/pre-push
+          shellcheck infra/github/apply-main-protection.sh .githooks/pre-push
           python3 -m unittest discover -s infra/cd/tests -v
       - name: Validate deployment Compose files
         run: |
@@ -119,6 +129,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
+          ref: ${{ github.sha }}
       - name: Build image
         env:
           COMPONENT: ${{ matrix.component }}
@@ -143,7 +154,7 @@ jobs:
             "ghcr.io/${GITHUB_REPOSITORY,,}-web:${GITHUB_SHA}" \
             caddy validate --config /etc/caddy/Caddyfile
       - name: Publish private image
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        if: github.event_name == 'release' && github.event.action == 'published'
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COMPONENT: ${{ matrix.component }}
@@ -156,7 +167,7 @@ jobs:
   deploy:
     name: Deploy production
     needs: images
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.event_name == 'release' && github.event.action == 'published'
     runs-on: [self-hosted, linux, x64, production]
     timeout-minutes: 20
     permissions:
@@ -164,22 +175,29 @@ jobs:
       packages: read
     steps:
       - name: Check explicit server opt-in
-        id: enabled
         shell: bash
         run: |
-          if [[ -f /srv/tapme/.deploy-enabled ]]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo 'Deployment is disabled. Run as deploy: touch /srv/tapme/.deploy-enabled'
+          if [[ ! -f /srv/tapme/.deploy-enabled ]]; then
+            echo '::error::Deployment is disabled. Run as deploy: touch /srv/tapme/.deploy-enabled'
+            exit 1
           fi
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        if: steps.enabled.outputs.enabled == 'true'
         with:
           persist-credentials: false
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Validate release against deployed revision
+        run: python3 infra/cd/release_policy.py --state-file /srv/tapme/state/current
       - name: Deploy checked commit
-        if: steps.enabled.outputs.enabled == 'true'
         shell: bash
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash infra/cd/deploy.sh "$GITHUB_SHA"
+      - name: Record deployed release
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          umask 077
+          printf '%s %s\n' "$RELEASE_TAG" "$GITHUB_SHA" > /srv/tapme/state/release.next
+          mv /srv/tapme/state/release.next /srv/tapme/state/release
+          printf 'Deployed `%s` (`%s`).\n' "$RELEASE_TAG" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
