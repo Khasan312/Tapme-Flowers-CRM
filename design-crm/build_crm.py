@@ -348,7 +348,60 @@ def mobile():
     return head.replace("</style>", CSS + css + "</style>", 1) + '<body><div class="stage">' + cap + p1 + p2 + '</div></body></html>'
 
 
-OUT = {"1-chats.html": chats(), "2-clients.html": clients(), "3-client-card.html": card(), "4-mobile.html": mobile()}
+# ---------------- 5. Chats, scope for the Monday pilot (no bot, no AI draft, WhatsApp only) ----------------
+def chats_monday():
+    convs = [
+        ("+996 700 481 209", "wa", True, '<span class="mini new">' + NEW + ' новый клиент</span>', "Да, хочу первый! Это маме на ДР, Токтогула…", "10:05", '<span class="mini wait">ждёт 1 мин</span>', True, True),
+        ("Мария Ким", "wa", False, "", "Оплатила, вот скриншот 📎", "09:58", '<span class="ub">1</span>', True, False),
+        ("+996 555 902 114", "wa", True, '<span class="mini new">' + NEW + ' новый</span>', "Здравствуйте, доставляете в Кант?", "09:51", '<span class="mini wait">ждёт 14 мин</span>', True, False),
+        ("Данияр Исаев", "wa", False, "", "Подумаю до вечера, спасибо", "вчера", "", False, False),
+        ("Тимур Осмонов", "wa", False, "", "Вы: Заказ №64 доставлен 🌷", "вчера", "", False, False),
+        ("Алина Садыкова", "wa", False, "", "Спасибо, мама была очень рада! 🙏", "12 сен", "", False, False),
+    ]
+    rows = ""
+    for nm, ch, unknown, badge, pv, t, right, unread, sel in convs:
+        rows += ('<div class="conv%s%s">%s<div style="min-width:0"><div class="nm">%s %s</div><div class="cpv">%s</div></div>'
+                 '<div class="meta"><span>%s</span>%s</div></div>'
+                 % (" sel" if sel else "", " unread" if unread else "", avc(nm, ch, unknown=unknown), nm, badge, pv, t, right))
+    left = ('<div class="pane"><div class="phd"><div class="row"><b class="ink" style="font-size:16px">Чаты</b><span class="spacer"></span>'
+            '<span class="small muted">WhatsApp · номер для заказов</span></div>'
+            '<div class="chips"><span class="on">Все <i class="n">14</i></span><span class="hot">Ждут ответа <i class="n">2</i></span>'
+            '<span>Мои <i class="n">5</i></span></div></div>'
+            '<div style="overflow:hidden">' + rows + '</div></div>')
+    thread = (
+        '<div class="thread"><div class="thd">' + avc("", "wa", unknown=True) +
+        '<div><div class="row" style="white-space:nowrap"><b class="ink" style="font-size:15px">+996 700 481 209</b><span class="mini new">' + NEW + ' новый клиент</span></div>'
+        '<div class="small muted" style="margin-top:2px;white-space:nowrap">WhatsApp · номер заказов · пишет с 10:02</div></div>'
+        '<span class="spacer"></span><span class="owner" title="Ответственный">' + av("Айгуль Садыкова", "sm") + ' Айгуль ' + I["chev"] + '</span></div>'
+        '<div class="tbody">'
+        '<div class="sys">Сегодня</div>'
+        '<div class="msg in">Здравствуйте! Есть букет из пионов на завтра? Бюджет до 5000<span class="t">10:02</span></div>'
+        '<div class="msg bot"><div class="who">' + BOT + ' Автоответ</div>Здравствуйте! Это Tapme Flowers 🌷 Менеджер ответит в течение 10 минут.<span class="t">10:02 ✓✓</span></div>'
+        '<div class="sys">Айгуль получила уведомление со звуком · ответила через 2 мин</div>'
+        '<div class="msg out"><div class="who mgr">Айгуль</div><div class="ph" style="height:120px;margin-bottom:6px">' + IMG + '<br>фото букета<br>из телефона менеджера</div>'
+        'Есть пионы ×11 за 4 800 сом. Доставим завтра к 10:00?<span class="t">10:04 ✓✓</span></div>'
+        '<div class="msg in">Да, хочу первый! Это маме на ДР, Токтогула 125, к 10 утра<span class="t">10:05</span></div>'
+        '</div>'
+        '<div class="comp"><div class="qr" style="align-items:center"><span style="white-space:nowrap">' + IMG + ' Фото</span><span style="white-space:nowrap">Отправить QR</span><span style="white-space:nowrap">Быстрые ответы</span>'
+        '<div class="spacer"></div><div class="small" style="color:var(--ok);white-space:nowrap">Окно открыто · 23 ч 59 мин</div></div>'
+        '<div class="box">Ответить в WhatsApp…<span class="sendb">' + SEND + '</span></div></div></div>')
+    side = (
+        '<div class="pane"><div class="side">'
+        '<div class="autonew"><div class="row"><b>Клиент создан автоматически</b></div>'
+        '<div style="margin-top:4px">Написал(а) впервые в 10:02 — карточка уже в «Клиентах». Имя в WhatsApp: «Aidana».</div>'
+        '<div class="input" style="margin-top:8px">Как зовут клиента?</div></div>'
+        '<div class="draft"><div class="dh"><b class="ink">Заказ</b></div>'
+        '<div class="db"><div class="small muted" style="padding:6px 0 10px;line-height:1.5">Откроется обычная форма заказа: клиент и источник «WhatsApp» уже заполнены, '
+        'остальное менеджер вносит по переписке.</div></div></div>'
+        '<span class="btn primary" style="justify-content:center;height:40px">Создать заказ</span>'
+        '<span class="btn" style="justify-content:center;height:40px">Отправить QR для оплаты</span>'
+        '<div><div class="lbl">Заказы клиента</div><div class="small muted">Заказов пока нет</div></div>'
+        '</div></div>')
+    body = '<div class="inbox">' + left + thread + side + '</div>'
+    return full_page("CRM · Чаты (к понедельнику)", body, "Чаты", "chats")
+
+
+OUT = {"1-chats.html": chats(), "2-clients.html": clients(), "3-client-card.html": card(), "4-mobile.html": mobile(), "5-chats-monday.html": chats_monday()}
 for name, html in OUT.items():
     with open(os.path.join(HERE, name), "w", encoding="utf-8") as f:
         f.write(html)

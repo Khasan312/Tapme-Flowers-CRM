@@ -31,7 +31,11 @@
         margin: 0;
         background: var(--bg);
         color: var(--ink-2);
-        font: 14px/1.5 "Golos Text", ui-sans-serif, system-ui, sans-serif;
+        font:
+          14px/1.5 "Golos Text",
+          ui-sans-serif,
+          system-ui,
+          sans-serif;
       }
       a {
         color: var(--accent);
@@ -166,8 +170,9 @@
       <div class="wrap">
         <h1>Макеты релиза «Каналы и CRM переписки»</h1>
         <p>
-          Вёрстка всех новых экранов в стиле CRM. Это прототипы на холсте 1440×900, а не код
-          приложения: функции ещё не реализованы. Требования к каждому экрану —
+          Вёрстка всех новых экранов в стиле CRM. Это прототипы на холсте
+          1440×900, а не код приложения: функции ещё не реализованы. Требования
+          к каждому экрану —
           <a href="../docs/spec/README.md">в ТЗ</a>.
         </p>
       </div>
@@ -177,57 +182,150 @@
       <section class="how">
         <h2>Как пользоваться</h2>
         <ol>
-          <li>Откройте экран («Открыть вёрстку») — это обычный HTML, работает без сервера.</li>
           <li>
-            Стили общие: <code>css/base.css</code> (цвета, шрифты, меню, кнопки, метки),
-            <code>css/components.css</code>, <code>css/crm.css</code>,
+            Откройте экран («Открыть вёрстку») — это обычный HTML, работает без
+            сервера.
+          </li>
+          <li>
+            Стили общие: <code>css/base.css</code> (цвета, шрифты, меню, кнопки,
+            метки), <code>css/components.css</code>, <code>css/crm.css</code>,
             <code>css/onboarding.css</code>. Классы можно переносить в
             <code>frontend/src</code> вместе с правилами из этих файлов.
           </li>
           <li>
-            Не правьте файлы в <code>screens/</code> и <code>css/</code> руками — они собираются
-            командой <code>python3 design-kit/build_kit.py</code> из генераторов в папках
+            Не правьте файлы в <code>screens/</code> и <code>css/</code> руками
+            — они собираются командой
+            <code>python3 design-kit/build_kit.py</code> из генераторов в папках
             <code>design-*</code>. Подробнее — в <a href="README.md">README</a>.
           </li>
         </ol>
       </section>
 
       <section>
-        <h2>CRM переписки</h2>
-        <p class="lead">Чаты WhatsApp и Instagram, автоматические клиенты, черновик заказа.</p>
+        <h2>Пилот в понедельник — первая версия чатов</h2>
+        <p class="lead">
+          Что делаем к подключению номера: чаты WhatsApp без бота и
+          ИИ-черновика, ручное подключение номера в настройках. ТЗ —
+          <a href="../docs/spec/12-chats-monday.md">12-chats-monday.md</a>.
+        </p>
         <div class="grid">
           <article class="card">
-            <img src="../design-crm/png/1-chats.png" alt="Экран «Чаты»" loading="lazy" />
+            <img
+              src="../design-crm/png/5-chats-monday.png"
+              alt="Чаты, версия к понедельнику"
+              loading="lazy"
+            />
             <div class="body">
-              <div class="title">Чаты <span class="tag new">новый экран</span></div>
+              <div class="title">
+                Чаты — версия к понедельнику
+                <span class="tag ok">делаем сейчас</span>
+              </div>
               <p class="desc">
-                Список разговоров, переписка с ботом и менеджером, клиент создан автоматически,
-                черновик заказа заполняется из чата.
+                Автоответ, ответ менеджера с фото, ответственный, окно 24 часа,
+                «Создать заказ» и «Отправить QR». Без бота, Instagram и
+                ИИ-черновика.
+              </p>
+              <div class="links">
+                <a href="screens/crm-5-chats-monday.html">Открыть вёрстку</a>
+                <a href="../design-crm/png/5-chats-monday.png">Скриншот</a>
+                <a href="../docs/spec/12-chats-monday.md">ТЗ: CM-UI-01…08</a>
+              </div>
+            </div>
+          </article>
+          <article class="card">
+            <img
+              src="../design-onboarding/png/5-channel-manual.png"
+              alt="Каналы, ручное подключение"
+              loading="lazy"
+            />
+            <div class="body">
+              <div class="title">
+                Настройки → Каналы, ручное подключение
+                <span class="tag ok">делаем сейчас</span>
+              </div>
+              <p class="desc">
+                Поля из приложения Meta магазина, адрес вебхука, проверки
+                подключения, QR, автоответ, основной номер.
+              </p>
+              <div class="links">
+                <a href="screens/onboarding-5-channel-manual.html"
+                  >Открыть вёрстку</a
+                >
+                <a href="../design-onboarding/png/5-channel-manual.png"
+                  >Скриншот</a
+                >
+                <a href="../docs/spec/12-chats-monday.md">ТЗ: CM-CH-01…06</a>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section>
+        <h2>CRM переписки</h2>
+        <p class="lead">
+          Чаты WhatsApp и Instagram, автоматические клиенты, черновик заказа.
+        </p>
+        <div class="grid">
+          <article class="card">
+            <img
+              src="../design-crm/png/1-chats.png"
+              alt="Экран «Чаты»"
+              loading="lazy"
+            />
+            <div class="body">
+              <div class="title">
+                Чаты <span class="tag new">новый экран</span>
+              </div>
+              <p class="desc">
+                Список разговоров, переписка с ботом и менеджером, клиент создан
+                автоматически, черновик заказа заполняется из чата.
               </p>
               <div class="links">
                 <a href="screens/crm-1-chats.html">Открыть вёрстку</a>
                 <a href="../design-crm/png/1-chats.png">Скриншот</a>
-                <a href="../docs/spec/04-chats-and-crm.md">ТЗ: FR-CR-003…009, FR-OD-020</a>
+                <a href="../docs/spec/04-chats-and-crm.md"
+                  >ТЗ: FR-CR-003…009, FR-OD-020</a
+                >
               </div>
             </div>
           </article>
           <article class="card">
-            <img src="../design-crm/png/2-clients.png" alt="Экран «Клиенты»" loading="lazy" />
+            <img
+              src="../design-crm/png/2-clients.png"
+              alt="Экран «Клиенты»"
+              loading="lazy"
+            />
             <div class="body">
-              <div class="title">Клиенты <span class="tag new">изменённый экран</span></div>
-              <p class="desc">Этапы клиентов, метка «из чата», ответственный, подсказка объединить.</p>
+              <div class="title">
+                Клиенты <span class="tag new">изменённый экран</span>
+              </div>
+              <p class="desc">
+                Этапы клиентов, метка «из чата», ответственный, подсказка
+                объединить.
+              </p>
               <div class="links">
                 <a href="screens/crm-2-clients.html">Открыть вёрстку</a>
                 <a href="../design-crm/png/2-clients.png">Скриншот</a>
-                <a href="../docs/spec/04-chats-and-crm.md">ТЗ: FR-CR-010…012, FR-CR-040</a>
+                <a href="../docs/spec/04-chats-and-crm.md"
+                  >ТЗ: FR-CR-010…012, FR-CR-040</a
+                >
               </div>
             </div>
           </article>
           <article class="card">
-            <img src="../design-crm/png/3-client-card.png" alt="Карточка клиента" loading="lazy" />
+            <img
+              src="../design-crm/png/3-client-card.png"
+              alt="Карточка клиента"
+              loading="lazy"
+            />
             <div class="body">
-              <div class="title">Карточка клиента <span class="tag new">изменённый экран</span></div>
-              <p class="desc">Вся история одной лентой, каналы клиента, факты из переписки.</p>
+              <div class="title">
+                Карточка клиента <span class="tag new">изменённый экран</span>
+              </div>
+              <p class="desc">
+                Вся история одной лентой, каналы клиента, факты из переписки.
+              </p>
               <div class="links">
                 <a href="screens/crm-3-client-card.html">Открыть вёрстку</a>
                 <a href="../design-crm/png/3-client-card.png">Скриншот</a>
@@ -236,10 +334,18 @@
             </div>
           </article>
           <article class="card">
-            <img src="../design-crm/png/4-mobile.png" alt="Телефон менеджера" loading="lazy" />
+            <img
+              src="../design-crm/png/4-mobile.png"
+              alt="Телефон менеджера"
+              loading="lazy"
+            />
             <div class="body">
-              <div class="title">Телефон менеджера <span class="tag new">новый экран</span></div>
-              <p class="desc">Push со звуком, чаты и черновик заказа на телефоне.</p>
+              <div class="title">
+                Телефон менеджера <span class="tag new">новый экран</span>
+              </div>
+              <p class="desc">
+                Push со звуком, чаты и черновик заказа на телефоне.
+              </p>
               <div class="links">
                 <a href="screens/crm-4-mobile.html">Открыть вёрстку</a>
                 <a href="../design-crm/png/4-mobile.png">Скриншот</a>
@@ -253,15 +359,24 @@
       <section>
         <h2>Напоминания</h2>
         <p class="lead">
-          Выбраны «Кому написать сегодня» и отдельные настройки сценариев. Остальные варианты
-          оставлены для истории решения.
+          Выбраны «Кому написать сегодня» и отдельные настройки сценариев.
+          Остальные варианты оставлены для истории решения.
         </p>
         <div class="grid">
           <article class="card">
-            <img src="../design-reminders/v2/png/1-list.png" alt="Кому написать сегодня" loading="lazy" />
+            <img
+              src="../design-reminders/v2/png/1-list.png"
+              alt="Кому написать сегодня"
+              loading="lazy"
+            />
             <div class="body">
-              <div class="title">Кому написать сегодня <span class="tag ok">выбран</span></div>
-              <p class="desc">Очередь дня с прогрессом, группами по срочности и отправкой в WhatsApp.</p>
+              <div class="title">
+                Кому написать сегодня <span class="tag ok">выбран</span>
+              </div>
+              <p class="desc">
+                Очередь дня с прогрессом, группами по срочности и отправкой в
+                WhatsApp.
+              </p>
               <div class="links">
                 <a href="screens/reminders-1-list.html">Открыть вёрстку</a>
                 <a href="../design-reminders/v2/png/1-list.png">Скриншот</a>
@@ -276,43 +391,79 @@
               loading="lazy"
             />
             <div class="body">
-              <div class="title">Настройки напоминаний <span class="tag ok">выбран</span></div>
-              <p class="desc">Сценарии «когда + что написать», проверка текста, пример для клиента.</p>
+              <div class="title">
+                Настройки напоминаний <span class="tag ok">выбран</span>
+              </div>
+              <p class="desc">
+                Сценарии «когда + что написать», проверка текста, пример для
+                клиента.
+              </p>
               <div class="links">
-                <a href="screens/reminders-4-settings-scenarios.html">Открыть вёрстку</a>
-                <a href="../design-reminders/v2/png/4-settings-scenarios.png">Скриншот</a>
+                <a href="screens/reminders-4-settings-scenarios.html"
+                  >Открыть вёрстку</a
+                >
+                <a href="../design-reminders/v2/png/4-settings-scenarios.png"
+                  >Скриншот</a
+                >
                 <a href="../docs/spec/07-reminders.md">ТЗ: FR-RM-020…025</a>
               </div>
             </div>
           </article>
           <article class="card">
-            <img src="../design-reminders/v2/png/2-queue-card.png" alt="Очередь и карточка" loading="lazy" />
+            <img
+              src="../design-reminders/v2/png/2-queue-card.png"
+              alt="Очередь и карточка"
+              loading="lazy"
+            />
             <div class="body">
-              <div class="title">Очередь и карточка <span class="tag">не выбран</span></div>
+              <div class="title">
+                Очередь и карточка <span class="tag">не выбран</span>
+              </div>
               <p class="desc">
-                Из этого варианта взяты подсказка «год назад» и автоотметка «Написали».
+                Из этого варианта взяты подсказка «год назад» и автоотметка
+                «Написали».
               </p>
               <div class="links">
-                <a href="screens/reminders-2-queue-card.html">Открыть вёрстку</a>
-                <a href="../design-reminders/v2/png/2-queue-card.png">Скриншот</a>
+                <a href="screens/reminders-2-queue-card.html"
+                  >Открыть вёрстку</a
+                >
+                <a href="../design-reminders/v2/png/2-queue-card.png"
+                  >Скриншот</a
+                >
               </div>
             </div>
           </article>
           <article class="card">
-            <img src="../design-reminders/v2/png/3-week-board.png" alt="Доска недели" loading="lazy" />
+            <img
+              src="../design-reminders/v2/png/3-week-board.png"
+              alt="Доска недели"
+              loading="lazy"
+            />
             <div class="body">
-              <div class="title">Доска недели <span class="tag">не выбран</span></div>
+              <div class="title">
+                Доска недели <span class="tag">не выбран</span>
+              </div>
               <p class="desc">Воронка напоминаний по неделе.</p>
               <div class="links">
-                <a href="screens/reminders-3-week-board.html">Открыть вёрстку</a>
-                <a href="../design-reminders/v2/png/3-week-board.png">Скриншот</a>
+                <a href="screens/reminders-3-week-board.html"
+                  >Открыть вёрстку</a
+                >
+                <a href="../design-reminders/v2/png/3-week-board.png"
+                  >Скриншот</a
+                >
               </div>
             </div>
           </article>
           <article class="card">
-            <img src="../design-reminders/v2/png/5-mobile.png" alt="Мобильная очередь" loading="lazy" />
+            <img
+              src="../design-reminders/v2/png/5-mobile.png"
+              alt="Мобильная очередь"
+              loading="lazy"
+            />
             <div class="body">
-              <div class="title">Мобильная очередь <span class="tag">не выбран</span></div>
+              <div class="title">
+                Мобильная очередь <span class="tag">не выбран</span>
+              </div>
               <p class="desc">Очередь и карточка на телефоне.</p>
               <div class="links">
                 <a href="screens/reminders-5-mobile.html">Открыть вёрстку</a>
@@ -325,13 +476,23 @@
 
       <section>
         <h2>Подключение магазина и настройки</h2>
-        <p class="lead">Чек-лист владельца, каналы, точки, первый вход сотрудника.</p>
+        <p class="lead">
+          Чек-лист владельца, каналы, точки, первый вход сотрудника.
+        </p>
         <div class="grid">
           <article class="card">
-            <img src="../design-onboarding/png/1-setup.png" alt="Подключение магазина" loading="lazy" />
+            <img
+              src="../design-onboarding/png/1-setup.png"
+              alt="Подключение магазина"
+              loading="lazy"
+            />
             <div class="body">
-              <div class="title">Подключение магазина <span class="tag new">новый экран</span></div>
-              <p class="desc">Шаги подключения, WhatsApp, готовность команды.</p>
+              <div class="title">
+                Подключение магазина <span class="tag new">новый экран</span>
+              </div>
+              <p class="desc">
+                Шаги подключения, WhatsApp, готовность команды.
+              </p>
               <div class="links">
                 <a href="screens/onboarding-1-setup.html">Открыть вёрстку</a>
                 <a href="../design-onboarding/png/1-setup.png">Скриншот</a>
@@ -340,10 +501,18 @@
             </div>
           </article>
           <article class="card">
-            <img src="../design-onboarding/png/2-channels.png" alt="Настройки, Каналы" loading="lazy" />
+            <img
+              src="../design-onboarding/png/2-channels.png"
+              alt="Настройки, Каналы"
+              loading="lazy"
+            />
             <div class="body">
-              <div class="title">Настройки → Каналы <span class="tag new">новый экран</span></div>
-              <p class="desc">WhatsApp, Instagram, основной номер, уведомления о чатах.</p>
+              <div class="title">
+                Настройки → Каналы <span class="tag new">новый экран</span>
+              </div>
+              <p class="desc">
+                WhatsApp, Instagram, основной номер, уведомления о чатах.
+              </p>
               <div class="links">
                 <a href="screens/onboarding-2-channels.html">Открыть вёрстку</a>
                 <a href="../design-onboarding/png/2-channels.png">Скриншот</a>
@@ -352,10 +521,18 @@
             </div>
           </article>
           <article class="card">
-            <img src="../design-onboarding/png/3-points.png" alt="Настройки, Точки" loading="lazy" />
+            <img
+              src="../design-onboarding/png/3-points.png"
+              alt="Настройки, Точки"
+              loading="lazy"
+            />
             <div class="body">
-              <div class="title">Настройки → Точки <span class="tag new">новый экран</span></div>
-              <p class="desc">Точки, окна и зоны доставки, QR для оплаты, команда точки.</p>
+              <div class="title">
+                Настройки → Точки <span class="tag new">новый экран</span>
+              </div>
+              <p class="desc">
+                Точки, окна и зоны доставки, QR для оплаты, команда точки.
+              </p>
               <div class="links">
                 <a href="screens/onboarding-3-points.html">Открыть вёрстку</a>
                 <a href="../design-onboarding/png/3-points.png">Скриншот</a>
@@ -364,13 +541,25 @@
             </div>
           </article>
           <article class="card">
-            <img src="../design-onboarding/png/4-first-login.png" alt="Первый вход сотрудника" loading="lazy" />
+            <img
+              src="../design-onboarding/png/4-first-login.png"
+              alt="Первый вход сотрудника"
+              loading="lazy"
+            />
             <div class="body">
-              <div class="title">Первый вход сотрудника <span class="tag new">новый экран</span></div>
-              <p class="desc">Установка на телефон, уведомления, «Ваше утро» по роли.</p>
+              <div class="title">
+                Первый вход сотрудника <span class="tag new">новый экран</span>
+              </div>
+              <p class="desc">
+                Установка на телефон, уведомления, «Ваше утро» по роли.
+              </p>
               <div class="links">
-                <a href="screens/onboarding-4-first-login.html">Открыть вёрстку</a>
-                <a href="../design-onboarding/png/4-first-login.png">Скриншот</a>
+                <a href="screens/onboarding-4-first-login.html"
+                  >Открыть вёрстку</a
+                >
+                <a href="../design-onboarding/png/4-first-login.png"
+                  >Скриншот</a
+                >
                 <a href="../docs/spec/08-onboarding.md">ТЗ: FR-ON-030</a>
               </div>
             </div>

@@ -6,7 +6,7 @@ const path = require("node:path");
 const fs = require("node:fs");
 const { pathToFileURL } = require("node:url");
 
-const pages = ["1-chats", "2-clients", "3-client-card", "4-mobile"];
+const pages = ["1-chats", "2-clients", "3-client-card", "4-mobile", "5-chats-monday"];
 
 (async () => {
   const out = path.resolve(process.env.MOCKUP_OUTPUT_DIR || path.join(__dirname, "png"));
@@ -25,7 +25,7 @@ const pages = ["1-chats", "2-clients", "3-client-card", "4-mobile"];
       });
       await page.evaluate(() => document.fonts.ready);
       if (pageErrors.length) throw pageErrors[0];
-      await page.screenshot({ path: path.join(out, name + ".png") });
+      await page.screenshot({ path: path.join(out, name + ".png"), fullPage: true });
       console.log("shot", name);
     }
   } finally {

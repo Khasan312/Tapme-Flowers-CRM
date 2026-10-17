@@ -24,12 +24,14 @@ design-kit/
 │   ├── components.css  общие блоки экранов: список дня, очередь, редактор, пузыри WhatsApp
 │   ├── crm.css         чаты, список клиентов, карточка клиента, черновик заказа
 │   └── onboarding.css  чек-лист подключения, каналы, точки, первый вход
-├── screens/            13 экранов, каждый подключает только нужные CSS
+├── screens/            15 экранов, каждый подключает только нужные CSS
 └── build_kit.py        сборка набора из генераторов
 ```
 
 | Экран | Файл | Скриншот | Требования |
 | --- | --- | --- | --- |
+| Чаты — версия к понедельнику | `screens/crm-5-chats-monday.html` | `design-crm/png/5-chats-monday.png` | 12-chats-monday: CM-UI |
+| Настройки → Каналы, ручное подключение | `screens/onboarding-5-channel-manual.html` | `design-onboarding/png/5-channel-manual.png` | 12-chats-monday: CM-CH |
 | Чаты | `screens/crm-1-chats.html` | `design-crm/png/1-chats.png` | FR-CR-003…009, FR-OD-020 |
 | Клиенты | `screens/crm-2-clients.html` | `design-crm/png/2-clients.png` | FR-CR-010…012, FR-CR-040 |
 | Карточка клиента | `screens/crm-3-client-card.html` | `design-crm/png/3-client-card.png` | FR-CR-045…050 |
