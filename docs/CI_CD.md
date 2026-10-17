@@ -1,11 +1,12 @@
 # Автоматическое обновление Tapme
 
 Workflow `.github/workflows/production.yml` проверяет PR и push в `develop` и
-`main`. Сервер обновляется после публикации GitHub Release с тегом
+`main`. Сервер обновляется после отправки нового тега в GitHub:
 `release-ГГГГ-ММ-ДД` или `hotfix-release-ГГГГ-ММ-ДД[.N]`. Workflow проверяет тег
 и историю, запускает тесты, собирает API и frontend в GitHub-hosted runner,
 публикует образы с тегом полного SHA в приватный GitHub Container Registry
 и передаёт деплой серверному агенту. Обычный merge и **Run workflow** прод не меняют.
+Создание GitHub Release необязательно; для существующего тега оно не повторяет деплой.
 
 Порядок работы с `develop`, `main`, тегами и hotfix: [RELEASES.md](RELEASES.md).
 
@@ -24,7 +25,8 @@ Workflow `.github/workflows/production.yml` проверяет PR и push в `de
 
 Пользователь с доступом к Docker и workflow, запущенный на таком агенте, имеют
 широкие права на сервер. PR проверяются на GitHub-hosted runner; серверный job
-доступен только workflow на `main`. Изменения workflow требуют такого же
+доступен только workflow по новому релизному тегу на коммите из `main`.
+Изменения workflow требуют такого же
 контроля, как изменения серверных настроек.
 
 Настройки окружения соответствуют `.env.production.example`. Обязательны
@@ -43,11 +45,17 @@ test -r /srv/tapme/.env.production
 touch /srv/tapme/.deploy-enabled
 ```
 
-Затем GitHub → **Releases → Draft a new release**: создать тег на `main`,
-например `release-2026-10-18`, и нажать **Publish release**. При отсутствии
+Затем на компьютере с Git создать и отправить тег на `main`:
+
+```bash
+git fetch origin main
+git tag -a release-2026-10-18 origin/main -m "Release 2026-10-18"
+git push origin refs/tags/release-2026-10-18
+```
+
+Отправка тега запускает workflow. При отсутствии
 `.deploy-enabled` серверный job завершается ошибкой и не меняет рабочие
-контейнеры. Само создание файла не запускает workflow. Черновик и pre-release
-не обновляют прод.
+контейнеры. Само создание файла не запускает workflow.
 
 На первом запуске скрипт создаёт постоянную БД, применяет миграции, собирает
 статику и создаёт магазин `Tapme Flowers` с логином `owner`. Пароль находится

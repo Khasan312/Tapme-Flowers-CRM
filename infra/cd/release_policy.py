@@ -1,4 +1,4 @@
-"""Validate a published production release before publishing images or deploying."""
+"""Validate a new production tag before publishing images or deploying."""
 
 import argparse
 import json
@@ -40,12 +40,15 @@ def is_ancestor(ancestor: str, descendant: str) -> bool:
 def validate_release(
     event: dict, expected_sha: str, state_file: Path | None = None
 ) -> str:
-    release = event.get("release", {})
-    if event.get("action") != "published" or release.get("draft", True):
-        raise ValueError("Only a published GitHub Release can deploy to production.")
-    if release.get("prerelease", True):
-        raise ValueError("Pre-releases do not deploy to production.")
-    tag = release.get("tag_name", "")
+    ref = event.get("ref", "")
+    if (
+        not ref.startswith("refs/tags/")
+        or not event.get("created", False)
+        or event.get("deleted", False)
+        or event.get("forced", False)
+    ):
+        raise ValueError("Production deployment requires a new tag push.")
+    tag = ref.removeprefix("refs/tags/")
     release_kind(tag)
     if not SHA.fullmatch(expected_sha):
         raise ValueError("Expected a full commit SHA.")
@@ -75,8 +78,8 @@ def main() -> None:
     parser.add_argument("--state-file", type=Path)
     args = parser.parse_args()
     try:
-        if os.environ.get("GITHUB_EVENT_NAME") != "release":
-            raise ValueError("Production deployment requires a GitHub Release event.")
+        if os.environ.get("GITHUB_EVENT_NAME") != "push":
+            raise ValueError("Production deployment requires a new tag push.")
         event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
         tag = validate_release(event, os.environ["GITHUB_SHA"], args.state_file)
     except (KeyError, OSError, ValueError, subprocess.CalledProcessError) as exc:
