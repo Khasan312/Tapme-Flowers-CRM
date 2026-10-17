@@ -24,7 +24,9 @@
 | [10-roadmap.md](10-roadmap.md) | Фазы, задачи с зависимостями, критерии выхода, план пилота | `T-`, `S-` |
 | [11-open-questions-and-risks.md](11-open-questions-and-risks.md) | Открытые вопросы с ответственными, риски и меры | `Q-`, `R-` |
 
-Макеты (HTML + PNG, генераторы в Python):
+Макеты (HTML + PNG, генераторы в Python). Для переноса дизайна в код используйте
+читаемую вёрстку с общими CSS: [`design-kit/index.html`](../../design-kit/index.html)
+(оглавление всех экранов) и [`design-kit/README.md`](../../design-kit/README.md).
 
 | Макет | Где |
 | --- | --- |
