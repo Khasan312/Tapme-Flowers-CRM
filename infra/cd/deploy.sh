@@ -98,6 +98,10 @@ echo "Preparing $color release $sha"
 core config --quiet
 app "$color" "$sha" config --quiet
 core up -d --wait --wait-timeout 180 postgres redis
+# Only the gateway uses tapme-edge in the core project. Create its container
+# without starting or replacing it so Compose provisions that shared network
+# before migration containers try to join it on the first deployment.
+core create --no-recreate gateway
 # Retire only the inactive slot. No command removes persistent volumes.
 app "$color" "$sha" --profile jobs down --remove-orphans
 app "$color" "$sha" pull api web
