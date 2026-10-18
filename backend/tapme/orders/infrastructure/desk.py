@@ -41,6 +41,7 @@ class DjangoOrderDesk:
             "pickup": Q(fulfillment="pickup", delivery_date__gte=today),
             "unpaid": Q(balance__lt=F("total")) & ~Q(status__in=["done", "cancelled"]),
             "cancelled": Q(status="cancelled"),
+            "pending": Q(status="pending"),
             "all": Q(),
         }
         counts = {key: all_orders.filter(condition).count() for key, condition in filters.items()}
@@ -63,7 +64,7 @@ class DjangoOrderDesk:
                 query = query.filter(fulfillment="pickup")
             else:
                 query = query.filter(status=status)
-        late = ~Q(status__in=["done", "cancelled"]) & (
+        late = ~Q(status__in=["pending", "done", "cancelled"]) & (
             Q(delivery_date__lt=today)
             | Q(delivery_date=today, window_end__lt=local.time().replace(tzinfo=None))
         )
@@ -74,7 +75,9 @@ class DjangoOrderDesk:
             "build": query.filter(status__in=["new", "work"]).count(),
             "late": query.filter(late).count(),
             "total": str(
-                query.exclude(status="cancelled").aggregate(value=Sum("total"))["value"]
+                query.exclude(status__in=["pending", "cancelled"]).aggregate(value=Sum("total"))[
+                    "value"
+                ]
                 or Decimal("0.00")
             ),
         }
@@ -89,12 +92,17 @@ class DjangoOrderDesk:
             )
             .order_by("delivery_date", "window_start")[:40]
         ):
-            reason = order.delivery_issue or (
-                "Назначить флориста"
-                if not order.florist_id
-                else "Назначить курьера"
-                if order.fulfillment == "courier" and not order.courier_id
-                else "Проверить оплату"
+            reason = (
+                "Подтвердить заказ"
+                if order.status == "pending"
+                else order.delivery_issue
+                or (
+                    "Назначить флориста"
+                    if not order.florist_id
+                    else "Назначить курьера"
+                    if order.fulfillment == "courier" and not order.courier_id
+                    else "Проверить оплату"
+                )
             )
             tasks.append(
                 dict(
@@ -120,7 +128,10 @@ class DjangoOrderDesk:
             )
         calendar = list(
             query.values("delivery_date")
-            .annotate(count=Count("id"), total=Sum("total"))
+            .annotate(
+                count=Count("id"),
+                total=Sum("total", filter=~Q(status__in=["pending", "cancelled"])),
+            )
             .order_by("delivery_date")
         )
         return dict(

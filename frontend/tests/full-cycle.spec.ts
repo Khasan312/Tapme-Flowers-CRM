@@ -215,7 +215,9 @@ test("команда, редактирование, флорист, достав
   await expect(page.getByRole("status")).toContainText("Карточка сохранена");
   await page.getByRole("button", { name: "Закрыть", exact: true }).click();
   await page.getByRole("button", { name: "Напоминания", exact: true }).click();
-  await page.getByRole("button", { name: "Правила", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Настройки напоминаний", exact: true })
+    .click();
   await expect(page.getByLabel("Напоминания включены")).toBeChecked();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Доставка", exact: true }).click();

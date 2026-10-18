@@ -3,13 +3,14 @@ import type { SettingsTab } from "./settings";
 import type { Business } from "./types";
 
 export type View =
-  "orders" | "customers" | "reminders" | "deliveries" | "settings";
+  "orders" | "chats" | "customers" | "reminders" | "deliveries" | "settings";
 export type WorkspaceRoute = {
   view: View;
   settingsTab: SettingsTab;
   businessId: string;
   customerId: string | null;
   orderId: string | null;
+  chatId: string | null;
 };
 export const homeRoute: WorkspaceRoute = {
   view: "orders",
@@ -17,9 +18,11 @@ export const homeRoute: WorkspaceRoute = {
   businessId: "",
   customerId: null,
   orderId: null,
+  chatId: null,
 };
 const views: View[] = [
   "orders",
+  "chats",
   "customers",
   "reminders",
   "deliveries",
@@ -27,8 +30,10 @@ const views: View[] = [
 ];
 const settingsTabs: SettingsTab[] = [
   "staff",
+  "channels",
   "windows",
   "templates",
+  "reminders",
   "prices",
   "shop",
 ];
@@ -49,6 +54,7 @@ export function readRoute(): WorkspaceRoute {
     businessId: uuid(params.get("business")) || "",
     customerId: view === "customers" ? uuid(params.get("customer")) : null,
     orderId: uuid(params.get("order")),
+    chatId: view === "chats" ? uuid(params.get("chat")) : null,
   };
 }
 
@@ -59,7 +65,8 @@ export function routeUrl(route: WorkspaceRoute) {
   if (route.view === "customers" && route.customerId)
     params.set("customer", route.customerId);
   if (route.orderId) params.set("order", route.orderId);
-  return `/?${params}`;
+  if (route.view === "chats" && route.chatId) params.set("chat", route.chatId);
+  return `${import.meta.env.BASE_URL}?${params}`;
 }
 
 export function accessibleRoute(
@@ -77,6 +84,7 @@ export function accessibleRoute(
     settingsTab: office ? route.settingsTab : ("staff" as const),
     customerId: office && !unavailable ? route.customerId : null,
     orderId: office && !unavailable ? route.orderId : null,
+    chatId: office && !unavailable ? route.chatId : null,
   };
   return Object.keys(next).every(
     (key) =>
@@ -92,7 +100,7 @@ export function useWorkspaceRoute() {
     (next: WorkspaceRoute, mode: "push" | "replace" = "push") => {
       const url = routeUrl(next);
       if (url !== location.pathname + location.search + location.hash) {
-        // Keep routing in the query string: refresh works with the existing root page hosting.
+        // Keep sections in the query string under the configured application base.
         if (mode === "replace") history.replaceState(null, "", url);
         else history.pushState(null, "", url);
       }

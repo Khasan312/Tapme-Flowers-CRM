@@ -8,12 +8,13 @@ import {
   Truck,
   ArrowUpRight,
   Bell,
+  MessageCircle,
   Settings as SettingsIcon,
 } from "lucide-react";
 import { ApiError, businessPath, errorText, request } from "./api";
 import { Notice } from "./components";
 import { CustomerForm, OrderForm } from "./forms";
-import type { Business, Customer, Order, User } from "./types";
+import type { Business, Customer, Order, User, Reminder } from "./types";
 
 import { OrderPanel, TaskBoard } from "./orders";
 import { Settings, type SettingsTab } from "./settings";
@@ -23,6 +24,9 @@ import { useRemote } from "./hooks";
 import type { ShopSettings } from "./types";
 import { CustomerTransfer } from "./customers";
 import { Reminders } from "./reminders";
+import { Chats } from "./chats";
+import { useChatNotifications, ChatNotificationControls } from "./chat-extras";
+import { clearChatDrafts } from "./chat-drafts";
 import { PublicOrderPage } from "./public";
 import { PasswordPanel } from "./account";
 import { CustomerDirectory } from "./customer-directory";
@@ -39,6 +43,7 @@ import {
 
 const labels = {
   orders: "Заказы",
+  chats: "Чаты",
   customers: "Клиенты",
   reminders: "Напоминания",
   deliveries: "Доставка",
@@ -46,6 +51,7 @@ const labels = {
 };
 const icons = {
   orders: ClipboardList,
+  chats: MessageCircle,
   customers: Users,
   reminders: Bell,
   deliveries: Truck,
@@ -62,6 +68,10 @@ function Workspace() {
   const [newOrderCustomer, setNewOrderCustomer] = useState<Customer | null>(
     null,
   );
+  const [newOrderReminder, setNewOrderReminder] = useState<Pick<
+    Reminder,
+    "person" | "event"
+  > | null>(null);
   const [user, setUser] = useState<User | null>(null),
     [businesses, setBusinesses] = useState<Business[]>([]);
   const [starting, setStarting] = useState(true),
@@ -76,6 +86,7 @@ function Workspace() {
     businessId,
     customerId: customerDetail,
     orderId,
+    chatId,
   } = route;
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
@@ -96,6 +107,7 @@ function Workspace() {
     setPasswordOpen(false);
     setMenuOpen(false);
     setNewOrderCustomer(null);
+    setNewOrderReminder(null);
     setError("");
     setNotice("");
   }, [requestedRoute]);
@@ -104,6 +116,7 @@ function Workspace() {
     settingsRevision,
   );
   const overview = useRemote<{
+    pending: number;
     in_progress: number;
     deliveries: number;
     reminders: number;
@@ -114,8 +127,16 @@ function Workspace() {
       : null,
     revision,
   );
+  const chatNotifications = useChatNotifications(
+    office ? businessId : null,
+    user?.id || "",
+    view === "chats" ? chatId : null,
+  );
   const navCounts: Record<string, number | undefined> = {
-    orders: overview.data?.in_progress,
+    chats: chatNotifications.waiting,
+    orders: overview.data
+      ? overview.data.in_progress + overview.data.pending
+      : undefined,
     deliveries: overview.data?.deliveries,
     reminders: overview.data?.reminders,
   };
@@ -130,6 +151,7 @@ function Workspace() {
       ) {
         e.preventDefault();
         setNewOrderCustomer(null);
+        setNewOrderReminder(null);
         setForm("orders");
       }
     }
@@ -189,6 +211,7 @@ function Workspace() {
   async function signOut() {
     try {
       await request("/auth/logout/", { method: "POST" });
+      clearChatDrafts();
       setUser(null);
       setBusinesses([]);
       go(homeRoute, "replace");
@@ -200,11 +223,17 @@ function Workspace() {
       setImportOpen(false);
       setMenuOpen(false);
       setNewOrderCustomer(null);
+      setNewOrderReminder(null);
     } catch (e) {
       setError(errorText(e));
     }
   }
-  function navigate(next: View, tab = settingsTab) {
+  function navigate(
+    next: View,
+    tab: SettingsTab = next === "settings" && settingsTab === "reminders"
+      ? "staff"
+      : settingsTab,
+  ) {
     setMenuOpen(false);
     const destination = {
       ...route,
@@ -212,6 +241,7 @@ function Workspace() {
       settingsTab: tab,
       customerId: null,
       orderId: null,
+      chatId: null,
     };
     if (routeUrl(destination) === routeUrl(route)) {
       setRevision((r) => r + 1);
@@ -221,6 +251,27 @@ function Workspace() {
   }
   function openCustomer(id: string) {
     go({ ...route, view: "customers", customerId: id, orderId: null });
+  }
+  async function openChat(customerId: string) {
+    if (!business) return;
+    try {
+      const chat = await request<{ id: string }>(
+        businessPath(business.id, "chats"),
+        {
+          method: "POST",
+          body: JSON.stringify({ customer_id: customerId }),
+        },
+      );
+      go({
+        ...route,
+        view: "chats",
+        chatId: chat.id,
+        customerId: null,
+        orderId: null,
+      });
+    } catch (e) {
+      setError(errorText(e));
+    }
   }
   function openOrder(order: Order) {
     go({ ...route, orderId: order.id });
@@ -319,10 +370,12 @@ function Workspace() {
             <span className="brand-sub">Кабинет магазина</span>
           </span>
         </button>
+
         <nav className="nav">
           {(office
             ? ([
                 "orders",
+                "chats",
                 "customers",
                 "reminders",
                 "deliveries",
@@ -381,6 +434,7 @@ function Workspace() {
                         businessId: e.target.value,
                         customerId: null,
                         orderId: null,
+                        chatId: null,
                       },
                       businesses,
                     ),
@@ -420,6 +474,20 @@ function Workspace() {
               openOrder={openOrder}
             />
           )}
+          {office && (
+            <ChatNotificationControls
+              state={chatNotifications}
+              open={(id) =>
+                go({
+                  ...route,
+                  view: "chats",
+                  chatId: id,
+                  customerId: null,
+                  orderId: null,
+                })
+              }
+            />
+          )}
           <span className="spacer" />
           {office && (
             <button
@@ -428,6 +496,7 @@ function Workspace() {
               title="Новый заказ · N"
               onClick={() => {
                 setNewOrderCustomer(null);
+                setNewOrderReminder(null);
                 setForm("orders");
               }}
             >
@@ -491,7 +560,7 @@ function Workspace() {
           </div>
         </header>
         <div className="page-content">
-          {view === "settings" && (
+          {view === "settings" && settingsTab !== "reminders" && (
             <div className="page-hd">
               <h1>Настройки</h1>
             </div>
@@ -515,8 +584,10 @@ function Workspace() {
                 openOrder={openOrder}
                 newOrder={(c) => {
                   setNewOrderCustomer(c);
+                  setNewOrderReminder(null);
                   setForm("orders");
                 }}
+                openChat={() => void openChat(customerDetail)}
               />
             ) : (
               <CustomerDirectory
@@ -527,6 +598,22 @@ function Workspace() {
                 importClients={() => setImportOpen(true)}
               />
             )
+          ) : office && view === "chats" ? (
+            <Chats
+              userId={user.id}
+              key={business.id}
+              business={business}
+              chatId={chatId}
+              select={(id) => go({ ...route, chatId: id })}
+              settings={() => navigate("settings", "channels")}
+              openCustomer={openCustomer}
+              openOrder={(id) => go({ ...route, orderId: id })}
+              newOrder={(c) => {
+                setNewOrderCustomer(c);
+                setNewOrderReminder(null);
+                setForm("orders");
+              }}
+            />
           ) : office && view === "orders" ? (
             <OrderDesk
               key={business.id}
@@ -554,6 +641,7 @@ function Workspace() {
               tab={settingsTab}
               setTab={(tab: SettingsTab) => navigate("settings", tab)}
               importClients={() => setImportOpen(true)}
+              openReminders={() => navigate("reminders")}
               changed={() => {
                 setRevision((r) => r + 1);
                 setSettingsRevision((r) => r + 1);
@@ -566,10 +654,21 @@ function Workspace() {
             <Reminders
               key={business.id}
               business={business}
-              templates={() => {
-                navigate("settings", "templates");
+              settings={() => navigate("settings", "reminders")}
+              openOrder={(id) => go({ ...route, orderId: id })}
+              createOrder={(row) => {
+                void request<Customer>(
+                  businessPath(business.id, `customers/${row.customer_id}`),
+                )
+                  .then((customer) => {
+                    setNewOrderCustomer(customer);
+                    setNewOrderReminder(row);
+                    setForm("orders");
+                  })
+                  .catch((e) => setError(errorText(e)));
               }}
               openCustomer={openCustomer}
+              openChat={(id) => void openChat(id)}
             />
           ) : null}
         </div>
@@ -590,6 +689,10 @@ function Workspace() {
         <OrderForm
           business={business}
           initialCustomer={newOrderCustomer || undefined}
+          initialSource={
+            view === "chats" && newOrderCustomer ? "WhatsApp" : undefined
+          }
+          initialReminder={newOrderReminder || undefined}
           close={() => setForm(null)}
           saved={saved}
         />

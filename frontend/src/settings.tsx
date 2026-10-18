@@ -1,3 +1,5 @@
+import { ReminderSettings } from "./reminder-settings";
+import { Channels } from "./channels";
 import { newUuid } from "./uuid";
 import { messageTemplates } from "./message-templates";
 import { DeliveryWindowHelp } from "./delivery-window-help";
@@ -19,11 +21,20 @@ import type {
   ReminderRules,
 } from "./types";
 
-export type SettingsTab = "staff" | "windows" | "templates" | "prices" | "shop";
+export type SettingsTab =
+  | "staff"
+  | "windows"
+  | "templates"
+  | "prices"
+  | "shop"
+  | "reminders"
+  | "channels";
 const tabs: Record<SettingsTab, string> = {
   staff: "Сотрудники",
+  channels: "Каналы",
   windows: "Окна доставки",
   templates: "Шаблоны",
+  reminders: "Напоминания",
   prices: "Прайс",
   shop: "Магазин",
 };
@@ -33,12 +44,14 @@ export function Settings({
   tab,
   setTab,
   importClients,
+  openReminders,
 }: {
   business: Business;
   changed: () => void;
   tab: SettingsTab;
   setTab: (tab: SettingsTab) => void;
   importClients: () => void;
+  openReminders: () => void;
 }) {
   const [revision, setRevision] = useState(0),
     [error, setError] = useState(""),
@@ -92,6 +105,15 @@ export function Settings({
     e.preventDefault();
     if (draft) void write(businessPath(business.id, "settings"), "PUT", draft);
   }
+  if (tab === "reminders")
+    return (
+      <ReminderSettings
+        business={business}
+        back={openReminders}
+        settings={() => setTab("staff")}
+        templates={() => setTab("templates")}
+      />
+    );
   return (
     <>
       <div className="tabs" role="tablist" aria-label="Разделы настроек">
@@ -129,6 +151,7 @@ export function Settings({
           {notice}
         </p>
       )}
+      {tab === "channels" && <Channels business={business} />}
       {tab === "staff" && (
         <section className="card">
           <div className="card-hd">

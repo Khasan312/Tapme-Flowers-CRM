@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     "tapme.media",
     "tapme.feedback",
     "tapme.reminders",
+    "tapme.messaging",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -134,8 +135,16 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_TIMEZONE = "UTC"
 CELERY_BEAT_SCHEDULE = {
-    "refresh-reminders": {"task": "tapme.reminders.tasks.generate_reminders", "schedule": 900.0}
+    "refresh-reminders": {"task": "tapme.reminders.tasks.generate_reminders", "schedule": 900.0},
+    "process-messages": {"task": "tapme.messaging.tasks.process_messages", "schedule": 10.0},
+    "maintain-order-drafts": {"task": "tapme.orders.tasks.maintain_order_drafts", "schedule": 60.0},
 }
+
+META_APP_SECRET = os.getenv("META_APP_SECRET", "")
+META_WEBHOOK_VERIFY_TOKEN = os.getenv("META_WEBHOOK_VERIFY_TOKEN", "")
+META_GRAPH_VERSION = os.getenv("META_GRAPH_VERSION", "")
+TAPME_SECRETS_KEY = os.getenv("TAPME_SECRETS_KEY", "")
+TAPME_META_MODE = os.getenv("TAPME_META_MODE", "live")
 
 STATIC_ROOT = (
     Path("/data/static") if os.getenv("TAPME_MEDIA_ROOT") else BASE_DIR.parent / "staticfiles"

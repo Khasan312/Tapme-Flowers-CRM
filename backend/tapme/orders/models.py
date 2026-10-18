@@ -21,6 +21,11 @@ class OrderCounter(models.Model):
 
 
 class OrderRecord(models.Model):
+    prepayment_percent = models.PositiveSmallIntegerField(default=0, db_default=0)
+    prepayment_required = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0, db_default=0
+    )
+    payment_due_at = models.DateTimeField(null=True, blank=True)
     occasion = models.CharField(max_length=100, blank=True)
     source = models.CharField(max_length=80, blank=True)
     relation = models.CharField(max_length=80, blank=True)
@@ -115,3 +120,27 @@ class OrderEvent(models.Model):
     kind = models.CharField(max_length=40)
     created_at = models.DateTimeField()
     detail = models.TextField(blank=True)
+
+
+class OrderDraft(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    business = models.ForeignKey("businesses.Business", on_delete=models.PROTECT)
+    conversation = models.ForeignKey("messaging.Conversation", on_delete=models.CASCADE)
+    customer = models.ForeignKey("customers.CustomerRecord", on_delete=models.PROTECT)
+    status = models.CharField(max_length=20, default="active")
+    fields = models.JSONField(default=dict)
+    field_meta = models.JSONField(default=dict)
+    order = models.OneToOneField(OrderRecord, null=True, blank=True, on_delete=models.SET_NULL)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["conversation"],
+                condition=models.Q(status="active"),
+                name="one_active_order_draft",
+            ),
+        ]
+        indexes = [models.Index(fields=["business", "status", "updated_at"])]

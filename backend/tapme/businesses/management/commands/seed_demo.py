@@ -27,7 +27,7 @@ from tapme.orders.domain import Fulfillment
 from tapme.orders.models import OfficeTask, OrderRecord
 from tapme.reminders.domain import candidates_for_customer
 from tapme.reminders.models import ReminderRecord
-from tapme.shared.domain import BusinessError
+from tapme.shared.domain import BusinessError, InvalidInput
 
 LABEL = "[ДЕМО]"
 NAMES = (
@@ -363,6 +363,12 @@ class DemoSeed:
                     self.created["reminders"] += 1
                     action = index % 11
                     if action in {6, 7, 8}:
+                        try:
+                            self.reminders.prepare(self.scope, row.id, self.now)
+                        except InvalidInput:
+                            # Demo messages obey the same quiet hours and frequency as real ones.
+                            index += 1
+                            continue
                         self.reminders.act(self.scope, row.id, "sent", self.now)
                         if action >= 7:
                             self.reminders.act(self.scope, row.id, "answered", self.now)

@@ -21,7 +21,10 @@ class DjangoActivityReader:
         return dict(
             order_count=orders.count(),
             total=str(
-                orders.exclude(status="cancelled").aggregate(value=Sum("total"))["value"] or 0
+                orders.exclude(status__in=["pending", "cancelled"]).aggregate(value=Sum("total"))[
+                    "value"
+                ]
+                or 0
             ),
             last_order=orders.aggregate(value=Max("delivery_date"))["value"],
             orders=list(

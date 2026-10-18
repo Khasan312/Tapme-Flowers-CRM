@@ -17,7 +17,7 @@ class DjangoDirectoryReader:
         today = now.astimezone(ZoneInfo(Business.objects.get(id=business_id).timezone)).date()
         orders = (
             OrderRecord.objects.filter(business_id=business_id, customer_id=OuterRef("id"))
-            .exclude(status="cancelled")
+            .exclude(status__in=["pending", "cancelled"])
             .values("customer_id")
             .annotate(count=Count("id"), total=Sum("total"), last=Max("delivery_date"))
         )
@@ -34,7 +34,9 @@ class DjangoDirectoryReader:
                 last_order=Subquery(orders.values("last")),
             )
         )
-        if group == "vip":
+        if group == "whatsapp":
+            query = query.filter(origin="whatsapp")
+        elif group == "vip":
             query = query.filter(tags__contains=["VIP"])
         elif group == "corp":
             query = query.filter(tags__contains=["Корпоративный"])
@@ -58,6 +60,7 @@ class DjangoDirectoryReader:
                     phone=c.phone,
                     additional_phones=c.additional_phones,
                     source=c.source,
+                    origin=c.origin,
                     tags=c.tags,
                     consent=c.consent,
                     recipients=[dict(name=r.name, relation=r.relation) for r in c.recipients.all()],

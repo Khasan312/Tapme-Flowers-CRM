@@ -1,5 +1,6 @@
 import uuid
 
+from django.conf import settings
 from django.db import models, transaction
 
 
@@ -13,6 +14,8 @@ class CustomerCounter(models.Model):
 class CustomerRecord(models.Model):
     code = models.PositiveIntegerField(default=0, editable=False)
     source = models.CharField(max_length=80, blank=True)
+    origin = models.CharField(max_length=20, default="manual", db_default="manual")
+    responsible = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
     tags = models.JSONField(default=list)
 
     def save(self, *args, **kwargs):
