@@ -70,7 +70,8 @@ services:
     image: ${TAPME_IMAGE_PREFIX}-web:${IMAGE_TAG}
     profiles: [init]
     entrypoint: [/bin/sh, -c]
-    command: ["cp -an /srv/frontend/assets/. /srv/shared-assets/"]
+    # BusyBox cp -n skips the existing target directory, including its contents.
+    command: ["cp -a /srv/frontend/assets/. /srv/shared-assets/"]
     volumes: [assets:/srv/shared-assets]
 networks:
   private:

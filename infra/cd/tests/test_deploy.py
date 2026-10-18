@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -54,6 +55,15 @@ if any(arg.endswith("/health/") for arg in sys.argv):
 '''
 
 
+PYTHON = f'''#!{sys.executable}
+import os, pathlib, sys
+if len(sys.argv) > 1 and sys.argv[1].endswith("check_web_routes.py"):
+    pathlib.Path(os.environ["FAKE_ROOT"], "web-checked").touch()
+    sys.exit(23 if os.environ.get("FAKE_FAIL") == "assets" else 0)
+os.execv({sys.executable!r}, [{sys.executable!r}, *sys.argv[1:]])
+'''
+
+
 class DeployTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -61,7 +71,7 @@ class DeployTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.bin = self.root / "bin"
         self.bin.mkdir()
-        for name, content in (("docker", DOCKER), ("curl", CURL)):
+        for name, content in (("docker", DOCKER), ("curl", CURL), ("python3", PYTHON)):
             path = self.bin / name
             path.write_text(content)
             path.chmod(0o755)
@@ -182,6 +192,12 @@ class DeployTests(unittest.TestCase):
     def test_failed_gateway_health_restores_previous_release(self):
         self.assertNotEqual(self.run_deploy("health").returncode, 0)
         self.assert_previous_release()
+
+    def test_missing_web_assets_restores_previous_release(self):
+        self.assertNotEqual(self.run_deploy("assets").returncode, 0)
+        self.assertTrue((self.root / "web-checked").exists())
+        self.assert_previous_release()
+        self.assertEqual(sum("reload" in a for a in self.calls()), 2)
 
     def test_first_deployment_selects_blue(self):
         (self.root / "state/current").unlink()
