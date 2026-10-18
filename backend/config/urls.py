@@ -14,8 +14,27 @@ from tapme.customers.profile_api import ActivityView, CustomerDetailView
 from tapme.customers.transfer_api import ExportView, ImportView
 from tapme.feedback.api import FeedbackView, ResolveView
 from tapme.media.api import PhotoFileView, PhotoListView
+from tapme.messaging.api import (
+    ChannelActionView,
+    ChannelView,
+    ChannelWebhookView,
+    ChatAttachmentView,
+    ChatDetailView,
+    ChatFileView,
+    ChatListView,
+    ChatMessagesView,
+    ChatPaymentView,
+    ChatReadView,
+    ChatRetryView,
+    ChatSummaryView,
+    PaymentSettingsView,
+    QuickReplyDetailView,
+    QuickReplyView,
+    whatsapp_webhook,
+)
 from tapme.orders.api import OrderDetailView, OrderListView
 from tapme.orders.desk_api import DeskView, NoteDoneView, NotesView
+from tapme.orders.draft_api import DraftConvertView, DraftRestoreView, DraftView, ExtendPaymentView
 from tapme.orders.overview_api import OverviewView
 from tapme.orders.public_api import PublicView, ShareView
 from tapme.orders.workflow_api import (
@@ -29,13 +48,70 @@ from tapme.orders.workflow_api import (
     TransitionView,
 )
 from tapme.reminders.api import (
+    ConfigurationView,
     ReminderActionView,
     ReminderListView,
     ReminderMessageView,
+    ReminderOpenView,
     RulesView,
 )
 
 urlpatterns = [
+    path(
+        "api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/order-draft/",
+        DraftView.as_view(),
+    ),
+    path(
+        "api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/order-draft/convert/",
+        DraftConvertView.as_view(),
+    ),
+    path(
+        "api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/order-draft/restore/",
+        DraftRestoreView.as_view(),
+    ),
+    path(
+        "api/v1/businesses/<uuid:business_id>/orders/<uuid:order_id>/extend-payment/",
+        ExtendPaymentView.as_view(),
+    ),
+    path(
+        "api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/attachments/",
+        ChatAttachmentView.as_view(),
+    ),
+    path(
+        "api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/messages/<int:message_id>/file/",
+        ChatFileView.as_view(),
+    ),
+    path("api/v1/webhooks/meta/whatsapp/", whatsapp_webhook),
+    path("api/v1/webhooks/meta/whatsapp/<str:webhook_key>/", ChannelWebhookView.as_view()),
+    path(
+        "api/v1/businesses/<uuid:business_id>/channels/whatsapp/<str:action>/",
+        ChannelActionView.as_view(),
+    ),
+    path(
+        "api/v1/businesses/<uuid:business_id>/channels/payment-qr/", PaymentSettingsView.as_view()
+    ),
+    path("api/v1/businesses/<uuid:business_id>/quick-replies/", QuickReplyView.as_view()),
+    path(
+        "api/v1/businesses/<uuid:business_id>/quick-replies/<uuid:reply_id>/",
+        QuickReplyDetailView.as_view(),
+    ),
+    path("api/v1/businesses/<uuid:business_id>/chats/summary/", ChatSummaryView.as_view()),
+    path(
+        "api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/payment-qr/",
+        ChatPaymentView.as_view(),
+    ),
+    path("api/v1/businesses/<uuid:business_id>/channels/whatsapp/", ChannelView.as_view()),
+    path("api/v1/businesses/<uuid:business_id>/chats/", ChatListView.as_view()),
+    path("api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/", ChatDetailView.as_view()),
+    path(
+        "api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/messages/",
+        ChatMessagesView.as_view(),
+    ),
+    path("api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/read/", ChatReadView.as_view()),
+    path(
+        "api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/messages/<int:message_id>/retry/",
+        ChatRetryView.as_view(),
+    ),
     path("api/v1/businesses/<uuid:business_id>/orders/desk/", DeskView.as_view()),
     path("api/v1/businesses/<uuid:business_id>/office-tasks/", NotesView.as_view()),
     path(
@@ -127,6 +203,11 @@ urlpatterns += [
 urlpatterns += [
     path("api/v1/businesses/<uuid:business_id>/reminders/", ReminderListView.as_view()),
     path("api/v1/businesses/<uuid:business_id>/reminder-rules/", RulesView.as_view()),
+    path("api/v1/businesses/<uuid:business_id>/reminder-scenarios/", ConfigurationView.as_view()),
+    path(
+        "api/v1/businesses/<uuid:business_id>/reminders/<uuid:reminder_id>/open/",
+        ReminderOpenView.as_view(),
+    ),
     path(
         "api/v1/businesses/<uuid:business_id>/reminders/<uuid:reminder_id>/message/",
         ReminderMessageView.as_view(),

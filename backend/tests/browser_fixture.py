@@ -22,6 +22,7 @@ from tapme.catalog.models import ProductRecord  # noqa: E402
 from tapme.customers.models import CustomerRecord  # noqa: E402
 from tapme.feedback.models import FeedbackRecord  # noqa: E402
 from tapme.media.models import PhotoRecord  # noqa: E402
+from tapme.messaging.models import ChannelAccount, Message  # noqa: E402
 from tapme.orders.models import OrderCounter, OrderRecord  # noqa: E402
 from tapme.payments.models import PaymentRecord  # noqa: E402
 from tapme.reminders.models import ReminderRecord, ReminderSettings  # noqa: E402
@@ -56,6 +57,9 @@ with transaction.atomic():
         if (
             PhotoRecord.objects.filter(business=business).exists()
             or ProductRecord.objects.filter(business=business).exists()
+            or Message.objects.filter(conversation__channel__business=business)
+            .exclude(media_key="")
+            .exists()
         ):
             # Uploads live in the API container's configured storage, not on the test host.
             subprocess.run(
@@ -96,6 +100,7 @@ while pending:
                 check=True,
             )
         PhotoRecord.objects.filter(business=business).delete()
+        ChannelAccount.objects.filter(business=business).delete()
         FeedbackRecord.objects.filter(business=business).delete()
         ReminderRecord.objects.filter(business=business).delete()
         ReminderSettings.objects.filter(business=business).delete()

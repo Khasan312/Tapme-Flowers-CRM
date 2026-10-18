@@ -12,6 +12,7 @@ type Entry = {
   phone: string;
   additional_phones?: string[];
   source: string;
+  origin: string;
   tags: string[];
   recipients: { name: string; relation: string }[];
   next_date: { label: string; days: number } | null;
@@ -98,6 +99,7 @@ export function CustomerDirectory({
             vip_corp: "VIP и корпоративные",
             new: "Новые",
             lapsed: "Давно не заказывали",
+            whatsapp: "Из WhatsApp",
           }).map(([key, label]) => (
             <button
               className={`pill${key === group ? " is-on" : ""}`}
@@ -154,6 +156,9 @@ export function CustomerDirectory({
                       <Avatar name={c.name} />
                       <span>
                         <span className="b ink">{c.name}</span>
+                        {c.origin === "whatsapp" && (
+                          <span className="tag ok">из чата</span>
+                        )}
                         <span className="small muted block">
                           {c.tags.map((t) => (
                             <span

@@ -37,6 +37,8 @@ services:
       POSTGRES_PORT: "5432"
       CELERY_BROKER_URL: redis://redis:6379/0
     command: ["celery", "-A", "config.celery:app", "worker", "--loglevel=INFO", "--concurrency=2"]
+    volumes:
+      - photos_data:/data/media
     depends_on:
       postgres:
         condition: service_healthy

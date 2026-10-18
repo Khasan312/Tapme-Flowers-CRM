@@ -12,7 +12,7 @@ from tapme.customers.api import CustomerQuery
 
 class DirectoryQuery(CustomerQuery):
     group = serializers.ChoiceField(
-        choices=["all", "vip", "corp", "vip_corp", "new", "lapsed"], default="all"
+        choices=["all", "vip", "corp", "vip_corp", "new", "lapsed", "whatsapp"], default="all"
     )
 
 

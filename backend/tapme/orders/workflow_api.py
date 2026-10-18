@@ -29,7 +29,7 @@ class AssignInput(VersionInput):
 
 
 class TransitionInput(VersionInput):
-    status = serializers.ChoiceField(choices=["work", "ready", "route", "done", "cancelled"])
+    status = serializers.ChoiceField(choices=["new", "work", "ready", "route", "done", "cancelled"])
     reason = serializers.CharField(max_length=1000, allow_blank=True, default="")
 
 

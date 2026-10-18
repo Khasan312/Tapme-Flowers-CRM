@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 from config import composition
 from config.api import ListQuery, StrictSerializer, validated
 from tapme.businesses.application.contracts import Scope
-from tapme.reminders.domain import ReminderRules
+from tapme.reminders.domain import ReminderConfiguration, ReminderRules, Scenario, ScenarioStep
 
 
 class CustomTemplateInput(StrictSerializer):
@@ -36,6 +36,7 @@ class RulesInput(StrictSerializer):
 
 
 class ReminderQuery(ListQuery):
+    scenario = serializers.UUIDField(required=False)
     kind = serializers.ChoiceField(choices=["all", "date", "inactive"], default="all")
     state = serializers.ChoiceField(
         choices=["wait", "sent", "skipped", "answered", "ordered"], default="wait"
@@ -56,16 +57,30 @@ class ReminderOutput(serializers.Serializer):
     message = serializers.CharField()
     preview = serializers.CharField()
     paused = serializers.BooleanField()
+    pause_reason = serializers.CharField()
+    scenario_id = serializers.UUIDField(allow_null=True)
+    scenario_name = serializers.CharField()
+    event_date = serializers.DateField(allow_null=True)
+    sent_at = serializers.DateTimeField(allow_null=True)
+    order_id = serializers.UUIDField(allow_null=True)
+    last_order = serializers.JSONField(allow_null=True)
+    last_year_hint = serializers.JSONField(allow_null=True)
 
 
 class ReminderPage(serializers.Serializer):
     count = serializers.IntegerField()
     results = ReminderOutput(many=True)
     stats = serializers.DictField(child=serializers.IntegerField())
+    summary = serializers.JSONField()
+    scenarios = serializers.JSONField()
+    rules = serializers.JSONField()
 
 
 class ActionInput(StrictSerializer):
-    action = serializers.ChoiceField(choices=["sent", "skipped", "tomorrow", "answered", "ordered"])
+    action = serializers.ChoiceField(
+        choices=["sent", "skipped", "tomorrow", "answered", "ordered", "undo", "opt_out"]
+    )
+    order_id = serializers.UUIDField(required=False)
 
 
 class MessageOutput(serializers.Serializer):
@@ -121,12 +136,98 @@ class ReminderListView(APIView):
         )
 
 
+class MessageEditInput(StrictSerializer):
+    message = serializers.CharField(max_length=2000)
+
+
 class ReminderMessageView(APIView):
     @extend_schema(responses=MessageOutput)
     def get(self, request, business_id, reminder_id):
         return Response(
             composition.reminders().prepare(
                 Scope(request.user.id, business_id), reminder_id, timezone.now()
+            )
+        )
+
+    @extend_schema(request=MessageEditInput, responses={204: None})
+    def patch(self, request, business_id, reminder_id):
+        data = validated(MessageEditInput, request.data)
+        composition.reminders().edit_message(
+            Scope(request.user.id, business_id), reminder_id, data["message"]
+        )
+        return Response(status=204)
+
+
+class ReminderOpenView(APIView):
+    @extend_schema(request=None, responses=MessageOutput)
+    def post(self, request, business_id, reminder_id):
+        return Response(
+            composition.reminders().open_message(
+                Scope(request.user.id, business_id), reminder_id, timezone.now()
+            )
+        )
+
+
+class StepInput(StrictSerializer):
+    id = serializers.UUIDField()
+    offset_days = serializers.IntegerField(min_value=0, max_value=730)
+    template = serializers.CharField(max_length=2000)
+    enabled = serializers.BooleanField(default=True)
+
+
+class ScenarioInput(StrictSerializer):
+    id = serializers.UUIDField()
+    name = serializers.CharField(max_length=100)
+    kind = serializers.ChoiceField(
+        choices=["before_event", "after_last_order", "after_delivery", "holiday"]
+    )
+    enabled = serializers.BooleanField()
+    event_labels = serializers.ListField(
+        child=serializers.CharField(max_length=100), max_length=30, default=list
+    )
+    holiday_month = serializers.IntegerField(min_value=1, max_value=12, default=3)
+    holiday_day = serializers.IntegerField(min_value=1, max_value=31, default=8)
+    audience = serializers.ChoiceField(
+        choices=["consented_all", "ordered_last_year"], default="consented_all"
+    )
+    daily_cap = serializers.IntegerField(min_value=1, max_value=500, default=40)
+    steps = StepInput(many=True, min_length=1, max_length=15)
+
+
+class ConfigurationInput(StrictSerializer):
+    version = serializers.IntegerField(min_value=1)
+    enabled = serializers.BooleanField()
+    start_hour = serializers.IntegerField(min_value=0, max_value=23)
+    end_hour = serializers.IntegerField(min_value=1, max_value=24)
+    min_days_between = serializers.IntegerField(min_value=0, max_value=365)
+    scenarios = ScenarioInput(many=True, min_length=1, max_length=30)
+
+
+class ConfigurationView(APIView):
+    @extend_schema(responses=ConfigurationInput)
+    def get(self, request, business_id):
+        return Response(
+            asdict(composition.reminders().configuration(Scope(request.user.id, business_id)))
+        )
+
+    @extend_schema(request=ConfigurationInput, responses=ConfigurationInput)
+    def put(self, request, business_id):
+        data = validated(ConfigurationInput, request.data)
+        data["scenarios"] = tuple(
+            Scenario(
+                **{
+                    **s,
+                    "event_labels": tuple(s["event_labels"]),
+                    "steps": tuple(ScenarioStep(**step) for step in s["steps"]),
+                }
+            )
+            for s in data["scenarios"]
+        )
+        return Response(
+            asdict(
+                composition.reminders().save_configuration(
+                    Scope(request.user.id, business_id), ReminderConfiguration(**data)
+                )
             )
         )
 

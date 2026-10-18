@@ -146,6 +146,13 @@ jobs:
             -v "$PWD/infra/cd/frontend.Caddyfile:/etc/caddy/Caddyfile:ro" \
             "ghcr.io/${GITHUB_REPOSITORY,,}-web:${GITHUB_SHA}" \
             caddy validate --config /etc/caddy/Caddyfile
+          docker run -d --name tapme-web-check -p 127.0.0.1:8088:80 \
+            -e PUBLIC_DOMAIN=tapme.example -e API_UPSTREAM=api:8000 \
+            -v "$PWD/infra/cd/frontend.Caddyfile:/etc/caddy/Caddyfile:ro" \
+            --entrypoint /bin/sh "ghcr.io/${GITHUB_REPOSITORY,,}-web:${GITHUB_SHA}" \
+            -c 'mkdir -p /srv/shared-assets; cp -a /srv/frontend/assets/. /srv/shared-assets/; exec caddy run --config /etc/caddy/Caddyfile'
+          trap 'docker rm -f tapme-web-check' EXIT
+          python3 infra/cd/check_web_routes.py http://127.0.0.1:8088
           mkdir -p "$RUNNER_TEMP/gateway"
           cp infra/cd/gateway.Caddyfile "$RUNNER_TEMP/gateway/Caddyfile"
           printf 'reverse_proxy candidate:80\n' > "$RUNNER_TEMP/gateway/active.caddy"

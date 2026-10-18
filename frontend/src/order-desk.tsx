@@ -33,6 +33,7 @@ const scopes: Record<string, string> = {
   upcoming: "Предстоящие",
   pickup: "Самовывоз",
   unpaid: "Не оплачены",
+  pending: "Ждут подтверждения",
   cancelled: "Отменённые",
   all: "Все",
 };
@@ -43,6 +44,8 @@ const modes: Record<string, string> = {
   calendar: "Календарь",
 };
 function timing(order: Order, business: Business, now: Date) {
+  if (order.status === "pending")
+    return { tone: "", text: "ждёт подтверждения" };
   if (order.status === "done") return { tone: "", text: "вручён" };
   if (order.status === "cancelled") return { tone: "", text: "отменён" };
   const today = shopDay(business.timezone);
@@ -495,16 +498,21 @@ export function OrderDesk({
             <div className="kanban">
               {(scope === "cancelled"
                 ? ["cancelled"]
-                : [
-                    "new",
-                    "work",
-                    "ready",
-                    "route",
-                    "done",
-                    ...(orders.some((o) => o.status === "cancelled")
-                      ? ["cancelled"]
-                      : []),
-                  ]
+                : scope === "pending"
+                  ? ["pending"]
+                  : [
+                      ...(orders.some((o) => o.status === "pending")
+                        ? ["pending"]
+                        : []),
+                      "new",
+                      "work",
+                      "ready",
+                      "route",
+                      "done",
+                      ...(orders.some((o) => o.status === "cancelled")
+                        ? ["cancelled"]
+                        : []),
+                    ]
               ).map((status) => (
                 <section className="kcol" key={status}>
                   <div className="kcol-hd">

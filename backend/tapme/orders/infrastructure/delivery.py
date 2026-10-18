@@ -6,6 +6,11 @@ from tapme.orders.models import OrderRecord
 
 
 class DjangoDeliverySlots:
+    def timezone(self, business_id):
+        return (
+            Shop.objects.select_related("business").get(business_id=business_id).business.timezone
+        )
+
     def lock(self, business_id, day, start, end, exclude_id=None):
         # Shared row lock serializes reservations for a store across create and edit.
         shop = Shop.objects.select_for_update().get(business_id=business_id)

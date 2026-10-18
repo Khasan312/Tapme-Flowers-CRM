@@ -3,10 +3,11 @@ import json
 from collections.abc import Callable
 from dataclasses import asdict, replace
 from datetime import date, datetime
-from decimal import Decimal
+from decimal import ROUND_CEILING, Decimal
 from types import TracebackType
 from typing import Protocol
 from uuid import UUID, uuid4
+from zoneinfo import ZoneInfo
 
 from tapme.businesses.application.contracts import (
     OFFICE_ROLES,
@@ -63,6 +64,8 @@ def ensure_order_access(access: MembershipReader, scope: Scope, order: Order) ->
     if role in OFFICE_ROLES:
         assert role is not None
         return role
+    if order.status == "pending":
+        raise Forbidden("Заказ ещё не подтверждён менеджером.")
     if role == Role.FLORIST and (
         order.florist_id == scope.user_id or (order.status == "new" and order.florist_id is None)
     ):
@@ -99,7 +102,7 @@ class WorkflowService:
         with self.uow() as work:
             order = work.orders.lock(scope.business_id, order_id)
             ensure_version(order, version)
-            if order.status not in {"new", "work"}:
+            if order.status not in {"pending", "new", "work"}:
                 raise InvalidInput("Редактирование доступно до готовности букета.")
             customer = self.customers.get(scope.business_id, command.customer_id)
             if (
@@ -146,6 +149,26 @@ class WorkflowService:
                 version=order.version + 1,
                 courier_id=order.courier_id if command.fulfillment == "courier" else None,
             )
+            if order.status == "pending":
+                from tapme.orders.application.draft_rules import receiving_at
+
+                if order.payment_due_at and order.payment_due_at >= receiving_at(
+                    command.delivery_date,
+                    command.window_start,
+                    ZoneInfo(work.delivery.timezone(scope.business_id)),
+                ):
+                    raise InvalidInput(
+                        "Сначала подтвердите или отмените заказ: срок оплаты позже нового времени получения."
+                    )
+                changed = replace(
+                    changed,
+                    prepayment_required=min(
+                        changed.total,
+                        (changed.total * order.prepayment_percent / 100).quantize(
+                            Decimal("1"), rounding=ROUND_CEILING
+                        ),
+                    ),
+                )
             if changed.total < work.payments.balance(scope.business_id, order_id):
                 raise InvalidInput("Сначала оформите возврат: новая сумма меньше внесённой оплаты.")
             work.orders.save(
@@ -165,7 +188,9 @@ class WorkflowService:
         with self.uow() as work:
             order = work.orders.lock(scope.business_id, order_id)
             ensure_version(order, version)
-            if order.status in {"done", "cancelled"}:
+            if order.status == "pending":
+                raise InvalidInput("Сначала подтвердите заказ, затем назначьте сотрудников.")
+            if order.status in {"pending", "done", "cancelled"}:
                 raise InvalidInput("Назначения нельзя менять после закрытия заказа.")
             if order.status == "route" and (florist_id != order.florist_id or not courier_id):
                 raise InvalidInput(
@@ -215,6 +240,11 @@ class WorkflowService:
             if role == Role.COURIER and status not in {"route", "done"}:
                 raise Forbidden("Курьер может забрать и вручить назначенный заказ.")
             order.check_transition(status, reason)
+            if order.status == "pending" and status == "new":
+                if work.payments.balance(scope.business_id, order_id) < order.prepayment_required:
+                    reason = text(reason, "Причина подтверждения без предоплаты", 1000)
+                else:
+                    reason = "Предоплата проверена менеджером"
             now = self.clock()
             changed = replace(
                 order,
@@ -226,7 +256,15 @@ class WorkflowService:
                 if status == "cancelled"
                 else "",
             )
-            work.orders.save(changed, scope.user_id, status, changed.cancellation_reason, now)
+            work.orders.save(
+                changed,
+                scope.user_id,
+                "confirmed" if order.status == "pending" and status == "new" else status,
+                reason
+                if order.status == "pending" and status == "new"
+                else changed.cancellation_reason,
+                now,
+            )
             return changed
 
     def issue(self, scope: Scope, order_id: UUID, version: int, detail: str) -> Order:

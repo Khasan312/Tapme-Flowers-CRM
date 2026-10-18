@@ -45,6 +45,9 @@ class LineOutput(serializers.Serializer):
 
 
 class OrderOutput(serializers.Serializer):
+    prepayment_required = serializers.DecimalField(max_digits=12, decimal_places=2)
+    prepayment_percent = serializers.IntegerField()
+    payment_due_at = serializers.DateTimeField(allow_null=True)
     occasion = serializers.CharField()
     source = serializers.CharField()
     relation = serializers.CharField()
@@ -93,7 +96,7 @@ class OrderQuery(ListQuery):
     day = serializers.DateField(required=False)
     search = serializers.CharField(max_length=150, allow_blank=True, default="")
     status = serializers.ChoiceField(
-        choices=["", "new", "work", "ready", "route", "done", "cancelled"], default=""
+        choices=["", "pending", "new", "work", "ready", "route", "done", "cancelled"], default=""
     )
     customer_id = serializers.UUIDField(required=False)
 

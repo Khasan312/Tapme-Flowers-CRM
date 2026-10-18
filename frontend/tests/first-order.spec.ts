@@ -103,7 +103,9 @@ test("вход, клиент, прайс, заказ и сохранение п�
   await page.screenshot({ path: "/tmp/tapme-orders.png", fullPage: true });
   await page.getByRole("button", { name: "№1", exact: true }).click();
   await expect(
-    page.getByText("Позвонить перед доставкой", { exact: true }),
+    page
+      .getByRole("dialog")
+      .getByText("Позвонить перед доставкой", { exact: true }),
   ).toBeVisible();
   await page
     .getByRole("button", { name: "Закрыть", exact: true })
