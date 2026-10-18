@@ -107,6 +107,60 @@ test("разделы и все вкладки настроек остаются 
   }
 });
 
+test("из настроек напоминаний можно вернуться к настройкам и к очереди", async ({
+  page,
+}, info) => {
+  await login(page);
+  const scenarios = page.getByRole("heading", {
+    name: "Настройки напоминаний",
+    exact: true,
+  });
+  const staff = page.getByRole("tab", { name: "Сотрудники", exact: true });
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await section(page, "Настройки");
+    await page.getByRole("tab", { name: "Напоминания", exact: true }).click();
+    await expect(scenarios).toBeVisible();
+    await page.reload();
+    await expect(scenarios).toBeVisible();
+    await params(page, { view: "settings", tab: "reminders" });
+
+    await section(page, "Настройки");
+    await expect(staff).toHaveAttribute("aria-selected", "true");
+    await params(page, { view: "settings", tab: "staff" });
+    await page.goBack();
+    await expect(scenarios).toBeVisible();
+    await page.goForward();
+    await expect(staff).toHaveAttribute("aria-selected", "true");
+
+    await page.getByRole("tab", { name: "Напоминания", exact: true }).click();
+    await page.screenshot({
+      path: `/tmp/tapme-${info.project.name}-reminder-settings-back-${width}.png`,
+    });
+    await page
+      .getByRole("button", { name: "К настройкам", exact: true })
+      .click();
+    await expect(staff).toHaveAttribute("aria-selected", "true");
+
+    await section(page, "Напоминания");
+    await page
+      .getByRole("button", { name: "Настройки напоминаний", exact: true })
+      .click();
+    await expect(scenarios).toBeVisible();
+    await page
+      .getByRole("button", { name: "К напоминаниям", exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "Кому написать сегодня" }),
+    ).toBeVisible();
+    await section(page, "Настройки");
+    await expect(staff).toHaveAttribute("aria-selected", "true");
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(width);
+  }
+});
+
 test("история проходит по разделам и вкладкам без лишних шагов", async ({
   page,
 }) => {
@@ -349,7 +403,12 @@ test("выбранный второй магазин сохраняется по
   // Model a second membership only in the browser. Read responses are snapshots;
   // there is no fake server-side access and no mutation of either shop.
   const responses: Record<string, unknown> = {};
-  for (const endpoint of ["settings/", "overview/", "customers/directory/"])
+  for (const endpoint of [
+    "settings/",
+    "overview/",
+    "customers/directory/",
+    "chats/summary/",
+  ])
     responses[endpoint] = await (
       await page.request.get(`${base()}/${endpoint}`)
     ).json();

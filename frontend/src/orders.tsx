@@ -20,6 +20,7 @@ import type {
 } from "./types";
 
 export const statusNames: Record<string, string> = {
+  pending: "Ждёт подтверждения",
   new: "Новый",
   work: "У флориста",
   ready: "Собран",
@@ -37,6 +38,10 @@ const actionNames: Record<string, string> = {
 const eventNames: Record<string, string> = {
   ...statusNames,
   created: "Заказ принят",
+  confirmed: "Заказ подтверждён",
+  confirmed_without_prepayment: "Подтверждён без предоплаты",
+  payment_extended: "Срок оплаты продлён",
+  payment_deadline_review: "Проверить оплату",
   edited: "Заказ изменён",
   assigned: "Назначены сотрудники",
   courier_reassigned: "Курьер заменён",
@@ -61,6 +66,7 @@ function transitions(order: { status: string; fulfillment: string }) {
   return (
     (
       {
+        pending: ["cancelled"],
         new: ["work", "cancelled"],
         work: ["ready", "cancelled"],
         ready: [
@@ -322,6 +328,7 @@ export function OrderPanel({
     [busy, setBusy] = useState(false),
     [editing, setEditing] = useState(false);
   const [share, setShare] = useState("");
+  const [confirmationReason, setConfirmationReason] = useState("");
   const base = businessPath(business.id, `orders/${orderId}`);
   const order = useRemote<Order>(base, revision, {
     refreshOnAppear: !editing,
@@ -425,6 +432,7 @@ export function OrderPanel({
           <>
             <div className="timeline">
               {[
+                ...(o.status === "pending" ? ["pending"] : []),
                 "new",
                 "work",
                 "ready",
@@ -524,118 +532,192 @@ export function OrderPanel({
               <Notice>Причина отмены: {o.cancellation_reason}</Notice>
             )}
             <div className="inline-form">
-              {["new", "work"].includes(o.status) && (
+              {["pending", "new", "work"].includes(o.status) && (
                 <button disabled={actionBusy} onClick={() => setEditing(true)}>
                   Редактировать заказ
                 </button>
               )}
               <button onClick={() => window.print()}>Печатать талон</button>
             </div>
-            {!["done", "cancelled"].includes(o.status) && staff.data && (
-              <form
-                key={`assign-${o.version}`}
-                className="inline-form assignment-form"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const d = new FormData(e.currentTarget);
-                  void act(base + "assignment/", {
-                    version: o.version,
-                    florist_id:
-                      o.status === "route"
-                        ? o.florist_id
-                        : d.get("florist") || null,
-                    courier_id: d.get("courier") || null,
-                  });
-                }}
+            {o.status === "pending" && (
+              <section
+                className="pending-confirmation"
+                aria-label="Подтверждение заказа"
               >
-                <label>
-                  Флорист
-                  <select
-                    aria-label="Флорист"
-                    name="florist"
-                    defaultValue={o.florist_id || ""}
+                <strong>Заказ ждёт подтверждения</strong>
+                <p>
+                  Флорист и курьер пока не видят этот заказ. Место в окне
+                  доставки занято.
+                </p>
+                <p>
+                  Предоплата: {price(o.prepayment_required)} · внесено{" "}
+                  {price(o.paid_amount)}
+                </p>
+                {o.payment_due_at && (
+                  <p>
+                    Оплатить до{" "}
+                    {new Date(o.payment_due_at).toLocaleString("ru-RU", {
+                      timeZone: business.timezone,
+                      day: "numeric",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                    . При отсутствии оплаты и вложений клиента заказ отменится
+                    автоматически.
+                  </p>
+                )}
+                {Number(o.paid_amount) < Number(o.prepayment_required) && (
+                  <label>
+                    Причина подтверждения без предоплаты
+                    <input
+                      maxLength={1000}
+                      value={confirmationReason}
+                      onChange={(e) => setConfirmationReason(e.target.value)}
+                      placeholder="Например, согласовано с постоянным клиентом"
+                    />
+                  </label>
+                )}
+                <div className="inline-form">
+                  <button
+                    className="primary"
                     disabled={
-                      actionBusy || staff.loading || o.status === "route"
+                      actionBusy ||
+                      (Number(o.paid_amount) < Number(o.prepayment_required) &&
+                        !confirmationReason.trim())
+                    }
+                    onClick={() =>
+                      void act(base + "transition/", {
+                        version: o.version,
+                        status: "new",
+                        reason: confirmationReason,
+                      })
                     }
                   >
-                    <option value="">Не назначен</option>
-                    {staff.data
-                      ?.filter(
-                        (s) =>
-                          (s.role === "florist" && s.is_active) ||
-                          s.id === o.florist_id,
-                      )
-                      .map((s) => (
-                        <option
-                          key={s.id}
-                          value={s.id}
-                          disabled={!s.is_active || s.role !== "florist"}
-                        >
-                          {s.name}
-                          {(!s.is_active || s.role !== "florist") &&
-                            " — недоступен"}
-                        </option>
-                      ))}
-                  </select>
-                </label>
-                <label className="courier-field">
-                  Курьер
-                  <select
-                    aria-label="Курьер"
-                    aria-describedby={
-                      o.fulfillment === "pickup"
-                        ? `courier-pickup-${o.id}`
-                        : undefined
+                    Подтвердить заказ
+                  </button>
+                  <button
+                    disabled={actionBusy}
+                    onClick={() =>
+                      void act(base + "extend-payment/", { version: o.version })
                     }
-                    name="courier"
-                    defaultValue={o.courier_id || ""}
-                    disabled={
-                      actionBusy || staff.loading || o.fulfillment === "pickup"
-                    }
-                    required={o.status === "route"}
                   >
-                    <option value="">
-                      {o.fulfillment === "pickup"
-                        ? "Не требуется"
-                        : "Не назначен"}
-                    </option>
-                    {staff.data
-                      ?.filter(
-                        (s) =>
-                          (s.role === "courier" && s.is_active) ||
-                          s.id === o.courier_id,
-                      )
-                      .map((s) => (
-                        <option
-                          key={s.id}
-                          value={s.id}
-                          disabled={!s.is_active || s.role !== "courier"}
-                        >
-                          {s.name}
-                          {(!s.is_active || s.role !== "courier") &&
-                            " — недоступен"}
-                        </option>
-                      ))}
-                  </select>
-                  {o.fulfillment === "pickup" && (
-                    <span className="field-hint" id={`courier-pickup-${o.id}`}>
-                      Самовывоз — клиент заберёт заказ в магазине.
-                    </span>
-                  )}
-                  {o.status === "route" && (
-                    <span className="field-hint">
-                      Можно передать доставку другому курьеру. Заказ останется в
-                      пути.
-                    </span>
-                  )}
-                </label>
-                <button disabled={actionBusy || staff.loading}>
-                  {o.status === "route"
-                    ? "Заменить курьера"
-                    : "Назначить сотрудников"}
-                </button>
-              </form>
+                    Продлить оплату на 30 минут
+                  </button>
+                </div>
+              </section>
             )}
+            {!["pending", "done", "cancelled"].includes(o.status) &&
+              staff.data && (
+                <form
+                  key={`assign-${o.version}`}
+                  className="inline-form assignment-form"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const d = new FormData(e.currentTarget);
+                    void act(base + "assignment/", {
+                      version: o.version,
+                      florist_id:
+                        o.status === "route"
+                          ? o.florist_id
+                          : d.get("florist") || null,
+                      courier_id: d.get("courier") || null,
+                    });
+                  }}
+                >
+                  <label>
+                    Флорист
+                    <select
+                      aria-label="Флорист"
+                      name="florist"
+                      defaultValue={o.florist_id || ""}
+                      disabled={
+                        actionBusy || staff.loading || o.status === "route"
+                      }
+                    >
+                      <option value="">Не назначен</option>
+                      {staff.data
+                        ?.filter(
+                          (s) =>
+                            (s.role === "florist" && s.is_active) ||
+                            s.id === o.florist_id,
+                        )
+                        .map((s) => (
+                          <option
+                            key={s.id}
+                            value={s.id}
+                            disabled={!s.is_active || s.role !== "florist"}
+                          >
+                            {s.name}
+                            {(!s.is_active || s.role !== "florist") &&
+                              " — недоступен"}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                  <label className="courier-field">
+                    Курьер
+                    <select
+                      aria-label="Курьер"
+                      aria-describedby={
+                        o.fulfillment === "pickup"
+                          ? `courier-pickup-${o.id}`
+                          : undefined
+                      }
+                      name="courier"
+                      defaultValue={o.courier_id || ""}
+                      disabled={
+                        actionBusy ||
+                        staff.loading ||
+                        o.fulfillment === "pickup"
+                      }
+                      required={o.status === "route"}
+                    >
+                      <option value="">
+                        {o.fulfillment === "pickup"
+                          ? "Не требуется"
+                          : "Не назначен"}
+                      </option>
+                      {staff.data
+                        ?.filter(
+                          (s) =>
+                            (s.role === "courier" && s.is_active) ||
+                            s.id === o.courier_id,
+                        )
+                        .map((s) => (
+                          <option
+                            key={s.id}
+                            value={s.id}
+                            disabled={!s.is_active || s.role !== "courier"}
+                          >
+                            {s.name}
+                            {(!s.is_active || s.role !== "courier") &&
+                              " — недоступен"}
+                          </option>
+                        ))}
+                    </select>
+                    {o.fulfillment === "pickup" && (
+                      <span
+                        className="field-hint"
+                        id={`courier-pickup-${o.id}`}
+                      >
+                        Самовывоз — клиент заберёт заказ в магазине.
+                      </span>
+                    )}
+                    {o.status === "route" && (
+                      <span className="field-hint">
+                        Можно передать доставку другому курьеру. Заказ останется
+                        в пути.
+                      </span>
+                    )}
+                  </label>
+                  <button disabled={actionBusy || staff.loading}>
+                    {o.status === "route"
+                      ? "Заменить курьера"
+                      : "Назначить сотрудников"}
+                  </button>
+                </form>
+              )}
             <div className="inline-form">
               {transitions(o)
                 .filter((s) => s !== "cancelled")

@@ -3,6 +3,7 @@ import json
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from datetime import date, datetime, time
+from decimal import ROUND_CEILING, Decimal
 from uuid import UUID, uuid4
 
 from tapme.businesses.application.contracts import OFFICE_ROLES, MembershipReader, Scope, authorize
@@ -50,15 +51,35 @@ class OrderService:
         self.access, self.customers, self.products = access, customers, products
         self.uow, self.reads, self.clock = uow, reads, clock
 
-    def create(self, scope: Scope, command: CreateOrder, request_key: UUID) -> Order:
+    def create(
+        self,
+        scope: Scope,
+        command: CreateOrder,
+        request_key: UUID,
+        *,
+        prepayment_percent: int = 0,
+        payment_due_at: datetime | None = None,
+        custom_lines: tuple[OrderLine, ...] = (),
+        origin: str = "",
+    ) -> Order:
         authorize(self.access, scope, OFFICE_ROLES)
+        if prepayment_percent not in {0, 50, 100}:
+            raise InvalidInput("Неизвестный размер предоплаты.")
+        values = {
+            key: value
+            for key, value in asdict(command).items()
+            if value or key not in {"occasion", "source", "relation"}
+        }
+        if origin or prepayment_percent or custom_lines:
+            values["creation_context"] = {
+                "origin": origin,
+                "prepayment_percent": prepayment_percent,
+                "payment_due_at": payment_due_at,
+                "custom_lines": [asdict(line) for line in custom_lines],
+            }
         fingerprint = hashlib.sha256(
             json.dumps(
-                {
-                    key: value
-                    for key, value in asdict(command).items()
-                    if value or key not in {"occasion", "source", "relation"}
-                },
+                values,
                 sort_keys=True,
                 default=str,
             ).encode()
@@ -81,6 +102,13 @@ class OrderService:
                 if not product.active:
                     raise InvalidInput("Позиция скрыта из прайса.")
                 lines.append(OrderLine(product.id, product.name, product.price, item.quantity))
+            lines.extend(custom_lines)
+            required = (
+                (sum((line.total for line in lines), start=fee) * prepayment_percent) / 100
+            ).quantize(Decimal("1"), rounding=ROUND_CEILING)
+            required = min(required, sum((line.total for line in lines), start=fee))
+            if required > 0 and payment_due_at is None:
+                raise InvalidInput("Укажите срок оплаты заказа.")
             order = Order(
                 id=uuid4(),
                 business_id=scope.business_id,
@@ -106,6 +134,10 @@ class OrderService:
                 request_key=request_key,
                 request_hash=fingerprint,
                 delivery_fee=fee,
+                status="pending" if required > 0 else "new",
+                prepayment_percent=prepayment_percent,
+                prepayment_required=required,
+                payment_due_at=payment_due_at if required > 0 else None,
             )
             work.orders.add(order)
             return order

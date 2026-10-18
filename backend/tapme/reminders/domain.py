@@ -21,6 +21,8 @@ TEMPLATE_FIELDS = {
     "адрес": "address",
     "сумма": "total",
     "ссылка": "link",
+    "прошлый_букет": "last_bouquet",
+    "ссылка_на_заказ": "order_link",
 }
 TEMPLATE_IDS = {"d14", "d7", "d3", "d1", "lapsed", "confirm", "ready", "done", "feedback", "sorry"}
 
@@ -32,6 +34,7 @@ class CustomTemplate(TypedDict):
 
 
 def render_template(template: str, values: dict[str, str]) -> str:
+    values = {**dict.fromkeys(TEMPLATE_FIELDS.values(), ""), **values}
     values = {**values, **{ru: values.get(en, "") for ru, en in TEMPLATE_FIELDS.items()}}
 
     try:
@@ -198,3 +201,89 @@ def template_for(key: str, rules: ReminderRules, recovered: bool = False) -> str
 
 def event_group(key: str) -> str:
     return key.rsplit(":", 1)[0] if key.startswith("date:") else key
+
+
+@dataclass(frozen=True)
+class ScenarioStep:
+    id: UUID
+    offset_days: int
+    template: str
+    enabled: bool = True
+
+
+@dataclass(frozen=True)
+class Scenario:
+    id: UUID
+    name: str
+    kind: str
+    steps: tuple[ScenarioStep, ...]
+    enabled: bool = True
+    event_labels: tuple[str, ...] = ()
+    holiday_month: int = 3
+    holiday_day: int = 8
+    audience: str = "consented_all"
+    daily_cap: int = 40
+
+
+@dataclass(frozen=True)
+class ReminderConfiguration:
+    version: int
+    enabled: bool
+    start_hour: int
+    end_hour: int
+    min_days_between: int
+    scenarios: tuple[Scenario, ...]
+
+    def validate(self) -> None:
+        if not 0 <= self.start_hour < self.end_hour <= 24:
+            raise InvalidInput("Время начала должно быть раньше времени окончания.")
+        if not 0 <= self.min_days_between <= 365 or not 1 <= len(self.scenarios) <= 30:
+            raise InvalidInput("Проверьте частоту сообщений и количество сценариев (от 1 до 30).")
+        ids: set[UUID] = set()
+        labels: set[str] = set()
+        fallback = False
+        for scenario in self.scenarios:
+            if scenario.id in ids or not scenario.name.strip() or len(scenario.name) > 100:
+                raise InvalidInput("Проверьте названия и идентификаторы сценариев.")
+            ids.add(scenario.id)
+            if scenario.kind not in {
+                "before_event",
+                "after_last_order",
+                "after_delivery",
+                "holiday",
+            }:
+                raise InvalidInput("Неизвестный вид сценария.")
+            if scenario.audience not in {"consented_all", "ordered_last_year"}:
+                raise InvalidInput("Неизвестная аудитория.")
+            if not 1 <= scenario.daily_cap <= 500:
+                raise InvalidInput("Лимит праздника должен быть от 1 до 500 в день.")
+            try:
+                date(2024, scenario.holiday_month, scenario.holiday_day)
+            except ValueError:
+                raise InvalidInput("Проверьте дату праздника.") from None
+            if len(scenario.event_labels) > 30 or any(
+                not label.strip() or len(label) > 100 for label in scenario.event_labels
+            ):
+                raise InvalidInput("Проверьте названия поводов.")
+            if scenario.kind == "before_event" and scenario.enabled:
+                normalized = {label.strip().casefold() for label in scenario.event_labels}
+                if labels & normalized or (not normalized and fallback):
+                    raise InvalidInput("Один повод не должен повторяться во включённых сценариях.")
+                labels |= normalized
+                fallback |= not normalized
+            if not 1 <= len(scenario.steps) <= 15:
+                raise InvalidInput("В сценарии должно быть от 1 до 15 шагов.")
+            offsets: set[int] = set()
+            for step in scenario.steps:
+                low, high = (30, 730) if scenario.kind == "after_last_order" else (0, 60)
+                if (
+                    step.id in ids
+                    or step.offset_days in offsets
+                    or not low <= step.offset_days <= high
+                ):
+                    raise InvalidInput(f"Укажите разные интервалы от {low} до {high} дней.")
+                ids.add(step.id)
+                offsets.add(step.offset_days)
+                if not step.template.strip() or len(step.template) > 2000:
+                    raise InvalidInput("Текст сообщения должен содержать от 1 до 2000 символов.")
+                render_template(step.template, {})

@@ -35,6 +35,13 @@ def orders():
     )
 
 
+def drafts():
+    from tapme.orders.application.drafts import DraftService
+    from tapme.orders.infrastructure.drafts import DjangoDraftRepository
+
+    return DraftService(DjangoMembershipReader(), DjangoDraftRepository(orders()))
+
+
 def workflow():
     from tapme.orders.application.workflow import WorkflowService
 
@@ -132,3 +139,14 @@ def customer_directory():
     from tapme.customers.infrastructure.directory import DjangoDirectoryReader
 
     return DirectoryService(DjangoMembershipReader(), DjangoDirectoryReader())
+
+
+def chats():
+    from tapme.messaging.application.services import ChatService
+    from tapme.messaging.infrastructure.meta import gateway_for
+    from tapme.messaging.infrastructure.repository import DjangoChatRepository
+    from tapme.messaging.infrastructure.storage import DjangoAttachmentStorage
+
+    return ChatService(
+        DjangoMembershipReader(), DjangoChatRepository(gateway_for(), DjangoAttachmentStorage())
+    )

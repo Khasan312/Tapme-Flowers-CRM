@@ -36,6 +36,12 @@ const states: Record<
   string,
   { label: string; title: string; description: string }
 > = {
+  pending: {
+    label: "Ждёт подтверждения",
+    title: "Ожидаем подтверждение магазина",
+    description:
+      "Заказ сохранён. После проверки оплаты или согласования с менеджером магазин передаст его флористу.",
+  },
   new: {
     label: "Принят",
     title: "Ваш заказ принят",
@@ -218,6 +224,16 @@ export function PublicOrderPage({ token }: { token: string }) {
     cancelled = o?.status === "cancelled";
   const pickup = o?.fulfillment === "pickup";
   const steps = [
+    ...(o?.status === "pending"
+      ? [
+          {
+            key: "pending",
+            label: "Ожидает",
+            detail: "Магазин проверяет заказ",
+            icon: Clock3,
+          },
+        ]
+      : []),
     {
       key: "new",
       label: "Принят",

@@ -33,6 +33,7 @@ export function CustomerPage({
   changed,
   openOrder,
   newOrder,
+  openChat,
 }: {
   business: Business;
   customerId: string;
@@ -41,6 +42,7 @@ export function CustomerPage({
   changed: () => void;
   openOrder: (o: Order) => void;
   newOrder: (c: CustomerProfile) => void;
+  openChat: () => void;
 }) {
   const [revision, setRevision] = useState(0),
     [editing, setEditing] = useState(false),
@@ -123,6 +125,9 @@ export function CustomerPage({
                 <span className={`tag${c.consent ? " ok" : ""}`}>
                   {c.consent ? "Согласие на сообщения" : "Нет согласия"}
                 </span>
+                <button className="btn" onClick={openChat}>
+                  Чат в CRM
+                </button>
                 <a
                   className="btn wa"
                   target="_blank"

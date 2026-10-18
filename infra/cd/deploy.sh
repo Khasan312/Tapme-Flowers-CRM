@@ -140,7 +140,7 @@ curl --fail --silent --show-error --retry 5 --retry-connrefused --retry-delay 2 
     --max-time 10 -H "Host: $PUBLIC_DOMAIN" http://127.0.0.1:8080/health/ \
     | python3 -c 'import json,sys; assert json.load(sys.stdin)["status"] == "ok"'
 curl --fail --silent --show-error --max-time 10 -o /dev/null \
-    -H "Host: $PUBLIC_DOMAIN" http://127.0.0.1:8080/
+    -H "Host: $PUBLIC_DOMAIN" http://127.0.0.1:8080/crm-flowers/
 
 if [[ -n $old_color ]]; then
     printf '%s %s\n' "$old_color" "$old_sha" > "$root/state/previous.next"

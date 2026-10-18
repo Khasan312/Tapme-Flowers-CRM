@@ -1,29 +1,30 @@
 from dataclasses import asdict, replace
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 from django.db import transaction
-from django.db.models import Count, Max
+from django.db.models import Count, Q
 from django.utils import timezone
 
 from tapme.businesses.models import Business
 from tapme.customers.models import CustomerRecord
 from tapme.feedback.models import FeedbackRecord
+from tapme.orders.models import OrderRecord
 from tapme.reminders.default_templates import DEFAULT_TEMPLATES
 from tapme.reminders.domain import (
     DEFAULT_TEMPLATE,
     ReminderRules,
-    candidates_for_customer,
     ensure_action,
     ensure_eligible,
     event_group,
-    reminder_due,
     render_template,
     template_for,
 )
+from tapme.reminders.infrastructure import scenarios
+from tapme.reminders.infrastructure.generation import generate_scenarios
 from tapme.reminders.models import ReminderRecord, ReminderSettings
-from tapme.shared.domain import Conflict, NotFound
+from tapme.shared.domain import Conflict, InvalidInput, NotFound
 
 
 def paused_ids(business_id):
@@ -70,122 +71,221 @@ class DjangoReminderRepository:
             if row.enabled != rules.enabled:
                 # An intentional pause must not be treated as a scheduler outage.
                 row.last_generated_at = timezone.now()
+            previous = self._rules(row)
             changed = replace(rules, version=row.version + 1)
             for key, value in asdict(changed).items():
                 setattr(row, key, value)
             row.save()
+            scenarios.sync_legacy(row, previous, changed)
             return changed
+
+    @transaction.atomic
+    def configuration(self, business_id):
+        ReminderSettings.objects.get_or_create(business_id=business_id)
+        row = ReminderSettings.objects.select_for_update().get(business_id=business_id)
+        scenarios.initialize(row, self._rules(row))
+        return scenarios.configuration(row)
+
+    @transaction.atomic
+    def save_configuration(self, business_id, config):
+        ReminderSettings.objects.get_or_create(business_id=business_id)
+        row = ReminderSettings.objects.select_for_update().get(business_id=business_id)
+        scenarios.initialize(row, self._rules(row))
+        if row.enabled != config.enabled:
+            row.last_generated_at = timezone.now()
+        return scenarios.save_configuration(row, config)
 
     @transaction.atomic
     def generate(self, business_id, now):
         ReminderSettings.objects.get_or_create(business_id=business_id)
         settings = ReminderSettings.objects.select_for_update().get(business_id=business_id)
-        rules = self._rules(settings)
-        business = Business.objects.get(id=business_id)
-        zone = ZoneInfo(business.timezone)
-        today = now.astimezone(zone).date()
-        since = today - timedelta(days=max(rules.offsets))
-        if settings.last_generated_at:
-            since = max(since, settings.last_generated_at.astimezone(zone).date())
-        count = 0
-        if rules.enabled:
-            customers = (
-                CustomerRecord.objects.filter(business_id=business_id, consent=True)
-                .exclude(id__in=paused_ids(business_id))
-                .prefetch_related("dates")
-                .annotate(last_order=Max("orderrecord__completed_at"))
-            )
-            suppressed = {
-                event_group(key)
-                for key in ReminderRecord.objects.filter(
-                    business_id=business_id, state="skipped"
-                ).values_list("key", flat=True)
-            }
-            for customer in customers.iterator(chunk_size=200):
-                last = customer.last_order
-                dates = list(customer.dates.all())
-                candidates = candidates_for_customer(
-                    str(customer.id),
-                    customer.name,
-                    [(str(e.id), e.label, e.person, e.month, e.day) for e in dates],
-                    last.isoformat() if last else None,
-                    last.astimezone(zone).date() if last else None,
-                    today,
-                    rules,
-                    since,
-                )
-                due_days = {}
-                for event in dates:
-                    due = reminder_due(today, event.month, event.day, rules.offsets, since)
-                    if due:
-                        target, offset = due
-                        due_days[f"date:{event.id}:{target.year}:{offset}"] = target - timedelta(
-                            days=offset
-                        )
-                for key, event, person in candidates:
-                    if event_group(key) in suppressed:
-                        continue
-                    due_date = due_days.get(key, today)
-                    _, created = ReminderRecord.objects.get_or_create(
-                        business_id=business_id,
-                        key=key,
-                        defaults=dict(
-                            customer=customer,
-                            event=event,
-                            person=person,
-                            due_date=due_date,
-                            recovered=due_date < today,
-                        ),
-                    )
-                    count += int(created)
-        # The cursor advances only when the whole run commits successfully.
+        scenarios.initialize(settings, self._rules(settings))
+        count = generate_scenarios(settings, Business.objects.get(id=business_id), now)
         settings.last_generated_at = max(now, settings.last_generated_at or now)
         settings.save(update_fields=["last_generated_at"])
         return count
 
-    def list(self, business_id, state, limit, offset, now, kind="all"):
-        today = now.astimezone(ZoneInfo(Business.objects.get(id=business_id).timezone)).date()
+    def _text(self, row, rules, last_bouquet=""):
+        if row.message:
+            return row.message
+        text = row.step.template if row.step else template_for(row.key, rules, row.recovered)
+        if row.recovered and row.key.startswith("date:"):
+            text = DEFAULT_TEMPLATE
+        return render_template(
+            text,
+            dict(
+                name=row.customer.name,
+                person=row.person,
+                event=row.event,
+                shop=row.business.name,
+                date=row.event_date.strftime("%d.%m.%Y") if row.event_date else "",
+                last_bouquet=last_bouquet,
+            ),
+        )
+
+    def _history(self, row):
+        orders = (
+            OrderRecord.objects.filter(business_id=row.business_id, customer_id=row.customer_id)
+            .exclude(status="cancelled")
+            .prefetch_related("lines")
+            .order_by("-created_at", "-id")
+        )
+        last = orders.first()
+        hint = None
+        if row.event_date:
+            target = row.event_date
+            try:
+                anniversary = target.replace(year=target.year - 1)
+            except ValueError:
+                anniversary = target.replace(year=target.year - 1, day=28)
+            match = Q(occasion__iexact=row.event)
+            if row.person:
+                match |= Q(recipient_name__iexact=row.person)
+            hint = orders.filter(
+                match,
+                status="done",
+                delivery_date__range=(
+                    anniversary - timedelta(days=10),
+                    anniversary + timedelta(days=10),
+                ),
+            ).first()
+
+        def payload(order):
+            return (
+                dict(
+                    id=order.id,
+                    number=order.number,
+                    date=order.delivery_date,
+                    total=str(order.total),
+                    items=", ".join(line.name for line in order.lines.all()),
+                )
+                if order
+                else None
+            )
+
+        return payload(last), payload(hint)
+
+    def list(self, business_id, state, limit, offset, now, kind="all", scenario=None):
+        config = self.configuration(business_id)
+        business = Business.objects.get(id=business_id)
+        zone = ZoneInfo(business.timezone)
+        local = now.astimezone(zone)
+        today = local.date()
         all_rows = ReminderRecord.objects.filter(business_id=business_id)
+        visible = all_rows.exclude(state="wait", due_date__gt=today)
         stats = {
             row["state"]: row["count"]
-            for row in all_rows.values("state").annotate(count=Count("id"))
+            for row in visible.values("state").annotate(count=Count("id"))
         }
         query = (
-            all_rows.filter(state=state)
-            .select_related("customer", "business")
-            .order_by("due_date", "id")
+            visible.filter(state=state)
+            .select_related("customer", "business", "scenario", "step")
+            .order_by("event_date", "customer__name", "id")
         )
-        if state == "wait":
-            query = query.filter(due_date__lte=today)
         if kind != "all":
             query = query.filter(key__startswith="inactive:" if kind == "inactive" else "date:")
+        if scenario:
+            query = query.filter(scenario_id=scenario)
         paused = set(paused_ids(business_id))
         rules = self.rules(business_id)
-        enabled = rules.enabled
-        rows = [
-            dict(
-                id=r.id,
-                kind="inactive" if r.key.startswith("inactive:") else "date",
-                customer_id=r.customer_id,
-                customer_name=r.customer.name,
-                phone=r.customer.phone,
-                event=r.event,
-                person=r.person,
-                due_date=r.due_date,
-                state=r.state,
-                message=r.message,
-                preview=render_template(
-                    template_for(r.key, rules, r.recovered),
-                    dict(
-                        name=r.customer.name, person=r.person, event=r.event, shop=r.business.name
+        rows = []
+        for row in query[offset : offset + limit]:
+            reason = self._pause_reason(row, config, paused, now)
+            last, hint = self._history(row)
+            rows.append(
+                dict(
+                    id=row.id,
+                    kind=row.scenario.kind
+                    if row.scenario
+                    else (
+                        "after_last_order" if row.key.startswith("inactive:") else "before_event"
                     ),
-                ),
-                recovered=r.recovered,
-                paused=not enabled or not r.customer.consent or r.customer_id in paused,
+                    customer_id=row.customer_id,
+                    customer_name=row.customer.name,
+                    phone=row.customer.phone,
+                    event=row.event,
+                    person=row.person,
+                    due_date=row.due_date,
+                    event_date=row.event_date,
+                    state=row.state,
+                    message=row.message,
+                    preview=self._text(row, rules, hint["items"] if hint else ""),
+                    recovered=row.recovered,
+                    paused=bool(reason),
+                    pause_reason=reason,
+                    scenario_id=row.scenario_id,
+                    scenario_name=row.scenario.name if row.scenario else row.event,
+                    sent_at=row.sent_at,
+                    order_id=row.order_id,
+                    last_order=last,
+                    last_year_hint=hint,
+                )
             )
-            for r in query[offset : offset + limit]
-        ]
-        return dict(count=query.count(), results=rows, stats=stats)
+        start = datetime.combine(today, time.min, zone)
+        sent_today = all_rows.filter(
+            sent_at__gte=start, sent_at__lt=start + timedelta(days=1)
+        ).count()
+        week = start - timedelta(days=today.weekday())
+        ordered = all_rows.filter(state="ordered", acted_at__gte=week, order__isnull=False).exclude(
+            order__status="cancelled"
+        )
+        order_ids = ordered.values_list("order_id", flat=True).distinct()
+        revenue = sum(
+            OrderRecord.objects.filter(business_id=business_id, id__in=order_ids).values_list(
+                "total", flat=True
+            )
+        )
+        return dict(
+            count=query.count(),
+            results=rows,
+            stats=stats,
+            summary=dict(
+                sent_today=sent_today,
+                total_today=sent_today + stats.get("wait", 0),
+                ordered_week=len(set(order_ids)),
+                revenue_week=str(revenue),
+            ),
+            scenarios=[dict(id=s.id, name=s.name) for s in config.scenarios],
+            rules=dict(
+                enabled=config.enabled,
+                start_hour=config.start_hour,
+                end_hour=config.end_hour,
+                min_days_between=config.min_days_between,
+            ),
+        )
+
+    def _pause_reason(self, row, config, complaints, now):
+        local = now.astimezone(ZoneInfo(row.business.timezone))
+        if not row.customer.consent:
+            return "У клиента нет согласия на сообщения"
+        if row.customer_id in complaints:
+            return "У клиента открыта жалоба"
+        if not config.enabled:
+            return "Напоминания выключены в настройках"
+        if row.scenario and (row.scenario.archived or not row.scenario.enabled):
+            return "Сценарий выключен"
+        if row.step and (row.step.archived or not row.step.enabled):
+            return "Этот шаг сценария выключен"
+        if (
+            row.event_date
+            and row.event_date < local.date()
+            and (not row.scenario or row.scenario.kind in {"before_event", "holiday"})
+        ):
+            return "Дата события уже прошла"
+        if not config.start_hour <= local.hour < config.end_hour:
+            return f"Можно писать с {config.start_hour:02}:00 до {config.end_hour:02}:00"
+        if (
+            config.min_days_between
+            and ReminderRecord.objects.filter(
+                business_id=row.business_id,
+                customer_id=row.customer_id,
+                sent_at__gt=now - timedelta(days=config.min_days_between),
+            )
+            .exclude(id=row.id)
+            .exists()
+        ):
+            return f"Не чаще одного сообщения в {config.min_days_between} дн."
+        return ""
 
     def _eligible(self, row, now, require_hours=False):
         rules = self.rules(row.business_id)
@@ -199,64 +299,128 @@ class DjangoReminderRepository:
             local.hour,
             require_hours,
         )
+        if require_hours:
+            config = scenarios.configuration(
+                ReminderSettings.objects.get(business_id=row.business_id)
+            )
+            reason = self._pause_reason(row, config, set(paused_ids(row.business_id)), now)
+            if reason:
+                raise InvalidInput(reason)
         return rules
 
-    def prepare(self, business_id, reminder_id, now):
-        row = (
-            ReminderRecord.objects.filter(business_id=business_id, id=reminder_id)
-            .select_related("business", "customer")
-            .first()
-        )
+    def _row(self, business_id, reminder_id, lock=False):
+        query = ReminderRecord.objects.filter(
+            business_id=business_id, id=reminder_id
+        ).select_related("business", "customer", "scenario", "step")
+        if lock:
+            query = query.select_for_update(of=("self",))
+        row = query.first()
         if row is None:
             raise NotFound("Напоминание не найдено.")
+        return row
+
+    def prepare(self, business_id, reminder_id, now):
+        row = self._row(business_id, reminder_id)
         if row.state != "wait":
             raise Conflict("Это напоминание уже обработано.")
         rules = self._eligible(row, now, require_hours=True)
-        message = render_template(
-            template_for(row.key, rules, row.recovered),
-            dict(
-                name=row.customer.name, person=row.person, event=row.event, shop=row.business.name
-            ),
-        )
+        _, hint = self._history(row)
+        message = self._text(row, rules, hint["items"] if hint else "")
         return dict(
             message=message,
             url="https://wa.me/" + row.customer.phone.lstrip("+") + "?text=" + quote(message),
         )
 
-    def act(self, scope, reminder_id, action, now):
-        with transaction.atomic():
-            row = (
-                ReminderRecord.objects.select_for_update(of=("self",))
-                .filter(business_id=scope.business_id, id=reminder_id)
-                .select_related("business", "customer")
-                .first()
-            )
-            if row is None:
-                raise NotFound("Напоминание не найдено.")
-            ensure_action(row.state, action)
-            if action in {"sent", "answered", "ordered"}:
-                rules = self._eligible(row, now)
-                if action == "sent":
-                    row.message = render_template(
-                        template_for(row.key, rules, row.recovered),
-                        dict(
-                            name=row.customer.name,
-                            person=row.person,
-                            event=row.event,
-                            shop=row.business.name,
-                        ),
-                    )
-            if action == "tomorrow":
-                row.due_date = now.astimezone(ZoneInfo(row.business.timezone)).date() + timedelta(
-                    days=1
-                )
-            else:
-                row.state = action
-            if action == "skipped" and row.key.startswith("date:"):
-                ReminderRecord.objects.filter(
-                    business_id=scope.business_id,
-                    key__startswith=event_group(row.key) + ":",
-                    state="wait",
-                ).exclude(id=row.id).update(state="skipped", actor_id=scope.user_id, acted_at=now)
-            row.actor_id, row.acted_at = scope.user_id, now
+    @transaction.atomic
+    def open_message(self, scope, reminder_id, now):
+        row = self._row(scope.business_id, reminder_id, lock=True)
+        # Serialize two reminders for one customer, including the frequency check.
+        row.customer = CustomerRecord.objects.select_for_update().get(
+            id=row.customer_id, business_id=scope.business_id
+        )
+        if row.state != "wait":
+            raise Conflict("Это напоминание уже обработано. Обновите список.")
+        rules = self._eligible(row, now, require_hours=True)
+        _, hint = self._history(row)
+        row.message = self._text(row, rules, hint["items"] if hint else "")
+        row.state, row.sent_at, row.acted_at, row.actor_id = "sent", now, now, scope.user_id
+        row.save()
+        return dict(
+            message=row.message,
+            url="https://wa.me/" + row.customer.phone.lstrip("+") + "?text=" + quote(row.message),
+        )
+
+    @transaction.atomic
+    def edit_message(self, scope, reminder_id, text):
+        row = self._row(scope.business_id, reminder_id, lock=True)
+        if row.state != "wait":
+            raise Conflict("Нельзя изменить уже обработанное сообщение.")
+        row.message = text
+        row.save(update_fields=["message"])
+
+    @transaction.atomic
+    def act(self, scope, reminder_id, action, now, order_id=None):
+        row = self._row(scope.business_id, reminder_id, lock=True)
+        if action == "undo":
+            if (
+                row.state != "sent"
+                or row.actor_id != scope.user_id
+                or not row.sent_at
+                or now - row.sent_at > timedelta(seconds=10)
+            ):
+                raise Conflict("Отметку уже нельзя отменить. Обновите список.")
+            row.state, row.sent_at, row.acted_at, row.actor_id = "wait", None, None, None
             row.save()
+            return
+        if action == "opt_out":
+            customer = CustomerRecord.objects.select_for_update().get(
+                id=row.customer_id, business_id=scope.business_id
+            )
+            customer.consent = False
+            customer.version += 1
+            customer.save(update_fields=["consent", "version"])
+            row.opt_out_at, row.actor_id, row.acted_at = now, scope.user_id, now
+            row.save()
+            return
+        ensure_action(row.state, action)
+        if action in {"sent", "answered", "ordered"}:
+            rules = self._eligible(row, now)
+            if action == "sent":
+                row.customer = CustomerRecord.objects.select_for_update().get(
+                    id=row.customer_id, business_id=scope.business_id
+                )
+                rules = self._eligible(row, now, require_hours=True)
+                _, hint = self._history(row)
+                row.message = self._text(row, rules, hint["items"] if hint else "")
+                row.sent_at = now
+            if action == "ordered" and order_id:
+                order = (
+                    OrderRecord.objects.filter(
+                        id=order_id,
+                        business_id=scope.business_id,
+                        customer_id=row.customer_id,
+                        created_at__gte=row.sent_at or row.created_at,
+                    )
+                    .exclude(status="cancelled")
+                    .first()
+                )
+                if order is None:
+                    raise InvalidInput("Выберите заказ этого клиента, созданный после сообщения.")
+                row.order = order
+        if action == "tomorrow":
+            row.due_date = now.astimezone(ZoneInfo(row.business.timezone)).date() + timedelta(
+                days=1
+            )
+        else:
+            row.state = action
+        if action == "skipped":
+            related = ReminderRecord.objects.filter(business_id=scope.business_id, state="wait")
+            if row.occurrence_key:
+                related = related.filter(occurrence_key=row.occurrence_key)
+            elif row.key.startswith("date:"):
+                related = related.filter(key__startswith=event_group(row.key) + ":")
+            else:
+                related = related.filter(id=row.id)
+            related.exclude(id=row.id).update(state="skipped", actor_id=scope.user_id, acted_at=now)
+        row.actor_id, row.acted_at = scope.user_id, now
+        row.save()

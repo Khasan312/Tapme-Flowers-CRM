@@ -1,6 +1,6 @@
 from tapme.catalog.domain import Product
 from tapme.catalog.models import ProductRecord
-from tapme.shared.domain import Conflict, NotFound, Page
+from tapme.shared.domain import Conflict, InvalidInput, NotFound, Page
 
 
 def to_domain(row):
@@ -34,12 +34,20 @@ class DjangoProductRepository:
         return product
 
     def list(self, business_id, limit, offset, include_hidden=False):
-        query = ProductRecord.objects.filter(business_id=business_id).order_by("name", "id")
+        query = ProductRecord.objects.filter(business_id=business_id, system_kind="").order_by(
+            "name", "id"
+        )
         if not include_hidden:
             query = query.filter(active=True)
         return Page(tuple(to_domain(r) for r in query[offset : offset + limit]), query.count())
 
     def save(self, product, expected_version):
+        if (
+            ProductRecord.objects.filter(id=product.id, business_id=product.business_id)
+            .exclude(system_kind="")
+            .exists()
+        ):
+            raise InvalidInput("Системную позицию нельзя изменять или архивировать.")
         changed = ProductRecord.objects.filter(
             id=product.id, business_id=product.business_id, version=expected_version
         ).update(

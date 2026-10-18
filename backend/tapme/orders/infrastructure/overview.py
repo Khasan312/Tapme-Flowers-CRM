@@ -27,7 +27,10 @@ class DjangoOverviewReader:
             ).values_list("completed_at", "delivery_date", "window_end")
         )
         return dict(
-            deliveries=orders.filter(fulfillment="courier").exclude(status="cancelled").count(),
+            pending=OrderRecord.objects.filter(business_id=business_id, status="pending").count(),
+            deliveries=orders.filter(fulfillment="courier")
+            .exclude(status__in=["pending", "cancelled"])
+            .count(),
             reminders=ReminderRecord.objects.filter(
                 business_id=business_id,
                 state="wait",
@@ -39,8 +42,10 @@ class DjangoOverviewReader:
             ),
             orders=orders.count(),
             completed=orders.filter(status="done").count(),
-            in_progress=orders.exclude(status__in=["done", "cancelled"]).count(),
-            total=orders.exclude(status="cancelled").aggregate(total=Sum("total"))["total"]
+            in_progress=orders.exclude(status__in=["pending", "done", "cancelled"]).count(),
+            total=orders.exclude(status__in=["pending", "cancelled"]).aggregate(total=Sum("total"))[
+                "total"
+            ]
             or Decimal(0),
             payments=payments.filter(kind="payment").aggregate(total=Sum("amount"))["total"]
             or Decimal(0),

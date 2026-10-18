@@ -38,6 +38,14 @@ class Shop(models.Model):
     pickup_unlimited = models.BooleanField(default=True)
     enforce_capacity = models.BooleanField(default=False)
     delivery_windows = models.JSONField(default=default_windows)
+    payment_qr_key = models.CharField(max_length=500, blank=True, default="", db_default="")
+    payment_note = models.CharField(max_length=150, blank=True, default="", db_default="")
+    payment_message = models.CharField(
+        max_length=1024,
+        default="Заказ №{номер} · к оплате {сумма} сом. Пришлите, пожалуйста, скриншот оплаты",
+        db_default="Заказ №{номер} · к оплате {сумма} сом. Пришлите, пожалуйста, скриншот оплаты",
+    )
+    payment_version = models.PositiveIntegerField(default=1, db_default=1)
 
 
 class Membership(models.Model):

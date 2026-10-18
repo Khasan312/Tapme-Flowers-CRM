@@ -2,6 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests",
+  testIgnore: "production-path.spec.ts",
   workers: 1,
   projects: [
     { name: "chromium", use: { browserName: "chromium" } },

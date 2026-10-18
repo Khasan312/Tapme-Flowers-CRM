@@ -22,9 +22,27 @@
         root * /srv/django-static
         file_server
     }
-    handle {
+    @entry path / /crm-flowers
+    handle @entry {
+        route {
+            rewrite * /crm-flowers/
+            redir {uri} 308
+        }
+    }
+    handle_path /crm-flowers/* {
         root * /srv/frontend
+        header Cache-Control "no-cache"
         try_files {path} /index.html
         file_server
+    }
+    # Customer tracking links keep their existing public address.
+    handle /track/* {
+        root * /srv/frontend
+        header Cache-Control "no-cache"
+        rewrite * /index.html
+        file_server
+    }
+    handle {
+        respond "Not found" 404
     }
 }

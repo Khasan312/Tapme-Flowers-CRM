@@ -21,6 +21,7 @@ export function Modal({
   return (
     <dialog
       ref={ref}
+      aria-label={title}
       className={drawer ? "order-drawer" : undefined}
       onCancel={(event) => {
         event.preventDefault();

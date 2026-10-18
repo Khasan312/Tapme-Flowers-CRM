@@ -26,6 +26,9 @@ export type Product = {
   version?: number;
 };
 export type Order = {
+  prepayment_percent: number;
+  prepayment_required: string;
+  payment_due_at: string | null;
   occasion: string;
   source: string;
   relation: string;
@@ -150,7 +153,7 @@ export type ReminderRules = {
   custom_templates: { id: string; name: string; text: string }[];
 };
 export type Reminder = {
-  kind: "date" | "inactive";
+  kind: "before_event" | "after_last_order" | "after_delivery" | "holiday";
   id: string;
   customer_id: string;
   customer_name: string;
@@ -163,6 +166,61 @@ export type Reminder = {
   paused: boolean;
   recovered: boolean;
   preview?: string;
+  event_date: string | null;
+  scenario_id: string | null;
+  scenario_name: string;
+  pause_reason: string;
+  sent_at: string | null;
+  order_id: string | null;
+  last_order: ReminderOrder | null;
+  last_year_hint: ReminderOrder | null;
+};
+export type ReminderOrder = {
+  id: string;
+  number: number;
+  date: string;
+  total: string;
+  items: string;
+};
+export type ReminderStep = {
+  id: string;
+  offset_days: number;
+  template: string;
+  enabled: boolean;
+};
+export type ReminderScenario = {
+  id: string;
+  name: string;
+  kind: Reminder["kind"];
+  enabled: boolean;
+  event_labels: string[];
+  holiday_month: number;
+  holiday_day: number;
+  audience: "consented_all" | "ordered_last_year";
+  daily_cap: number;
+  steps: ReminderStep[];
+};
+export type ReminderConfiguration = {
+  version: number;
+  enabled: boolean;
+  start_hour: number;
+  end_hour: number;
+  min_days_between: number;
+  scenarios: ReminderScenario[];
+};
+export type ReminderPage = Page<Reminder> & {
+  stats: Record<string, number>;
+  summary: {
+    sent_today: number;
+    total_today: number;
+    ordered_week: number;
+    revenue_week: string;
+  };
+  scenarios: { id: string; name: string }[];
+  rules: Pick<
+    ReminderConfiguration,
+    "enabled" | "start_hour" | "end_hour" | "min_days_between"
+  >;
 };
 export type Task = Pick<
   Order,

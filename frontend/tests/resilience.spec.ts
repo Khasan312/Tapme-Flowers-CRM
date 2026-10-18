@@ -126,25 +126,28 @@ test("две вкладки сохраняют настройки и шабло�
   await second
     .getByRole("button", { name: "Напоминания", exact: true })
     .click();
-  await second.getByRole("button", { name: "Правила", exact: true }).click();
-  await second.getByLabel("Давний клиент — без покупок, дней").fill("120");
+  await second
+    .getByRole("button", { name: "Настройки напоминаний", exact: true })
+    .click();
+  await second
+    .getByRole("button", { name: /Давно не заказывали через/ })
+    .click();
+  await second.getByLabel("Интервал шага 1", { exact: true }).fill("120");
   await page
     .getByLabel("Текст шаблона", { exact: true })
     .fill("Ждём вас, {имя}!");
   await page.getByRole("button", { name: "Сохранить шаблоны" }).first().click();
   await expect(page.getByRole("status")).toHaveText("Шаблоны сохранены");
-  await second
-    .getByRole("button", { name: "Сохранить напоминания", exact: true })
-    .click();
+  await second.getByRole("button", { name: "Сохранить", exact: true }).click();
   await expect(second.getByRole("alert")).toContainText("другой вкладке");
   await expect(
-    second.getByLabel("Давний клиент — без покупок, дней"),
+    second.getByLabel("Интервал шага 1", { exact: true }),
   ).toHaveValue("120");
   await second
     .getByRole("button", { name: "Загрузить актуальные настройки" })
     .click();
   await expect(
-    second.getByLabel("Давний клиент — без покупок, дней"),
+    second.getByLabel("Интервал шага 1", { exact: true }),
   ).toHaveValue("90");
   await second.close();
 });

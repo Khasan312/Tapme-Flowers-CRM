@@ -64,6 +64,9 @@ class Order:
     relation: str = ""
     delivery_fee: Decimal = Decimal("0.00")
     paid_amount: Decimal = Decimal("0.00")
+    prepayment_percent: int = 0
+    prepayment_required: Decimal = Decimal("0.00")
+    payment_due_at: datetime | None = None
 
     def __post_init__(self) -> None:
         if self.fulfillment not in (Fulfillment.PICKUP, Fulfillment.COURIER):
@@ -90,6 +93,7 @@ class Order:
 
     def check_transition(self, target: str, reason: str = "") -> None:
         transitions = {
+            "pending": {"new", "cancelled"},
             "new": {"work", "cancelled"},
             "work": {"ready", "cancelled"},
             "ready": {"route", "done", "cancelled"},

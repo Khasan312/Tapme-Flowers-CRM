@@ -13,6 +13,7 @@ class OverviewQuery(StrictSerializer):
 
 
 class OverviewOutput(serializers.Serializer):
+    pending = serializers.IntegerField()
     deliveries = serializers.IntegerField()
     reminders = serializers.IntegerField()
     deliveries_completed = serializers.IntegerField()

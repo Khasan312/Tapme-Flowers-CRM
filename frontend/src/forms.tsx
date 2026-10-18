@@ -16,6 +16,7 @@ import type {
   Order,
   Page,
   Product,
+  Reminder,
 } from "./types";
 
 type FormProps = { business: Business; close: () => void; saved: () => void };
@@ -262,7 +263,14 @@ export function OrderForm({
   saved,
   initial,
   initialCustomer,
-}: FormProps & { initial?: Order; initialCustomer?: Customer }) {
+  initialSource,
+  initialReminder,
+}: FormProps & {
+  initial?: Order;
+  initialCustomer?: Customer;
+  initialSource?: string;
+  initialReminder?: Pick<Reminder, "person" | "event">;
+}) {
   const [customers, setCustomers] = useState<Page<Customer>>({
     count: 0,
     results: [],
@@ -281,7 +289,10 @@ export function OrderForm({
       : initialCustomer || null,
   );
   const [recipient, setRecipient] = useState(
-      initial?.recipient_name || initialCustomer?.name || "",
+      initial?.recipient_name ||
+        initialReminder?.person ||
+        initialCustomer?.name ||
+        "",
     ),
     [fulfillment, setFulfillment] = useState(initial?.fulfillment || "pickup");
   const [lines, setLines] = useState<{ product: Product; quantity: number }[]>(
@@ -296,7 +307,12 @@ export function OrderForm({
     })) || [],
   );
   const [recipientPhone, setRecipientPhone] = useState(
-    initial?.recipient_phone ?? initialCustomer?.phone ?? "",
+    initial?.recipient_phone ??
+      (initialReminder?.person &&
+      initialReminder.person !== initialCustomer?.name
+        ? ""
+        : initialCustomer?.phone) ??
+      "",
   );
   const [savedRecipientId, setSavedRecipientId] = useState("");
   const [address, setAddress] = useState(initial?.address || "");
@@ -853,7 +869,10 @@ export function OrderForm({
                     name={key}
                     defaultValue={
                       initial?.[key] ||
-                      (key === "source" ? customer?.source : "") ||
+                      (key === "occasion" ? initialReminder?.event : "") ||
+                      (key === "source"
+                        ? initialSource || customer?.source
+                        : "") ||
                       ""
                     }
                   >
@@ -862,7 +881,10 @@ export function OrderForm({
                       new Set([
                         ...choices,
                         initial?.[key] || "",
-                        key === "source" ? customer?.source || "" : "",
+                        key === "occasion" ? initialReminder?.event || "" : "",
+                        key === "source"
+                          ? initialSource || customer?.source || ""
+                          : "",
                       ]),
                     )
                       .filter(Boolean)

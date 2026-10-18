@@ -171,7 +171,7 @@ class DjangoOrderRepository:
         )
 
     def tasks(self, scope, role, day, limit, offset):
-        query = OrderRecord.objects.filter(business_id=scope.business_id)
+        query = OrderRecord.objects.filter(business_id=scope.business_id).exclude(status="pending")
         if role == Role.FLORIST:
             query = query.filter(Q(florist_id=scope.user_id) | Q(florist_id=None, status="new"))
         elif role == Role.COURIER:

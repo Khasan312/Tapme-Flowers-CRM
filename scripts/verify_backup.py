@@ -106,6 +106,28 @@ def main():
                         text=True,
                     ).stdout.splitlines()
                 )
+            has_chat_media = command(
+                options,
+                'psql -X -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$1" -c "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name=\'messaging_message\' AND column_name=\'media_key\');"',
+                database, capture_output=True, text=True,
+            ).stdout.strip() == "t"
+            if has_chat_media:
+                keys.extend(command(
+                    options,
+                    'psql -X -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$1" -c "SELECT media_key FROM messaging_message WHERE media_key <> \'\';"',
+                    database, capture_output=True, text=True,
+                ).stdout.splitlines())
+            has_payment_qr = command(
+                options,
+                'psql -X -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$1" -c "SELECT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name=\'businesses_shop\' AND column_name=\'payment_qr_key\');"',
+                database, capture_output=True, text=True,
+            ).stdout.strip() == "t"
+            if has_payment_qr:
+                keys.extend(command(
+                    options,
+                    'psql -X -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$1" -c "SELECT payment_qr_key FROM businesses_shop WHERE payment_qr_key <> \'\';"',
+                    database, capture_output=True, text=True,
+                ).stdout.splitlines())
             with (
                 ZipFile(folder / "photos.zip") as archive,
                 TemporaryDirectory(prefix="tapme-photo-restore-") as tmp,
