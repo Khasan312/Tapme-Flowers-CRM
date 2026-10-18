@@ -146,13 +146,24 @@ jobs:
             -v "$PWD/infra/cd/frontend.Caddyfile:/etc/caddy/Caddyfile:ro" \
             "ghcr.io/${GITHUB_REPOSITORY,,}-web:${GITHUB_SHA}" \
             caddy validate --config /etc/caddy/Caddyfile
+          export TAPME_DEPLOY_ROOT="$RUNNER_TEMP/web-route-check"
+          export PUBLIC_DOMAIN=tapme.example COLOR=blue IMAGE_TAG="$GITHUB_SHA"
+          export TAPME_IMAGE_PREFIX="ghcr.io/${GITHUB_REPOSITORY,,}"
+          mkdir -p "$TAPME_DEPLOY_ROOT"
+          printf 'PUBLIC_DOMAIN=tapme.example\n' > "$TAPME_DEPLOY_ROOT/.env.production"
+          docker volume create tapme-assets
+          docker run --rm -v tapme-assets:/assets --entrypoint /bin/sh \
+            "${TAPME_IMAGE_PREFIX}-web:${IMAGE_TAG}" -c 'echo previous-release > /assets/retained.txt'
+          docker compose -p tapme-web-route-check -f infra/cd/release.yaml --profile init \
+            run --rm -T --no-deps assets
           docker run -d --name tapme-web-check -p 127.0.0.1:8088:80 \
             -e PUBLIC_DOMAIN=tapme.example -e API_UPSTREAM=api:8000 \
             -v "$PWD/infra/cd/frontend.Caddyfile:/etc/caddy/Caddyfile:ro" \
-            --entrypoint /bin/sh "ghcr.io/${GITHUB_REPOSITORY,,}-web:${GITHUB_SHA}" \
-            -c 'mkdir -p /srv/shared-assets; cp -a /srv/frontend/assets/. /srv/shared-assets/; exec caddy run --config /etc/caddy/Caddyfile'
+            -v tapme-assets:/srv/shared-assets:ro \
+            "${TAPME_IMAGE_PREFIX}-web:${IMAGE_TAG}" caddy run --config /etc/caddy/Caddyfile
           trap 'docker rm -f tapme-web-check' EXIT
           python3 infra/cd/check_web_routes.py http://127.0.0.1:8088
+          test "$(curl --fail --silent http://127.0.0.1:8088/crm-flowers/assets/retained.txt)" = previous-release
           mkdir -p "$RUNNER_TEMP/gateway"
           cp infra/cd/gateway.Caddyfile "$RUNNER_TEMP/gateway/Caddyfile"
           printf 'reverse_proxy candidate:80\n' > "$RUNNER_TEMP/gateway/active.caddy"

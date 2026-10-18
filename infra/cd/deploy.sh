@@ -33,7 +33,7 @@ color=blue
 release=$root/releases/$sha
 source_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 mkdir -p "$release"
-for file in core.yaml release.yaml frontend.Caddyfile gateway.Caddyfile; do
+for file in core.yaml release.yaml frontend.Caddyfile gateway.Caddyfile check_web_routes.py; do
     install -m 644 "$source_dir/$file" "$release/$file"
 done
 
@@ -141,6 +141,7 @@ curl --fail --silent --show-error --retry 5 --retry-connrefused --retry-delay 2 
     | python3 -c 'import json,sys; assert json.load(sys.stdin)["status"] == "ok"'
 curl --fail --silent --show-error --max-time 10 -o /dev/null \
     -H "Host: $PUBLIC_DOMAIN" http://127.0.0.1:8080/crm-flowers/
+python3 "$release/check_web_routes.py" http://127.0.0.1:8080
 
 if [[ -n $old_color ]]; then
     printf '%s %s\n' "$old_color" "$old_sha" > "$root/state/previous.next"
