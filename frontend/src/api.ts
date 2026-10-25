@@ -19,9 +19,13 @@ function messages(value: unknown): string[] {
 
 export async function request<T>(
   path: string,
-  options: RequestInit = {},
+  options: RequestInit & { point?: string } = {},
 ): Promise<T> {
   const headers = new Headers(options.headers);
+  const point =
+    options.point ?? new URLSearchParams(location.search).get("point");
+  if (point && path.startsWith("/businesses/"))
+    headers.set("X-Tapme-Point", point);
   const write = options.method && options.method !== "GET";
   if (write) {
     if (!csrfToken)

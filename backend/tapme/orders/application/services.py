@@ -6,7 +6,13 @@ from datetime import date, datetime, time
 from decimal import ROUND_CEILING, Decimal
 from uuid import UUID, uuid4
 
-from tapme.businesses.application.contracts import OFFICE_ROLES, MembershipReader, Scope, authorize
+from tapme.businesses.application.contracts import (
+    OFFICE_ROLES,
+    MembershipReader,
+    Scope,
+    authorize,
+    ensure_point_access,
+)
 from tapme.catalog.application.ports import ProductReader
 from tapme.customers.application.ports import CustomerReader
 from tapme.orders.application.ports import OrderRepository, UnitOfWork
@@ -36,6 +42,7 @@ class CreateOrder:
     occasion: str = ""
     source: str = ""
     relation: str = ""
+    point_id: UUID | None = None
 
 
 class OrderService:
@@ -68,7 +75,7 @@ class OrderService:
         values = {
             key: value
             for key, value in asdict(command).items()
-            if value or key not in {"occasion", "source", "relation"}
+            if value or key not in {"occasion", "source", "relation", "point_id"}
         }
         if origin or prepayment_percent or custom_lines:
             values["creation_context"] = {
@@ -77,6 +84,8 @@ class OrderService:
                 "payment_due_at": payment_due_at,
                 "custom_lines": [asdict(line) for line in custom_lines],
             }
+        if scope.point_id and not command.point_id:
+            values["point_id"] = scope.point_id
         fingerprint = hashlib.sha256(
             json.dumps(
                 values,
@@ -89,12 +98,18 @@ class OrderService:
             work.orders.lock_business(scope.business_id)
             existing = work.orders.by_request(scope.business_id, request_key)
             if existing:
+                ensure_point_access(self.access, scope, existing.point_id)
                 if existing.request_hash != fingerprint:
                     raise Conflict("Этот ключ запроса уже использован для другого заказа.")
                 return existing
             customer = self.customers.get(scope.business_id, command.customer_id)
+            point_id = self.access.order_point(scope, command.point_id)
             fee = work.delivery.lock(
-                scope.business_id, command.delivery_date, command.window_start, command.window_end
+                scope.business_id,
+                command.delivery_date,
+                command.window_start,
+                command.window_end,
+                point_id=point_id,
             ).quote(command.fulfillment)
             lines = []
             for item in command.items:
@@ -112,6 +127,7 @@ class OrderService:
             order = Order(
                 id=uuid4(),
                 business_id=scope.business_id,
+                point_id=point_id,
                 number=work.orders.next_number(scope.business_id),
                 customer_id=customer.id,
                 customer_name=customer.name,
@@ -144,7 +160,9 @@ class OrderService:
 
     def get(self, scope: Scope, order_id: UUID) -> Order:
         authorize(self.access, scope, OFFICE_ROLES)
-        return self.reads.get(scope.business_id, order_id)
+        order = self.reads.get(scope.business_id, order_id)
+        ensure_point_access(self.access, scope, order.point_id)
+        return order
 
     def list(
         self,
@@ -158,4 +176,13 @@ class OrderService:
     ) -> Page[Order]:
         authorize(self.access, scope, OFFICE_ROLES)
         page_bounds(limit, offset)
-        return self.reads.list(scope.business_id, day, limit, offset, search, status, customer_id)
+        return self.reads.list(
+            scope.business_id,
+            day,
+            limit,
+            offset,
+            search,
+            status,
+            customer_id,
+            self.access.point_ids(scope),
+        )

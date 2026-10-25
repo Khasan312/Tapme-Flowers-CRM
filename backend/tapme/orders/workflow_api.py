@@ -7,8 +7,9 @@ from rest_framework.views import APIView
 
 from config import composition
 from config.api import ListQuery, StrictSerializer, validated
-from tapme.businesses.application.contracts import OFFICE_ROLES, Scope, authorize
+from tapme.businesses.application.contracts import OFFICE_ROLES, authorize
 from tapme.businesses.infrastructure.access import DjangoMembershipReader
+from tapme.businesses.point_scope import request_scope, scoped_query
 from tapme.catalog.api import order_product_photos
 from tapme.orders.api import OrderInput, OrderOutput
 from tapme.orders.application.services import CreateOrder, ItemInput
@@ -51,6 +52,13 @@ class PaymentOutput(PaymentInput):
 
 
 class TaskOutput(serializers.Serializer):
+    point_id = serializers.UUIDField()
+    point_name = serializers.SerializerMethodField()
+
+    @extend_schema_field(serializers.CharField())
+    def get_point_name(self, order):
+        return OrderOutput().get_point_name(order)
+
     id = serializers.UUIDField()
     number = serializers.IntegerField()
     version = serializers.IntegerField()
@@ -91,7 +99,7 @@ class TaskPage(serializers.Serializer):
 
 
 def result_for(request, business_id, order):
-    role = DjangoMembershipReader().role_for(Scope(request.user.id, business_id))
+    role = DjangoMembershipReader().role_for(request_scope(request, business_id))
     output = (
         OrderOutput
         if role in OFFICE_ROLES
@@ -110,7 +118,7 @@ class TaskListView(APIView):
     @extend_schema(parameters=[TaskQuery], responses=TaskPage)
     def get(self, request, business_id):
         page = composition.workflow().tasks(
-            Scope(request.user.id, business_id), **validated(TaskQuery, request.query_params)
+            request_scope(request, business_id), **validated(TaskQuery, scoped_query(request))
         )
         return Response(
             {
@@ -128,7 +136,7 @@ class EditView(APIView):
         data["items"] = tuple(ItemInput(**item) for item in data["items"])
         data["fulfillment"] = Fulfillment(data["fulfillment"])
         order = composition.workflow().edit(
-            Scope(request.user.id, business_id), order_id, version, CreateOrder(**data)
+            request_scope(request, business_id), order_id, version, CreateOrder(**data)
         )
         return Response(OrderOutput(order).data)
 
@@ -137,7 +145,7 @@ class AssignmentView(APIView):
     @extend_schema(request=AssignInput, responses=OrderOutput)
     def post(self, request, business_id, order_id):
         order = composition.workflow().assign(
-            Scope(request.user.id, business_id), order_id, **validated(AssignInput, request.data)
+            request_scope(request, business_id), order_id, **validated(AssignInput, request.data)
         )
         return Response(OrderOutput(order).data)
 
@@ -146,7 +154,7 @@ class TransitionView(APIView):
     @extend_schema(request=TransitionInput, responses=OrderOutput)
     def post(self, request, business_id, order_id):
         order = composition.workflow().transition(
-            Scope(request.user.id, business_id),
+            request_scope(request, business_id),
             order_id,
             **validated(TransitionInput, request.data),
         )
@@ -157,7 +165,7 @@ class DeliveryIssueView(APIView):
     @extend_schema(request=IssueInput, responses=OrderOutput)
     def post(self, request, business_id, order_id):
         order = composition.workflow().issue(
-            Scope(request.user.id, business_id), order_id, **validated(IssueInput, request.data)
+            request_scope(request, business_id), order_id, **validated(IssueInput, request.data)
         )
         return Response(result_for(request, business_id, order))
 
@@ -165,8 +173,8 @@ class DeliveryIssueView(APIView):
 class PaymentListView(APIView):
     @extend_schema(responses=PaymentOutput(many=True))
     def get(self, request, business_id, order_id):
-        composition.orders().get(Scope(request.user.id, business_id), order_id)
-        entries = composition.workflow().payments(Scope(request.user.id, business_id), order_id)
+        composition.orders().get(request_scope(request, business_id), order_id)
+        entries = composition.workflow().payments(request_scope(request, business_id), order_id)
         return Response(PaymentOutput(entries, many=True).data)
 
     @extend_schema(request=PaymentInput, responses={201: PaymentOutput})
@@ -176,7 +184,7 @@ class PaymentListView(APIView):
         except ValueError:
             raise serializers.ValidationError("Укажите UUID Idempotency-Key.") from None
         entry = composition.workflow().payment(
-            Scope(request.user.id, business_id),
+            request_scope(request, business_id),
             order_id,
             request_key=key,
             **validated(PaymentInput, request.data),
@@ -195,7 +203,7 @@ class HistoryOutput(serializers.Serializer):
 class HistoryView(APIView):
     @extend_schema(responses=HistoryOutput(many=True))
     def get(self, request, business_id, order_id):
-        scope = Scope(request.user.id, business_id)
+        scope = request_scope(request, business_id)
         authorize(DjangoMembershipReader(), scope, OFFICE_ROLES)
         composition.orders().get(scope, order_id)
         return Response(composition.workflow().history(scope, order_id))
@@ -205,6 +213,6 @@ class ResolveDeliveryIssueView(APIView):
     @extend_schema(request=VersionInput, responses=OrderOutput)
     def post(self, request, business_id, order_id):
         order = composition.workflow().resolve_issue(
-            Scope(request.user.id, business_id), order_id, **validated(VersionInput, request.data)
+            request_scope(request, business_id), order_id, **validated(VersionInput, request.data)
         )
         return Response(OrderOutput(order).data)

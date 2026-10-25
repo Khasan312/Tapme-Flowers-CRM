@@ -1,13 +1,12 @@
 from datetime import date, datetime, time
 from decimal import Decimal
 from typing import Protocol
-from uuid import UUID
 
 from tapme.businesses.application.contracts import OFFICE_ROLES, MembershipReader, Scope, authorize
 
 
 class OverviewReader(Protocol):
-    def overview(self, business_id: UUID, day: date | None) -> dict[str, int | Decimal]: ...
+    def overview(self, scope: Scope, day: date | None) -> dict[str, int | Decimal]: ...
 
 
 class OverviewService:
@@ -16,7 +15,7 @@ class OverviewService:
 
     def get(self, scope: Scope, day: date | None = None) -> dict[str, int | Decimal]:
         authorize(self.access, scope, OFFICE_ROLES)
-        return self.reads.overview(scope.business_id, day)
+        return self.reads.overview(scope, day)
 
 
 def delivered_on_time(

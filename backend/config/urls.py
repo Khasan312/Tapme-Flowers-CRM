@@ -6,6 +6,12 @@ from rest_framework.permissions import IsAuthenticated
 from config.health import health
 from tapme.accounts.api import CsrfView, LoginView, LogoutView, MeView, PasswordView
 from tapme.businesses.api import BusinessListView
+from tapme.businesses.points_api import (
+    PointArchiveView,
+    PointDetailView,
+    PointsView,
+    StaffPointsView,
+)
 from tapme.businesses.settings_api import ResetStaffView, SettingsView, StaffDetailView, StaffView
 from tapme.catalog.api import ProductDetailView, ProductListView, ProductPhotoView
 from tapme.customers.api import CustomerListView
@@ -262,4 +268,18 @@ urlpatterns += [
         "api/v1/businesses/<uuid:business_id>/customers/<uuid:customer_id>/activity/",
         ActivityView.as_view(),
     )
+]
+
+
+urlpatterns += [
+    path("api/v1/businesses/<uuid:business_id>/points/", PointsView.as_view()),
+    path("api/v1/businesses/<uuid:business_id>/points/<uuid:point_id>/", PointDetailView.as_view()),
+    path(
+        "api/v1/businesses/<uuid:business_id>/points/<uuid:point_id>/archive/",
+        PointArchiveView.as_view(),
+    ),
+    path(
+        "api/v1/businesses/<uuid:business_id>/staff/<uuid:user_id>/points/",
+        StaffPointsView.as_view(),
+    ),
 ]

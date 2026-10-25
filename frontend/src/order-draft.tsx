@@ -12,6 +12,7 @@ type DraftItem =
   | { kind: "product"; product_id: string; quantity: number }
   | { kind: "budget"; amount: string; description: string };
 type Fields = {
+  point_id: string;
   items: DraftItem[];
   fulfillment: "pickup" | "courier";
   date: string;
@@ -303,7 +304,14 @@ function DraftEditor({
   const [without, setWithout] = useState(false),
     [reason, setReason] = useState("");
   const [deadline, setDeadline] = useState("");
-  const shop = useRemote<ShopSettings>(businessPath(business.id, "settings"));
+  const points = useRemote<import("./types").Point[]>(
+    businessPath(business.id, "points"),
+  );
+  const shop = useRemote<ShopSettings>(
+    fields.point_id
+      ? businessPath(business.id, `points/${fields.point_id}`)
+      : businessPath(business.id, "settings"),
+  );
   const [names, setNames] = useState<Record<string, string>>(() =>
     Object.fromEntries(
       draft.fields.items.flatMap((item, i) =>
@@ -583,6 +591,24 @@ function DraftEditor({
         </fieldset>
         <fieldset disabled={busy || conflict}>
           <legend>Получение</legend>
+          {points.data && points.data.filter((p) => p.active).length > 1 && (
+            <label>
+              Точка заказа
+              <select
+                value={fields.point_id || ""}
+                onChange={(e) => edit("point_id", e.target.value)}
+              >
+                <option value="">Выберите точку</option>
+                {points.data
+                  .filter((p) => p.active)
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.short_name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+          )}
           <div className="form-grid">
             <label>
               Способ получения

@@ -461,6 +461,9 @@ export function OrderDesk({
                       </span>
                     </div>
                     <div className="tk-badges">
+                      {business.point_id === "all" && o.point_name && (
+                        <span className="point-badge">{o.point_name}</span>
+                      )}
                       {o.delivery_issue && (
                         <span className="badge crit">{o.delivery_issue}</span>
                       )}
@@ -531,6 +534,9 @@ export function OrderDesk({
                       >
                         <span className="kt">
                           <span className="kn">№{o.number}</span>
+                          {business.point_id === "all" && o.point_name && (
+                            <span className="point-badge">{o.point_name}</span>
+                          )}
                           <span>
                             {o.window_start.slice(0, 5)}–
                             {o.window_end.slice(0, 5)}
@@ -587,6 +593,9 @@ export function OrderDesk({
                         <td>
                           <div className="b ink">{o.customer_name}</div>
                           <div className="small muted">{o.recipient_name}</div>
+                          {business.point_id === "all" && o.point_name && (
+                            <span className="point-badge">{o.point_name}</span>
+                          )}
                         </td>
                         <td className="mono small">
                           {shortDate(o.delivery_date)}

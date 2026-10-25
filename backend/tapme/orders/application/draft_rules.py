@@ -18,9 +18,14 @@ TEXT_FIELDS = {
 
 
 def normalize_fields(raw: dict[str, Any]) -> dict[str, Any]:
-    if set(raw) - (set(TEXT_FIELDS) | {"items", "fulfillment", "date", "window"}):
+    if set(raw) - (set(TEXT_FIELDS) | {"items", "fulfillment", "date", "window", "point_id"}):
         raise InvalidInput("Неизвестное поле черновика.")
     result: dict[str, Any] = {}
+    point_id = raw.get("point_id", "")
+    try:
+        result["point_id"] = str(UUID(str(point_id))) if point_id else ""
+    except (ValueError, TypeError):
+        raise InvalidInput("Выберите точку из списка.") from None
     for key, size in TEXT_FIELDS.items():
         value = raw.get(key, "")
         if not isinstance(value, str):

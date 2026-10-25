@@ -1,23 +1,24 @@
 from django.db.models import Max, Sum
 
+from tapme.businesses.infrastructure.access import DjangoMembershipReader
 from tapme.customers.infrastructure.repository import DjangoCustomerRepository
 from tapme.feedback.models import FeedbackRecord
 from tapme.orders.models import OrderRecord
-from tapme.reminders.models import ReminderRecord
+from tapme.reminders.infrastructure.points import scoped_reminders
 
 
 class DjangoActivityReader:
-    def get(self, business_id, customer_id):
+    def get(self, scope, customer_id):
+        business_id = scope.business_id
+        point_ids = DjangoMembershipReader().point_ids(scope)
         DjangoCustomerRepository().get(business_id, customer_id)
         orders = OrderRecord.objects.filter(
-            business_id=business_id, customer_id=customer_id
+            business_id=business_id, point_id__in=point_ids, customer_id=customer_id
         ).order_by("-created_at")
         feedback = FeedbackRecord.objects.filter(
-            business_id=business_id, order__customer_id=customer_id
+            business_id=business_id, order__point_id__in=point_ids, order__customer_id=customer_id
         ).order_by("-created_at")
-        messages = ReminderRecord.objects.filter(
-            business_id=business_id, customer_id=customer_id
-        ).order_by("-created_at")
+        messages = scoped_reminders(scope).filter(customer_id=customer_id).order_by("-created_at")
         return dict(
             order_count=orders.count(),
             total=str(

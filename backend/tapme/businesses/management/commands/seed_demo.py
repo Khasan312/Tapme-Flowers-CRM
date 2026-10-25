@@ -445,7 +445,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         query = Membership.objects.filter(
             user__username=options["owner"], user__is_active=True, role="owner", is_active=True
-        ).select_related("business", "business__shop")
+        ).select_related("business", "business")
         if options["business"]:
             query = query.filter(business_id=options["business"])
         memberships = list(query)

@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 
 from config import composition
 from config.api import validated
-from tapme.businesses.application.contracts import Scope
+from tapme.businesses.point_scope import request_scope, scoped_query
 from tapme.customers.api import CustomerQuery
 
 
@@ -28,8 +28,8 @@ class DirectoryView(APIView):
     def get(self, request, business_id):
         return Response(
             composition.customer_directory().list(
-                Scope(request.user.id, business_id),
+                request_scope(request, business_id),
                 now=timezone.now(),
-                **validated(DirectoryQuery, request.query_params),
+                **validated(DirectoryQuery, scoped_query(request)),
             )
         )

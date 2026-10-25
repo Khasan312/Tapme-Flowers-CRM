@@ -98,6 +98,9 @@ export function OrderViews({
               <button className="board-card" key={o.id} onClick={() => open(o)}>
                 <div className="section-heading">
                   <strong>№{o.number}</strong>
+                  {o.point_name && (
+                    <span className="point-badge">{o.point_name}</span>
+                  )}
                   <Status value={o.status} />
                 </div>
                 <strong>{o.customer_name}</strong>

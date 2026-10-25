@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 from django.db.models import Case, Count, DecimalField, F, OuterRef, Q, Subquery, Sum, When
 from django.db.models.functions import Coalesce
 
+from tapme.businesses.infrastructure.access import DjangoMembershipReader
 from tapme.businesses.models import Business
 from tapme.feedback.models import FeedbackRecord
 from tapme.orders.infrastructure.repository import DjangoOrderRepository, to_domain
@@ -14,7 +15,9 @@ from tapme.shared.domain import NotFound
 
 
 class DjangoOrderDesk:
-    def read(self, business_id, scope, day, search, status, limit, offset, now):
+    def read(self, actor, scope, day, search, status, limit, offset, now):
+        business_id = actor.business_id
+        point_ids = DjangoMembershipReader().point_ids(actor)
         local = now.astimezone(ZoneInfo(Business.objects.get(id=business_id).timezone))
         today, tomorrow = local.date(), local.date() + timedelta(days=1)
         balance = (
@@ -31,9 +34,9 @@ class DjangoOrderDesk:
             )
             .values("value")
         )
-        all_orders = OrderRecord.objects.filter(business_id=business_id).annotate(
-            balance=Coalesce(Subquery(balance), Decimal("0"), output_field=DecimalField())
-        )
+        all_orders = OrderRecord.objects.filter(
+            business_id=business_id, point_id__in=point_ids
+        ).annotate(balance=Coalesce(Subquery(balance), Decimal("0"), output_field=DecimalField()))
         filters = {
             "today": Q(delivery_date=today),
             "tomorrow": Q(delivery_date=tomorrow),
@@ -114,7 +117,7 @@ class DjangoOrderDesk:
                 )
             )
         for complaint in FeedbackRecord.objects.filter(
-            business_id=business_id, kind="complaint", status="open"
+            business_id=business_id, order__point_id__in=point_ids, kind="complaint", status="open"
         ).select_related("order")[:20]:
             tasks.insert(
                 0,
@@ -148,21 +151,28 @@ class DjangoOrderDesk:
             calendar=calendar,
         )
 
-    def notes(self, business_id):
+    def notes(self, scope):
+        point_ids = DjangoMembershipReader().point_ids(scope)
         return list(
-            OfficeTask.objects.filter(business_id=business_id, done=False)
+            OfficeTask.objects.filter(business_id=scope.business_id, done=False)
+            .filter(Q(point_id__in=point_ids) | Q(point_id=None))
             .order_by("created_at")
             .values("id", "content")
         )
 
     def add_note(self, scope, content):
         row = OfficeTask.objects.create(
-            business_id=scope.business_id, created_by_id=scope.user_id, content=content
+            business_id=scope.business_id,
+            point_id=scope.point_id,
+            created_by_id=scope.user_id,
+            content=content,
         )
         return dict(id=row.id, content=row.content)
 
     def complete_note(self, scope, note_id):
-        if not OfficeTask.objects.filter(business_id=scope.business_id, id=note_id).update(
-            done=True
+        if (
+            not OfficeTask.objects.filter(business_id=scope.business_id, id=note_id)
+            .filter(Q(point_id__in=DjangoMembershipReader().point_ids(scope)) | Q(point_id=None))
+            .update(done=True)
         ):
             raise NotFound("Задача не найдена.")

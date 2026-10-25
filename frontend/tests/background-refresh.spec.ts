@@ -71,18 +71,27 @@ async function seedOrder(
 }
 
 // Hold a real response until the test has inspected the in-flight UI.
-async function holdGet(page: Page, pattern: string) {
+async function holdGet(page: Page, pattern: string, allUntilReleased = false) {
   let held = false;
+  let released = false;
   let release!: () => void;
   let arrived!: () => void;
   const gate = new Promise<void>((resolve) => {
-    release = resolve;
+    release = () => {
+      released = true;
+      resolve();
+    };
   });
   const entered = new Promise<void>((resolve) => {
     arrived = resolve;
   });
   await page.route(pattern, async (route) => {
-    if (held || route.request().method() !== "GET") return route.continue();
+    if (
+      released ||
+      (held && !allUntilReleased) ||
+      route.request().method() !== "GET"
+    )
+      return route.continue();
     held = true;
     const response = await route.fetch();
     arrived();
@@ -518,6 +527,9 @@ test("при смене магазина старые клиенты сразу 
   const pending = await holdGet(
     page,
     `**/businesses/${otherId}/customers/directory/?*`,
+    // A new point/business mounts a new screen. StrictMode may abort its first
+    // GET and start another; both must wait for the simulated slow connection.
+    true,
   );
   try {
     await page

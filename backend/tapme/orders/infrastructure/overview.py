@@ -4,17 +4,20 @@ from zoneinfo import ZoneInfo
 from django.db.models import Sum
 from django.utils import timezone
 
+from tapme.businesses.infrastructure.access import DjangoMembershipReader
 from tapme.businesses.models import Business
 from tapme.feedback.models import FeedbackRecord
 from tapme.orders.application.overview import delivered_on_time
 from tapme.orders.models import OrderRecord
 from tapme.payments.models import PaymentRecord
-from tapme.reminders.models import ReminderRecord
+from tapme.reminders.infrastructure.points import scoped_reminders
 
 
 class DjangoOverviewReader:
-    def overview(self, business_id, day):
-        orders = OrderRecord.objects.filter(business_id=business_id)
+    def overview(self, scope, day):
+        business_id = scope.business_id
+        point_ids = DjangoMembershipReader().point_ids(scope)
+        orders = OrderRecord.objects.filter(business_id=business_id, point_id__in=point_ids)
         if day:
             orders = orders.filter(delivery_date=day)
         payments = PaymentRecord.objects.filter(
@@ -27,15 +30,18 @@ class DjangoOverviewReader:
             ).values_list("completed_at", "delivery_date", "window_end")
         )
         return dict(
-            pending=OrderRecord.objects.filter(business_id=business_id, status="pending").count(),
+            pending=OrderRecord.objects.filter(
+                business_id=business_id, point_id__in=point_ids, status="pending"
+            ).count(),
             deliveries=orders.filter(fulfillment="courier")
             .exclude(status__in=["pending", "cancelled"])
             .count(),
-            reminders=ReminderRecord.objects.filter(
-                business_id=business_id,
+            reminders=scoped_reminders(scope)
+            .filter(
                 state="wait",
                 due_date__lte=day or timezone.now().astimezone(ZoneInfo(zone)).date(),
-            ).count(),
+            )
+            .count(),
             deliveries_completed=len(delivered),
             deliveries_on_time=sum(
                 delivered_on_time(completed, day, end, zone) for completed, day, end in delivered

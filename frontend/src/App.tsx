@@ -14,7 +14,7 @@ import {
 import { ApiError, businessPath, errorText, request } from "./api";
 import { Notice } from "./components";
 import { CustomerForm, OrderForm } from "./forms";
-import type { Business, Customer, Order, User, Reminder } from "./types";
+import type { Business, Customer, Order, User, Reminder, Point } from "./types";
 
 import { OrderPanel, TaskBoard } from "./orders";
 import { Settings, type SettingsTab } from "./settings";
@@ -32,6 +32,7 @@ import { PasswordPanel } from "./account";
 import { CustomerDirectory } from "./customer-directory";
 import { CustomerPage } from "./customer-page";
 import { DeliveryDesk } from "./deliveries";
+import { PointSwitcher } from "./point-switcher";
 import { OrderDesk } from "./order-desk";
 import {
   accessibleRoute,
@@ -84,6 +85,7 @@ function Workspace() {
     view,
     settingsTab,
     businessId,
+    pointId,
     customerId: customerDetail,
     orderId,
     chatId,
@@ -96,7 +98,44 @@ function Workspace() {
   const [importOpen, setImportOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const business = businesses.find((b) => b.id === businessId);
+  const selectedBusiness = businesses.find((b) => b.id === businessId);
+  const business = selectedBusiness
+    ? { ...selectedBusiness, point_id: pointId }
+    : undefined;
+  const points = useRemote<Point[]>(
+    user && businessId ? businessPath(businessId, "points") : null,
+    settingsRevision,
+  );
+  const [pointContextReady, setPointContextReady] = useState("");
+  useEffect(() => {
+    if (!user || !businessId) setPointContextReady("");
+    else if (points.data || points.error) setPointContextReady(businessId);
+  }, [user, businessId, points.data, points.error]);
+  useEffect(() => {
+    if (!user || !businessId || !points.data) return;
+    const active = points.data.filter((p) => p.active);
+    const key = `tapme.point.${user.id}.${businessId}`;
+    let stored = "";
+    try {
+      stored = localStorage.getItem(key) || "";
+    } catch {
+      /* private storage */
+    }
+    const wanted = pointId || stored;
+    const valid = wanted === "all" || active.some((p) => p.id === wanted);
+    const next =
+      active.length === 1 && points.data.length === 1
+        ? active[0].id
+        : valid
+          ? wanted
+          : "all";
+    if (next !== pointId) go({ ...route, pointId: next }, "replace");
+    try {
+      localStorage.setItem(key, next);
+    } catch {
+      /* private storage */
+    }
+  }, [user, businessId, pointId, points.data, go, route]);
   const office = business && ["owner", "manager"].includes(business.role);
   useEffect(() => {
     if (user && !starting) go(route, "replace");
@@ -112,7 +151,9 @@ function Workspace() {
     setNotice("");
   }, [requestedRoute]);
   const shop = useRemote<ShopSettings>(
-    office && businessId ? businessPath(businessId, "settings") : null,
+    office && businessId && pointId && pointId !== "all"
+      ? businessPath(businessId, `points/${pointId}`)
+      : null,
     settingsRevision,
   );
   const overview = useRemote<{
@@ -123,9 +164,9 @@ function Workspace() {
   }>(
     office && business
       ? businessPath(business.id, "overview") +
-          `?day=${shopDay(business.timezone)}`
+          `?day=${shopDay(business.timezone)}&point=${pointId || "all"}`
       : null,
-    revision,
+    revision + settingsRevision,
   );
   const chatNotifications = useChatNotifications(
     office ? businessId : null,
@@ -354,6 +395,13 @@ function Workspace() {
       </main>
     );
 
+  if (business && pointContextReady !== business.id)
+    return (
+      <div className="loading-screen">
+        <p>Загружаем точки магазина…</p>
+      </div>
+    );
+
   return (
     <div className="app-shell crm">
       <aside className="rail">
@@ -405,23 +453,45 @@ function Workspace() {
           })}
         </nav>
         <div className="rail-foot">
-          <Avatar name={business?.name || "Магазин"} />
+          {!(points.data && points.data.length > 1) && (
+            <Avatar name={business?.name || "Магазин"} />
+          )}
           <div className="shop-switch">
-            <button
-              className="plain-button shop-n"
-              onClick={() => {
-                if (office) {
-                  navigate("settings", "shop");
+            {points.data && points.data.length > 1 ? (
+              <PointSwitcher
+                key={businessId}
+                businessName={business?.name || "Магазин"}
+                points={points.data}
+                value={pointId || "all"}
+                onChange={(id) =>
+                  go({
+                    ...route,
+                    pointId: id,
+                    orderId: null,
+                    customerId: null,
+                    chatId: null,
+                  })
                 }
-              }}
-            >
-              {business?.name || "Магазин"}
-            </button>
-            <div className="shop-c">
-              {[shop.data?.city, shop.data?.address]
-                .filter(Boolean)
-                .join(" · ") || "Контакты магазина"}
-            </div>
+              />
+            ) : (
+              <>
+                <button
+                  className="plain-button shop-n"
+                  onClick={() => {
+                    if (office) {
+                      navigate("settings", "shop");
+                    }
+                  }}
+                >
+                  {business?.name || "Магазин"}
+                </button>
+                <div className="shop-c">
+                  {[shop.data?.city, shop.data?.address]
+                    .filter(Boolean)
+                    .join(" · ") || "Контакты магазина"}
+                </div>
+              </>
+            )}
             {businesses.length > 1 && (
               <select
                 aria-label="Магазин"
@@ -432,6 +502,7 @@ function Workspace() {
                       {
                         ...route,
                         businessId: e.target.value,
+                        pointId: "",
                         customerId: null,
                         orderId: null,
                         chatId: null,
@@ -455,6 +526,13 @@ function Workspace() {
         <header className="topbar">
           <div className="topbar-title">
             <h1>{office ? labels[view] : "Мои задания"}</h1>
+            {points.data && points.data.length > 1 && (
+              <span className="point-badge">
+                {pointId === "all"
+                  ? "Все точки"
+                  : points.data.find((p) => p.id === pointId)?.short_name}
+              </span>
+            )}
             {view === "orders" && (
               <div className="sub">
                 {new Intl.DateTimeFormat("ru-RU", {
@@ -468,7 +546,7 @@ function Workspace() {
           </div>
           {office && business && (
             <GlobalSearch
-              key={business.id}
+              key={business.id + pointId}
               business={business}
               openCustomer={openCustomer}
               openOrder={openOrder}
@@ -559,7 +637,7 @@ function Workspace() {
             )}
           </div>
         </header>
-        <div className="page-content">
+        <div className="page-content" key={businessId + pointId}>
           {view === "settings" && settingsTab !== "reminders" && (
             <div className="page-hd">
               <h1>Настройки</h1>
@@ -627,6 +705,11 @@ function Workspace() {
               revision={revision}
               openOrder={openOrder}
             />
+          ) : !office && points.data?.filter((p) => p.active).length === 0 ? (
+            <div className="card empty">
+              Владелец ещё не назначил вам точку. Обратитесь к владельцу
+              магазина.
+            </div>
           ) : !office ? (
             <TaskBoard
               key={business.id + business.role}
