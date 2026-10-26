@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 
 from config import composition
 from config.api import ListQuery, StrictSerializer, validated
-from tapme.businesses.application.contracts import Scope
+from tapme.businesses.point_scope import request_scope, scoped_query
 from tapme.reminders.domain import ReminderConfiguration, ReminderRules, Scenario, ScenarioStep
 
 
@@ -44,6 +44,8 @@ class ReminderQuery(ListQuery):
 
 
 class ReminderOutput(serializers.Serializer):
+    point_id = serializers.UUIDField(allow_null=True)
+    point_name = serializers.CharField()
     recovered = serializers.BooleanField()
     kind = serializers.CharField()
     id = serializers.UUIDField()
@@ -91,7 +93,7 @@ class MessageOutput(serializers.Serializer):
 class RulesView(APIView):
     @extend_schema(responses=RulesInput)
     def get(self, request, business_id):
-        return Response(asdict(composition.reminders().rules(Scope(request.user.id, business_id))))
+        return Response(asdict(composition.reminders().rules(request_scope(request, business_id))))
 
     @extend_schema(request=RulesInput, responses=RulesInput)
     def put(self, request, business_id):
@@ -100,12 +102,12 @@ class RulesView(APIView):
         if "custom_templates" not in data:
             # Older clients editing reminder rules must not erase saved custom messages.
             data["custom_templates"] = (
-                composition.reminders().rules(Scope(request.user.id, business_id)).custom_templates
+                composition.reminders().rules(request_scope(request, business_id)).custom_templates
             )
         return Response(
             asdict(
                 composition.reminders().save_rules(
-                    Scope(request.user.id, business_id), ReminderRules(**data)
+                    request_scope(request, business_id), ReminderRules(**data)
                 )
             )
         )
@@ -119,9 +121,9 @@ class ReminderListView(APIView):
     @extend_schema(parameters=[ReminderQuery], responses=ReminderPage)
     def get(self, request, business_id):
         result = composition.reminders().list(
-            Scope(request.user.id, business_id),
+            request_scope(request, business_id),
             now=timezone.now(),
-            **validated(ReminderQuery, request.query_params),
+            **validated(ReminderQuery, scoped_query(request)),
         )
         return Response(result)
 
@@ -130,7 +132,7 @@ class ReminderListView(APIView):
         return Response(
             {
                 "created": composition.reminders().generate(
-                    Scope(request.user.id, business_id), timezone.now()
+                    request_scope(request, business_id), timezone.now()
                 )
             }
         )
@@ -145,7 +147,7 @@ class ReminderMessageView(APIView):
     def get(self, request, business_id, reminder_id):
         return Response(
             composition.reminders().prepare(
-                Scope(request.user.id, business_id), reminder_id, timezone.now()
+                request_scope(request, business_id), reminder_id, timezone.now()
             )
         )
 
@@ -153,7 +155,7 @@ class ReminderMessageView(APIView):
     def patch(self, request, business_id, reminder_id):
         data = validated(MessageEditInput, request.data)
         composition.reminders().edit_message(
-            Scope(request.user.id, business_id), reminder_id, data["message"]
+            request_scope(request, business_id), reminder_id, data["message"]
         )
         return Response(status=204)
 
@@ -163,7 +165,7 @@ class ReminderOpenView(APIView):
     def post(self, request, business_id, reminder_id):
         return Response(
             composition.reminders().open_message(
-                Scope(request.user.id, business_id), reminder_id, timezone.now()
+                request_scope(request, business_id), reminder_id, timezone.now()
             )
         )
 
@@ -207,7 +209,7 @@ class ConfigurationView(APIView):
     @extend_schema(responses=ConfigurationInput)
     def get(self, request, business_id):
         return Response(
-            asdict(composition.reminders().configuration(Scope(request.user.id, business_id)))
+            asdict(composition.reminders().configuration(request_scope(request, business_id)))
         )
 
     @extend_schema(request=ConfigurationInput, responses=ConfigurationInput)
@@ -226,7 +228,7 @@ class ConfigurationView(APIView):
         return Response(
             asdict(
                 composition.reminders().save_configuration(
-                    Scope(request.user.id, business_id), ReminderConfiguration(**data)
+                    request_scope(request, business_id), ReminderConfiguration(**data)
                 )
             )
         )
@@ -236,7 +238,7 @@ class ReminderActionView(APIView):
     @extend_schema(request=ActionInput, responses={204: None})
     def post(self, request, business_id, reminder_id):
         composition.reminders().act(
-            Scope(request.user.id, business_id),
+            request_scope(request, business_id),
             reminder_id,
             now=timezone.now(),
             **validated(ActionInput, request.data),

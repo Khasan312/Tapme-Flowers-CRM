@@ -23,6 +23,7 @@ class OrderRepository(Protocol):
         search: str = "",
         status: str = "",
         customer_id: UUID | None = None,
+        point_ids: tuple[UUID, ...] | None = None,
     ) -> Page[Order]: ...
 
 

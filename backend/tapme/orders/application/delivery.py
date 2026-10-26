@@ -30,5 +30,11 @@ class DeliverySlots(Protocol):
     def timezone(self, business_id: UUID) -> str: ...
 
     def lock(
-        self, business_id: UUID, day: date, start: time, end: time, exclude_id: UUID | None = None
+        self,
+        business_id: UUID,
+        day: date,
+        start: time,
+        end: time,
+        exclude_id: UUID | None = None,
+        point_id: UUID | None = None,
     ) -> DeliverySlot: ...

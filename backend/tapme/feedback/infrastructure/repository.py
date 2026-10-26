@@ -32,10 +32,14 @@ class DjangoFeedbackRepository:
         return FeedbackRecord.objects.filter(id=row.id).values().get()
 
     def resolve(self, business_id, feedback_id, outcome, actor_id):
+        from tapme.businesses.application.contracts import Scope
+        from tapme.businesses.infrastructure.access import DjangoMembershipReader
+
+        point_ids = DjangoMembershipReader().point_ids(Scope(actor_id, business_id))
         with transaction.atomic():
             row = (
                 FeedbackRecord.objects.select_for_update()
-                .filter(business_id=business_id, id=feedback_id)
+                .filter(business_id=business_id, id=feedback_id, order__point_id__in=point_ids)
                 .first()
             )
             if row is None:

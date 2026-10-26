@@ -11,8 +11,13 @@ from tapme.shared.domain import Conflict, InvalidInput, NotFound
 
 class DjangoPublicOrderRepository:
     def set_token(self, scope, order_id, digest):
+        from tapme.businesses.infrastructure.access import DjangoMembershipReader
+
+        point_ids = DjangoMembershipReader().point_ids(scope)
         with transaction.atomic():
             order = DjangoOrderRepository().lock(scope.business_id, order_id)
+            if order.point_id not in point_ids:
+                raise NotFound("Заказ не найден.")
             OrderRecord.objects.filter(id=order.id, business_id=scope.business_id).update(
                 public_token_hash=digest
             )
@@ -28,7 +33,7 @@ class DjangoPublicOrderRepository:
         row = OrderRecord.objects.filter(public_token_hash=digest).first()
         if row is None:
             raise NotFound("Ссылка недействительна или отозвана.")
-        shop = Shop.objects.get(business_id=row.business_id)
+        shop = Shop.objects.get(id=row.point_id, business_id=row.business_id)
         return dict(
             number=row.number,
             status=row.status,

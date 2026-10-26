@@ -91,11 +91,24 @@ class DjangoDraftRepository:
                     "total": str(price * quantity),
                 }
             )
-        shop = Shop.objects.get(business_id=scope.business_id)
+        from tapme.businesses.infrastructure.access import DjangoMembershipReader
+
+        available = DjangoMembershipReader().points(scope).filter(active=True)
+        selected = fields.get("point_id")
+        shop = available.filter(id=selected).first() if selected else None
+        if (
+            not selected
+            and Shop.objects.filter(business_id=scope.business_id, active=True).count() == 1
+        ):
+            shop = available.first()
+        if shop is None:
+            missing.append("Выберите доступную точку заказа")
+        elif not selected:
+            fields["point_id"] = str(shop.id)
         window = next(
             (
                 w
-                for w in shop.delivery_windows
+                for w in (shop.delivery_windows if shop else [])
                 if w["start"] == fields["window"]["start"] and w["end"] == fields["window"]["end"]
             ),
             None,
@@ -145,7 +158,11 @@ class DjangoDraftRepository:
             row = OrderDraft.objects.filter(conversation=chat, status="active").first()
             if row is None:
                 fields = normalize_fields(
-                    {"recipient_name": chat.customer.name, "recipient_phone": chat.customer.phone}
+                    {
+                        "recipient_name": chat.customer.name,
+                        "recipient_phone": chat.customer.phone,
+                        "point_id": str(scope.point_id) if scope.point_id else "",
+                    }
                 )
                 row = OrderDraft.objects.create(
                     business_id=scope.business_id,
@@ -174,6 +191,10 @@ class DjangoDraftRepository:
                 raise Conflict("Этот черновик уже закрыт. Откройте актуальный черновик.")
             if row.customer_id != chat.customer_id:
                 raise Conflict("Клиент диалога изменился. Создайте новый черновик.")
+            if fields.get("point_id"):
+                from tapme.businesses.infrastructure.access import DjangoMembershipReader
+
+                DjangoMembershipReader().order_point(scope, UUID(fields["point_id"]))
             self._products(scope, fields)
             for key, value in fields.items():
                 if value != row.fields.get(key):
@@ -250,6 +271,7 @@ class DjangoDraftRepository:
             if fields["requested_time_text"]:
                 notes += "\nПожелание по времени: " + fields["requested_time_text"]
             command = CreateOrder(
+                point_id=UUID(fields["point_id"]) if fields.get("point_id") else None,
                 customer_id=chat.customer_id,
                 items=products,
                 recipient_name=fields["recipient_name"],
@@ -296,12 +318,15 @@ class DjangoDraftRepository:
 
         with transaction.atomic():
             repository = DjangoOrderRepository()
+            self.orders.get(scope, order_id)
             order = repository.lock(scope.business_id, order_id)
             ensure_version(order, version)
             if order.status != "pending" or order.payment_due_at is None:
                 raise InvalidInput("Продление доступно ожидающему подтверждения заказу.")
             business = (
-                Shop.objects.select_related("business").get(business_id=scope.business_id).business
+                Shop.objects.select_related("business")
+                .get(business_id=scope.business_id, is_primary=True)
+                .business
             )
             receiving = receiving_at(
                 order.delivery_date, order.window_start, ZoneInfo(business.timezone)

@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 
 from config import composition
 from config.api import ListQuery, StrictSerializer, validated
-from tapme.businesses.application.contracts import Scope
+from tapme.businesses.point_scope import request_scope, scoped_query
 from tapme.catalog.api import order_product_photos
 from tapme.orders.application.services import CreateOrder, ItemInput
 from tapme.orders.domain import Fulfillment
@@ -19,6 +19,7 @@ class ItemSerializer(StrictSerializer):
 
 
 class OrderInput(StrictSerializer):
+    point_id = serializers.UUIDField(required=False, allow_null=True)
     occasion = serializers.CharField(max_length=100, allow_blank=True, default="")
     source = serializers.CharField(max_length=80, allow_blank=True, default="")
     relation = serializers.CharField(max_length=80, allow_blank=True, default="")
@@ -45,6 +46,18 @@ class LineOutput(serializers.Serializer):
 
 
 class OrderOutput(serializers.Serializer):
+    point_id = serializers.UUIDField(allow_null=True)
+    point_name = serializers.SerializerMethodField()
+
+    @extend_schema_field(serializers.CharField())
+    def get_point_name(self, order):
+        from tapme.businesses.models import Shop
+
+        return (
+            Shop.objects.filter(id=order.point_id).values_list("short_name", flat=True).first()
+            or ""
+        )
+
     prepayment_required = serializers.DecimalField(max_digits=12, decimal_places=2)
     prepayment_percent = serializers.IntegerField()
     payment_due_at = serializers.DateTimeField(allow_null=True)
@@ -105,7 +118,7 @@ class OrderListView(APIView):
     @extend_schema(operation_id="orders_list", parameters=[OrderQuery], responses=OrderPage)
     def get(self, request, business_id):
         page = composition.orders().list(
-            Scope(request.user.id, business_id), **validated(OrderQuery, request.query_params)
+            request_scope(request, business_id), **validated(OrderQuery, scoped_query(request))
         )
         return Response(OrderPage(page).data)
 
@@ -127,7 +140,7 @@ class OrderListView(APIView):
         values["items"] = tuple(ItemInput(**item) for item in values["items"])
         values["fulfillment"] = Fulfillment(values["fulfillment"])
         order = composition.orders().create(
-            Scope(request.user.id, business_id), CreateOrder(**values), request_key
+            request_scope(request, business_id), CreateOrder(**values), request_key
         )
         return Response(OrderOutput(order).data, status=201)
 
@@ -135,5 +148,5 @@ class OrderListView(APIView):
 class OrderDetailView(APIView):
     @extend_schema(operation_id="orders_retrieve", responses=OrderOutput)
     def get(self, request, business_id, order_id):
-        order = composition.orders().get(Scope(request.user.id, business_id), order_id)
+        order = composition.orders().get(request_scope(request, business_id), order_id)
         return Response(OrderOutput(order).data)

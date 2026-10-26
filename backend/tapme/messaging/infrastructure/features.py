@@ -4,6 +4,7 @@ from django.db import transaction
 from django.db.models import BigIntegerField, F, OuterRef, Q, Subquery
 from django.db.models.functions import Coalesce
 
+from tapme.businesses.infrastructure.access import DjangoMembershipReader
 from tapme.businesses.models import Shop
 from tapme.customers.models import CustomerRecord
 from tapme.messaging.models import Conversation, ConversationRead, Message, QuickReply
@@ -110,7 +111,11 @@ class ChatFeatures:
     def payment_options(self, scope, chat_id):
         chat = self._conversation(scope, chat_id)
         orders = (
-            OrderRecord.objects.filter(business_id=scope.business_id, customer_id=chat.customer_id)
+            OrderRecord.objects.filter(
+                business_id=scope.business_id,
+                point_id__in=DjangoMembershipReader().point_ids(scope),
+                customer_id=chat.customer_id,
+            )
             .exclude(status__in=["cancelled", "delivered"])
             .prefetch_related("payments")
             .order_by("-created_at")
@@ -139,17 +144,24 @@ class ChatFeatures:
             if old.payload.get("payment") != marker or old.sender_id != scope.user_id:
                 raise Conflict("Этот запрос уже использован для другого сообщения.")
             return message_data(old)
-        shop = Shop.objects.select_for_update().get(business_id=scope.business_id)
-        if not shop.payment_qr_key:
-            raise InvalidInput("Владелец ещё не добавил QR в настройках каналов.")
         number = "—"
         if order_id:
             order = OrderRecord.objects.filter(
-                id=order_id, business_id=scope.business_id, customer_id=chat.customer_id
+                id=order_id,
+                business_id=scope.business_id,
+                point_id__in=DjangoMembershipReader().point_ids(scope),
+                customer_id=chat.customer_id,
             ).first()
             if not order or not chat.customer_id:
                 raise InvalidInput("Выберите заказ этого клиента.")
+            shop = Shop.objects.select_for_update().get(
+                id=order.point_id, business_id=scope.business_id
+            )
             number = str(order.number)
+        else:
+            shop = self.payment_shop(scope, lock=True)
+        if not shop.payment_qr_key:
+            raise InvalidInput("Для выбранной точки ещё не загружен QR в настройках каналов.")
         text = shop.payment_message.replace("{номер}", number).replace("{сумма}", str(amount))
         result = self.attach(
             scope,

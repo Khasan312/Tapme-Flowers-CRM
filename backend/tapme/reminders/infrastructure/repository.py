@@ -7,6 +7,7 @@ from django.db import transaction
 from django.db.models import Count, Q
 from django.utils import timezone
 
+from tapme.businesses.infrastructure.access import DjangoMembershipReader
 from tapme.businesses.models import Business
 from tapme.customers.models import CustomerRecord
 from tapme.feedback.models import FeedbackRecord
@@ -23,6 +24,7 @@ from tapme.reminders.domain import (
 )
 from tapme.reminders.infrastructure import scenarios
 from tapme.reminders.infrastructure.generation import generate_scenarios
+from tapme.reminders.infrastructure.points import scoped_reminders
 from tapme.reminders.models import ReminderRecord, ReminderSettings
 from tapme.shared.domain import Conflict, InvalidInput, NotFound
 
@@ -96,11 +98,11 @@ class DjangoReminderRepository:
         return scenarios.save_configuration(row, config)
 
     @transaction.atomic
-    def generate(self, business_id, now):
+    def generate(self, business_id, now, point_ids=None):
         ReminderSettings.objects.get_or_create(business_id=business_id)
         settings = ReminderSettings.objects.select_for_update().get(business_id=business_id)
         scenarios.initialize(settings, self._rules(settings))
-        count = generate_scenarios(settings, Business.objects.get(id=business_id), now)
+        count = generate_scenarios(settings, Business.objects.get(id=business_id), now, point_ids)
         settings.last_generated_at = max(now, settings.last_generated_at or now)
         settings.save(update_fields=["last_generated_at"])
         return count
@@ -123,9 +125,13 @@ class DjangoReminderRepository:
             ),
         )
 
-    def _history(self, row):
+    def _history(self, row, scope):
         orders = (
-            OrderRecord.objects.filter(business_id=row.business_id, customer_id=row.customer_id)
+            OrderRecord.objects.filter(
+                business_id=row.business_id,
+                customer_id=row.customer_id,
+                point_id__in=DjangoMembershipReader().point_ids(scope),
+            )
             .exclude(status="cancelled")
             .prefetch_related("lines")
             .order_by("-created_at", "-id")
@@ -165,13 +171,14 @@ class DjangoReminderRepository:
 
         return payload(last), payload(hint)
 
-    def list(self, business_id, state, limit, offset, now, kind="all", scenario=None):
+    def list(self, scope, state, limit, offset, now, kind="all", scenario=None):
+        business_id = scope.business_id
         config = self.configuration(business_id)
         business = Business.objects.get(id=business_id)
         zone = ZoneInfo(business.timezone)
         local = now.astimezone(zone)
         today = local.date()
-        all_rows = ReminderRecord.objects.filter(business_id=business_id)
+        all_rows = scoped_reminders(scope)
         visible = all_rows.exclude(state="wait", due_date__gt=today)
         stats = {
             row["state"]: row["count"]
@@ -179,7 +186,7 @@ class DjangoReminderRepository:
         }
         query = (
             visible.filter(state=state)
-            .select_related("customer", "business", "scenario", "step")
+            .select_related("customer", "business", "scenario", "step", "point")
             .order_by("event_date", "customer__name", "id")
         )
         if kind != "all":
@@ -191,10 +198,12 @@ class DjangoReminderRepository:
         rows = []
         for row in query[offset : offset + limit]:
             reason = self._pause_reason(row, config, paused, now)
-            last, hint = self._history(row)
+            last, hint = self._history(row, scope)
             rows.append(
                 dict(
                     id=row.id,
+                    point_id=row.point_id,
+                    point_name=row.point.short_name if row.point else "Основная",
                     kind=row.scenario.kind
                     if row.scenario
                     else (
@@ -231,9 +240,11 @@ class DjangoReminderRepository:
         )
         order_ids = ordered.values_list("order_id", flat=True).distinct()
         revenue = sum(
-            OrderRecord.objects.filter(business_id=business_id, id__in=order_ids).values_list(
-                "total", flat=True
-            )
+            OrderRecord.objects.filter(
+                business_id=business_id,
+                id__in=order_ids,
+                point_id__in=DjangoMembershipReader().point_ids(scope),
+            ).values_list("total", flat=True)
         )
         return dict(
             count=query.count(),
@@ -308,10 +319,12 @@ class DjangoReminderRepository:
                 raise InvalidInput(reason)
         return rules
 
-    def _row(self, business_id, reminder_id, lock=False):
-        query = ReminderRecord.objects.filter(
-            business_id=business_id, id=reminder_id
-        ).select_related("business", "customer", "scenario", "step")
+    def _row(self, scope, reminder_id, lock=False):
+        query = (
+            scoped_reminders(scope)
+            .filter(id=reminder_id)
+            .select_related("business", "customer", "scenario", "step")
+        )
         if lock:
             query = query.select_for_update(of=("self",))
         row = query.first()
@@ -319,12 +332,12 @@ class DjangoReminderRepository:
             raise NotFound("Напоминание не найдено.")
         return row
 
-    def prepare(self, business_id, reminder_id, now):
-        row = self._row(business_id, reminder_id)
+    def prepare(self, scope, reminder_id, now):
+        row = self._row(scope, reminder_id)
         if row.state != "wait":
             raise Conflict("Это напоминание уже обработано.")
         rules = self._eligible(row, now, require_hours=True)
-        _, hint = self._history(row)
+        _, hint = self._history(row, scope)
         message = self._text(row, rules, hint["items"] if hint else "")
         return dict(
             message=message,
@@ -333,7 +346,7 @@ class DjangoReminderRepository:
 
     @transaction.atomic
     def open_message(self, scope, reminder_id, now):
-        row = self._row(scope.business_id, reminder_id, lock=True)
+        row = self._row(scope, reminder_id, lock=True)
         # Serialize two reminders for one customer, including the frequency check.
         row.customer = CustomerRecord.objects.select_for_update().get(
             id=row.customer_id, business_id=scope.business_id
@@ -341,7 +354,7 @@ class DjangoReminderRepository:
         if row.state != "wait":
             raise Conflict("Это напоминание уже обработано. Обновите список.")
         rules = self._eligible(row, now, require_hours=True)
-        _, hint = self._history(row)
+        _, hint = self._history(row, scope)
         row.message = self._text(row, rules, hint["items"] if hint else "")
         row.state, row.sent_at, row.acted_at, row.actor_id = "sent", now, now, scope.user_id
         row.save()
@@ -352,7 +365,7 @@ class DjangoReminderRepository:
 
     @transaction.atomic
     def edit_message(self, scope, reminder_id, text):
-        row = self._row(scope.business_id, reminder_id, lock=True)
+        row = self._row(scope, reminder_id, lock=True)
         if row.state != "wait":
             raise Conflict("Нельзя изменить уже обработанное сообщение.")
         row.message = text
@@ -360,7 +373,7 @@ class DjangoReminderRepository:
 
     @transaction.atomic
     def act(self, scope, reminder_id, action, now, order_id=None):
-        row = self._row(scope.business_id, reminder_id, lock=True)
+        row = self._row(scope, reminder_id, lock=True)
         if action == "undo":
             if (
                 row.state != "sent"
@@ -390,7 +403,7 @@ class DjangoReminderRepository:
                     id=row.customer_id, business_id=scope.business_id
                 )
                 rules = self._eligible(row, now, require_hours=True)
-                _, hint = self._history(row)
+                _, hint = self._history(row, scope)
                 row.message = self._text(row, rules, hint["items"] if hint else "")
                 row.sent_at = now
             if action == "ordered" and order_id:
@@ -399,6 +412,7 @@ class DjangoReminderRepository:
                         id=order_id,
                         business_id=scope.business_id,
                         customer_id=row.customer_id,
+                        point_id__in=DjangoMembershipReader().point_ids(scope),
                         created_at__gte=row.sent_at or row.created_at,
                     )
                     .exclude(status="cancelled")

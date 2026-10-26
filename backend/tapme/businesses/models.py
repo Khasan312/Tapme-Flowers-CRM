@@ -15,6 +15,11 @@ class Business(models.Model):
     def __str__(self):
         return self.name
 
+    @property
+    def shop(self):
+        """Compatibility for single-shop management commands."""
+        return self.points.get(is_primary=True)
+
 
 def default_windows():
     return [
@@ -28,7 +33,11 @@ def default_windows():
 class Shop(models.Model):
     version = models.PositiveIntegerField(default=1)
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    business = models.OneToOneField(Business, on_delete=models.PROTECT, related_name="shop")
+    business = models.ForeignKey(Business, on_delete=models.PROTECT, related_name="points")
+    is_primary = models.BooleanField(default=True, db_default=True)
+    active = models.BooleanField(default=True, db_default=True)
+    short_name = models.CharField(max_length=40, default="Основная", db_default="Основная")
+    sort = models.PositiveIntegerField(default=0, db_default=0)
     name = models.CharField(max_length=150)
     address = models.CharField(max_length=500, blank=True)
     phone = models.CharField(max_length=40, blank=True)
@@ -47,6 +56,18 @@ class Shop(models.Model):
     )
     payment_version = models.PositiveIntegerField(default=1, db_default=1)
 
+    class Meta:
+        ordering = ["sort", "name", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["business"], condition=models.Q(is_primary=True), name="one_primary_point"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(is_primary=False) | models.Q(active=True),
+                name="primary_point_active",
+            ),
+        ]
+
 
 class Membership(models.Model):
     business = models.ForeignKey(Business, on_delete=models.PROTECT, related_name="memberships")
@@ -56,6 +77,7 @@ class Membership(models.Model):
     role = models.CharField(max_length=20, choices=[(r.value, r.name) for r in Role])
     is_active = models.BooleanField(default=True)
     phone = models.CharField(max_length=40, blank=True)
+    points = models.ManyToManyField(Shop, through="MembershipPoint", related_name="memberships")
 
     class Meta:
         constraints = [
@@ -63,4 +85,14 @@ class Membership(models.Model):
             models.CheckConstraint(
                 condition=models.Q(role__in=[r.value for r in Role]), name="valid_member_role"
             ),
+        ]
+
+
+class MembershipPoint(models.Model):
+    membership = models.ForeignKey(Membership, on_delete=models.CASCADE)
+    point = models.ForeignKey(Shop, on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["membership", "point"], name="unique_membership_point")
         ]

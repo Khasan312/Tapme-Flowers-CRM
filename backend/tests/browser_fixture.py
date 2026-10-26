@@ -23,7 +23,7 @@ from tapme.customers.models import CustomerRecord  # noqa: E402
 from tapme.feedback.models import FeedbackRecord  # noqa: E402
 from tapme.media.models import PhotoRecord  # noqa: E402
 from tapme.messaging.models import ChannelAccount, Message  # noqa: E402
-from tapme.orders.models import OrderCounter, OrderRecord  # noqa: E402
+from tapme.orders.models import OfficeTask, OrderCounter, OrderRecord  # noqa: E402
 from tapme.payments.models import PaymentRecord  # noqa: E402
 from tapme.reminders.models import ReminderRecord, ReminderSettings  # noqa: E402
 
@@ -109,6 +109,7 @@ while pending:
         CustomerRecord.objects.filter(business=business).delete()
         ProductRecord.objects.filter(business=business).delete()
         Membership.objects.filter(business=business).delete()
+        OfficeTask.objects.filter(business=business).delete()
         Shop.objects.filter(business=business).delete()
         business.delete()
         User.objects.filter(id__in=staff_ids, memberships__isnull=True).delete()

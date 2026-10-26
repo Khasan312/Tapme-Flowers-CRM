@@ -399,3 +399,36 @@ def test_concurrent_conversion_only_one_order(setup, draft_setup):
     with ThreadPoolExecutor(max_workers=2) as pool:
         result = list(pool.map(lambda _: submit(), range(2)))
     assert result[0] == result[1] and OrderRecord.objects.count() == 1
+
+
+def test_draft_keeps_explicit_point_and_its_delivery_price(setup, draft_setup, base):
+    client, url, _ = draft_setup
+    second = client.post(
+        base + "/points/",
+        {
+            "name": "Чуй",
+            "short_name": "Чуй",
+            "windows": [{"start": "10:00", "end": "12:00", "capacity": 3, "price": "750.00"}],
+        },
+        format="json",
+    ).data
+    draft = save_complete(setup, draft_setup)
+    assert "Выберите доступную точку заказа" in draft["missing"]
+    updated = client.put(
+        url,
+        {
+            "draft_id": draft["id"],
+            "version": draft["version"],
+            "fields": {**draft["fields"], "point_id": second["id"]},
+        },
+        format="json",
+    )
+    assert updated.status_code == 200
+    draft = updated.data["draft"]
+    assert draft["delivery_fee"] == "750.00"
+    # Switching the global view does not move a previously saved draft.
+    other = client.get(url, HTTP_X_TAPME_POINT=str(setup["business"].shop.id)).data["draft"]
+    assert other["fields"]["point_id"] == second["id"]
+    order = convert(draft_setup, draft)
+    assert order["point_id"] == second["id"]
+    assert order["delivery_fee"] == "750.00"

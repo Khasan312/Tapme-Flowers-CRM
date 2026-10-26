@@ -21,7 +21,7 @@ from rest_framework.views import APIView
 
 from config import composition
 from config.api import ListQuery, StrictSerializer, validated
-from tapme.businesses.application.contracts import Scope
+from tapme.businesses.point_scope import request_scope
 from tapme.messaging.infrastructure.processing import receive
 from tapme.messaging.schemas import (
     ChannelOutput,
@@ -87,7 +87,7 @@ class AttachmentInput(StrictSerializer):
 class ChatAPIView(APIView):
     def run(self, request, business_id, operation, **data):
         return Response(
-            composition.chats().run(operation, Scope(request.user.id, business_id), **data)
+            composition.chats().run(operation, request_scope(request, business_id), **data)
         )
 
 
@@ -179,7 +179,7 @@ class ChatAttachmentView(ChatAPIView):
 class ChatFileView(APIView):
     def get(self, request, business_id, chat_id, message_id):
         result = composition.chats().run(
-            "file", Scope(request.user.id, business_id), chat_id=chat_id, message_id=message_id
+            "file", request_scope(request, business_id), chat_id=chat_id, message_id=message_id
         )
         response = HttpResponse(result["content"], content_type=result["mime"])
         response["Content-Disposition"] = content_disposition_header(
@@ -334,7 +334,7 @@ class PaymentSettingsView(ChatAPIView):
         return self.run(request, business_id, "save_payment", **data)
 
     def get(self, request, business_id):
-        result = composition.chats().run("payment_file", Scope(request.user.id, business_id))
+        result = composition.chats().run("payment_file", request_scope(request, business_id))
         response = HttpResponse(result["content"], content_type=result["mime"])
         response["Cache-Control"] = "private, no-store"
         response["X-Content-Type-Options"] = "nosniff"

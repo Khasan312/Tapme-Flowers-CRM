@@ -1,19 +1,21 @@
 from decimal import Decimal
 
-from tapme.businesses.models import Shop
+from tapme.businesses.models import Business, Shop
 from tapme.orders.application.delivery import DeliverySlot
 from tapme.orders.models import OrderRecord
+from tapme.shared.domain import InvalidInput
 
 
 class DjangoDeliverySlots:
     def timezone(self, business_id):
-        return (
-            Shop.objects.select_related("business").get(business_id=business_id).business.timezone
-        )
+        return Business.objects.get(id=business_id).timezone
 
-    def lock(self, business_id, day, start, end, exclude_id=None):
+    def lock(self, business_id, day, start, end, exclude_id=None, point_id=None):
         # Shared row lock serializes reservations for a store across create and edit.
-        shop = Shop.objects.select_for_update().get(business_id=business_id)
+        shops = Shop.objects.select_for_update().filter(business_id=business_id)
+        shop = shops.get(id=point_id) if point_id else shops.get(is_primary=True)
+        if not shop.active:
+            raise InvalidInput("Точка архивирована и не принимает новые заказы.")
         window = next(
             (
                 w
@@ -23,7 +25,11 @@ class DjangoDeliverySlots:
             None,
         )
         orders = OrderRecord.objects.filter(
-            business_id=business_id, delivery_date=day, window_start=start, window_end=end
+            business_id=business_id,
+            point_id=shop.id,
+            delivery_date=day,
+            window_start=start,
+            window_end=end,
         ).exclude(status="cancelled")
         if shop.pickup_unlimited:
             orders = orders.exclude(fulfillment="pickup")

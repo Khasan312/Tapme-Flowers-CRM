@@ -5,6 +5,7 @@ from django.db import transaction
 from django.db.models import F, Max, Q
 from django.utils import timezone
 
+from tapme.businesses.infrastructure.access import DjangoMembershipReader
 from tapme.businesses.models import Membership
 from tapme.customers.models import CustomerRecord
 from tapme.messaging.domain import message_text, reply_allowed
@@ -135,7 +136,9 @@ class DjangoChatRepository(ChannelOperations, ChatFeatures):
         result["link_candidates"] = []
         if row.customer:
             orders = OrderRecord.objects.filter(
-                business_id=scope.business_id, customer_id=row.customer_id
+                business_id=scope.business_id,
+                point_id__in=DjangoMembershipReader().point_ids(scope),
+                customer_id=row.customer_id,
             ).exclude(status="cancelled")
             result["customer"] = {
                 "notes": row.customer.notes,

@@ -64,7 +64,7 @@ class ShopSettings:
 
 
 class BusinessSettingsRepository(Protocol):
-    def get(self, business_id: UUID) -> ShopSettings: ...
+    def get(self, business_id: UUID, point_ids: tuple[UUID, ...] | None = None) -> ShopSettings: ...
     def save(self, business_id: UUID, settings: ShopSettings) -> ShopSettings: ...
     def staff(self, business_id: UUID) -> list[dict[str, object]]: ...
     def create_staff(
@@ -89,7 +89,7 @@ class BusinessSettingsService:
 
     def get(self, scope: Scope) -> ShopSettings:
         authorize(self.access, scope, OFFICE_ROLES)
-        return self.repository.get(scope.business_id)
+        return self.repository.get(scope.business_id, self.access.point_ids(scope))
 
     def save(self, scope: Scope, settings: ShopSettings) -> ShopSettings:
         authorize(self.access, scope, frozenset({Role.OWNER}))

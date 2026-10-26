@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 
 from config import composition
 from config.api import StrictSerializer, validated
-from tapme.businesses.application.contracts import Scope
+from tapme.businesses.point_scope import request_scope
 
 
 class ShareInput(StrictSerializer):
@@ -41,7 +41,7 @@ class ShareView(APIView):
     @extend_schema(request=ShareInput, responses=ShareOutput)
     def post(self, request, business_id, order_id):
         token = composition.public_orders().issue(
-            Scope(request.user.id, business_id), order_id, **validated(ShareInput, request.data)
+            request_scope(request, business_id), order_id, **validated(ShareInput, request.data)
         )
         return Response({"token": token})
 

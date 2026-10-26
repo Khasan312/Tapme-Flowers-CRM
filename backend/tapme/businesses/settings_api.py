@@ -9,6 +9,7 @@ from config import composition
 from config.api import StrictSerializer, validated
 from tapme.businesses.application.contracts import Role, Scope
 from tapme.businesses.application.settings import ShopSettings
+from tapme.businesses.point_scope import request_scope
 
 
 class WindowInput(StrictSerializer):
@@ -33,6 +34,7 @@ class SettingsInput(StrictSerializer):
 
 
 class StaffOutput(serializers.Serializer):
+    point_ids = serializers.ListField(child=serializers.UUIDField())
     id = serializers.UUIDField()
     username = serializers.CharField()
     name = serializers.CharField()
@@ -58,7 +60,13 @@ class StaffUpdate(StrictSerializer):
 class SettingsView(APIView):
     @extend_schema(responses=SettingsInput)
     def get(self, request, business_id):
-        return Response(asdict(composition.settings().get(Scope(request.user.id, business_id))))
+        scope = request_scope(request, business_id)
+        if scope.point_id:
+            from tapme.businesses.points_api import service
+
+            data = service().get(scope, scope.point_id)
+            return Response({k: data[k] for k in ShopSettings.__dataclass_fields__})
+        return Response(asdict(composition.settings().get(scope)))
 
     @extend_schema(request=SettingsInput, responses=SettingsInput)
     def put(self, request, business_id):

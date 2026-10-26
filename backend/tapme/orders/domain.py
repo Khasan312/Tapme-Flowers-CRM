@@ -62,6 +62,7 @@ class Order:
     occasion: str = ""
     source: str = ""
     relation: str = ""
+    point_id: UUID | None = None
     delivery_fee: Decimal = Decimal("0.00")
     paid_amount: Decimal = Decimal("0.00")
     prepayment_percent: int = 0
