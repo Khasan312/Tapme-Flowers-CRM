@@ -1,3 +1,4 @@
+import re
 from datetime import date, datetime, time, timedelta, tzinfo
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -17,6 +18,11 @@ TEXT_FIELDS = {
 }
 
 
+def recipient_phone_is_empty(value: str) -> bool:
+    # Clearing the input can leave formatting or the default country code only.
+    return re.sub(r"[\s()+\-]", "", value) in {"", "996"}
+
+
 def normalize_fields(raw: dict[str, Any]) -> dict[str, Any]:
     if set(raw) - (set(TEXT_FIELDS) | {"items", "fulfillment", "date", "window", "point_id"}):
         raise InvalidInput("Неизвестное поле черновика.")
@@ -31,7 +37,9 @@ def normalize_fields(raw: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(value, str):
             raise InvalidInput("Поля черновика должны содержать текст.")
         result[key] = text(value, key, size, required=False)
-    if result["recipient_phone"]:
+    if recipient_phone_is_empty(result["recipient_phone"]):
+        result["recipient_phone"] = ""
+    else:
         try:
             result["recipient_phone"] = phone(result["recipient_phone"], required=False)
         except InvalidInput:

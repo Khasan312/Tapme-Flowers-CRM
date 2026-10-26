@@ -27,6 +27,11 @@ class DjangoDraftRepository:
     def __init__(self, order_service):
         self.orders = order_service
 
+    def extract(self, scope, chat_id, draft_id, version):
+        from tapme.orders.infrastructure.extraction import request_extraction
+
+        return request_extraction(self, scope, chat_id, draft_id, version)
+
     def _chat(self, scope, chat_id, lock=False):
         query = Conversation.objects.filter(id=chat_id, channel__business_id=scope.business_id)
         if lock:
@@ -71,6 +76,8 @@ class DjangoDraftRepository:
     def _data(self, scope, row):
         if row is None:
             return {"draft": None}
+        from tapme.orders.infrastructure.extraction import public_state
+
         fields = normalize_fields(row.fields)
         products = self._products(scope, fields)
         missing = missing_fields(fields)
@@ -128,6 +135,7 @@ class DjangoDraftRepository:
                 "status": row.status,
                 "fields": fields,
                 "field_meta": row.field_meta,
+                "extraction": public_state(row),
                 "updated_at": row.updated_at,
                 "order_id": str(row.order_id) if row.order_id else None,
                 "missing": missing,
@@ -157,15 +165,24 @@ class DjangoDraftRepository:
             self._editable(chat)
             row = OrderDraft.objects.filter(conversation=chat, status="active").first()
             if row is None:
+                from tapme.businesses.infrastructure.access import DjangoMembershipReader
+
+                selected = scope.point_id
+                if (
+                    not selected
+                    and Shop.objects.filter(business_id=scope.business_id, active=True).count() == 1
+                ):
+                    selected = DjangoMembershipReader().order_point(scope, None)
                 fields = normalize_fields(
                     {
                         "recipient_name": chat.customer.name,
                         "recipient_phone": chat.customer.phone,
-                        "point_id": str(scope.point_id) if scope.point_id else "",
+                        "point_id": str(selected) if selected else "",
                     }
                 )
                 row = OrderDraft.objects.create(
                     business_id=scope.business_id,
+                    extraction_actor_id=scope.user_id,
                     conversation=chat,
                     customer=chat.customer,
                     fields=fields,
@@ -182,7 +199,7 @@ class DjangoDraftRepository:
             row.save(update_fields=["status", "version", "updated_at"])
             return self._data(scope, row)
 
-    def save(self, scope, chat_id, draft_id, version, fields):
+    def save(self, scope, chat_id, draft_id, version, fields, reviewed_fields=None):
         with transaction.atomic():
             chat = self._chat(scope, chat_id, True)
             self._editable(chat)
@@ -196,6 +213,14 @@ class DjangoDraftRepository:
 
                 DjangoMembershipReader().order_point(scope, UUID(fields["point_id"]))
             self._products(scope, fields)
+            if set(reviewed_fields or []) - set(fields):
+                raise InvalidInput("Неизвестное поле проверки.")
+            for key in reviewed_fields or []:
+                row.field_meta[key] = {
+                    **row.field_meta.get(key, {}),
+                    "locked": True,
+                    "needs_check": False,
+                }
             for key, value in fields.items():
                 if value != row.fields.get(key):
                     row.field_meta[key] = {"source": "staff", "locked": True, "needs_check": False}
@@ -230,6 +255,8 @@ class DjangoDraftRepository:
             self._editable(chat)
             if row.status != "active" or row.customer_id != chat.customer_id:
                 raise Conflict("Черновик уже закрыт или клиент изменился.")
+            if any(meta.get("needs_check") for meta in row.field_meta.values()):
+                raise InvalidInput("Проверьте автозаполнение перед созданием заказа.")
             data = self._data(scope, row)["draft"]
             if data["missing"]:
                 raise InvalidInput("Заполните: " + ", ".join(data["missing"]))

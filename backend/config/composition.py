@@ -42,6 +42,16 @@ def drafts():
     return DraftService(DjangoMembershipReader(), DjangoDraftRepository(orders()))
 
 
+def chat_extractor():
+    from django.conf import settings
+
+    from tapme.orders.infrastructure.extractors import DemoChatExtractor, MistralChatExtractor
+
+    if settings.TAPME_AI_MODE == "demo" and settings.DEBUG and settings.TAPME_META_MODE == "fake":
+        return DemoChatExtractor()
+    return MistralChatExtractor(settings.MISTRAL_API_KEY, settings.TAPME_AI_MODEL)
+
+
 def workflow():
     from tapme.orders.application.workflow import WorkflowService
 

@@ -30,6 +30,145 @@ async function login(page: Page) {
   await expect(page.locator(".app-shell")).toBeVisible();
 }
 
+test("меню чата: правый клик, клавиатура, назначение и архив", async ({
+  page,
+}, info) => {
+  scenario("seed");
+  await login(page);
+  await page.getByRole("button", { name: "Чаты", exact: true }).click();
+  const row = page.getByRole("button", { name: "Диалог: Алина Садыкова" });
+  const menu = page.getByRole("menu", {
+    name: "Действия с чатом: Алина Садыкова",
+  });
+  await row.click({ button: "right" });
+  await expect(menu).toBeVisible();
+  await expect(page).not.toHaveURL(/chat=/);
+  await page.screenshot({
+    path: `/tmp/tapme-${info.project.name}-chat-menu.png`,
+  });
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
+  await expect(row).toBeFocused();
+  await row.press("Shift+F10");
+  await expect(
+    menu.getByRole("menuitem", { name: "Открыть чат" }),
+  ).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(
+    menu.getByRole("menuitem", { name: "Взять себе" }),
+  ).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(menu).toBeHidden();
+  await page.getByRole("tab", { name: /^Мои/ }).click();
+  await expect(row).toBeVisible();
+  await row.click();
+  await expect(page.getByLabel("Ответственный за диалог")).not.toHaveValue("");
+  await row.click({ button: "right" });
+  await menu.getByRole("menuitem", { name: "Снять с себя" }).click();
+  await expect(row).toBeHidden();
+  await expect(page.getByLabel("Ответственный за диалог")).toHaveValue("");
+  await page.getByRole("tab", { name: /^Все/ }).click();
+  await row.click({ button: "right" });
+  await menu.getByRole("menuitem", { name: "В архив", exact: true }).click();
+  await expect(menu).toBeHidden();
+  await expect(
+    page.getByRole("button", { name: "Открыть диалог", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: /^Архив/ }).click();
+  await row.click({ button: "right" });
+  await menu.getByRole("menuitem", { name: "Вернуть из архива" }).click();
+  await expect(row).toBeHidden();
+  await expect(
+    page.getByRole("button", { name: "Закрыть диалог", exact: true }),
+  ).toBeVisible();
+});
+
+test("меню чата: удержание на телефоне не мешает касанию и прокрутке", async ({
+  page,
+}, info) => {
+  scenario("seed");
+  await page.setViewportSize({ width: 390, height: 660 });
+  await login(page);
+  await page.getByRole("button", { name: "Чаты", exact: true }).click();
+  const row = page.getByRole("button", { name: "Диалог: Алина Садыкова" });
+  const menu = page.getByRole("menu");
+  const touch = {
+    pointerId: 7,
+    pointerType: "touch",
+    isPrimary: true,
+    clientX: 300,
+    clientY: 260,
+  };
+  await row.dispatchEvent("pointerdown", touch);
+  await row.dispatchEvent("pointermove", { ...touch, clientY: 235 });
+  await page.waitForTimeout(650);
+  await expect(menu).toBeHidden();
+  await row.dispatchEvent("pointercancel", touch);
+  await row.dispatchEvent("pointerdown", touch);
+  await row.dispatchEvent("pointercancel", touch);
+  await page.waitForTimeout(650);
+  await expect(menu).toBeHidden();
+  await row.click();
+  await expect(page.getByRole("log")).toBeVisible();
+  await page.getByRole("button", { name: "К списку диалогов" }).click();
+  // Deliberately use the viewport edge to exercise the menu's bounds.
+  await row.dispatchEvent("pointerdown", {
+    ...touch,
+    clientX: 388,
+    clientY: 650,
+  });
+  await expect(menu).toBeVisible();
+  await row.dispatchEvent("pointerup", touch);
+  await row.dispatchEvent("click");
+  await expect(page).not.toHaveURL(/chat=/);
+  await expect(menu).toBeVisible();
+  const bounds = await menu.boundingBox();
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
+  expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(660);
+  await page.screenshot({
+    path: `/tmp/tapme-${info.project.name}-chat-menu-mobile.png`,
+  });
+  await page.getByRole("menuitem", { name: "Открыть чат" }).click();
+  await expect(page.getByRole("log")).toBeVisible();
+});
+
+test("меню чата: ошибка оставляет возможность повторить действие", async ({
+  page,
+}) => {
+  const seeded = scenario("seed");
+  await login(page);
+  await page.getByRole("button", { name: "Чаты", exact: true }).click();
+  const row = page.getByRole("button", { name: "Диалог: Алина Садыкова" });
+  await row.click({ button: "right" });
+  await page.route(
+    `**/chats/${seeded.chat_id}/`,
+    async (route) => {
+      if (route.request().method() !== "PATCH") return route.continue();
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: "{}",
+      });
+    },
+    { times: 1 },
+  );
+  const menu = page.getByRole("menu");
+  await menu.getByRole("menuitem", { name: "В архив", exact: true }).click();
+  await expect(menu.getByRole("alert")).toContainText(
+    "Сервер не смог выполнить запрос",
+  );
+  await expect(
+    menu.getByRole("menuitem", { name: "В архив", exact: true }),
+  ).toBeEnabled();
+  await menu.getByRole("menuitem", { name: "В архив", exact: true }).click();
+  await expect(menu).toBeHidden();
+  await page.getByRole("tab", { name: /^Архив/ }).click();
+  await expect(row).toBeVisible();
+  await row.click({ button: "right" });
+  await page.getByLabel("Поиск диалогов").click();
+  await expect(menu).toBeHidden();
+});
+
 test("чаты по макету: история, ответы, статусы, карточка и телефон", async ({
   page,
 }, info) => {

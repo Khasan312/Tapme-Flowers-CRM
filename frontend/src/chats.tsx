@@ -1,4 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   ArrowDown,
   ArrowLeft,
@@ -32,6 +38,11 @@ import type {
 import "./chats.css";
 import { PaymentDialog, QuickReplies } from "./chat-extras";
 import { OrderDraftCard } from "./order-draft";
+import {
+  ChatContextMenu,
+  ChatListItem,
+  type ChatMenuTarget,
+} from "./chat-menu";
 
 const filters = {
   all: "Все",
@@ -49,6 +60,18 @@ const statuses = {
   failed: "Не отправлено",
   received: "Получено",
 };
+
+function waitingTime(since: string) {
+  const minutes = Math.max(
+    1,
+    Math.floor((Date.now() - new Date(since).getTime()) / 60000),
+  );
+  if (minutes < 60) return `${minutes} мин`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return remainder ? `${hours}ч ${remainder}мин` : `${hours}ч`;
+}
+
 type Props = {
   userId: string;
   business: Business;
@@ -65,6 +88,18 @@ export function Chats(props: Props) {
   const [category, setCategory] = useState<keyof typeof filters>("all");
   const [search, setSearch] = useState("");
   const [offset, setOffset] = useState(0);
+  const [menu, setMenu] = useState<ChatMenuTarget | null>(null);
+  const [actionRevision, setActionRevision] = useState(0);
+  const closeMenu = useCallback(() => setMenu(null), []);
+  useEffect(closeMenu, [
+    business.id,
+    business.point_id,
+    category,
+    search,
+    offset,
+    chatId,
+    closeMenu,
+  ]);
   const channel = useRemote<Channel>(
     businessPath(business.id, "channels/whatsapp"),
     revision,
@@ -132,12 +167,13 @@ export function Chats(props: Props) {
         {list.error && <Notice>{list.error}</Notice>}
         <div className="chat-list">
           {list.data?.results.map((row) => (
-            <button
+            <ChatListItem
               key={row.id}
-              className={`chat-row ${chatId === row.id ? "selected" : ""}`}
-              onClick={() => select(row.id)}
-              aria-label={`Диалог: ${row.name}`}
-              aria-current={chatId === row.id ? "true" : undefined}
+              row={row}
+              selected={chatId === row.id}
+              expanded={menu?.row.id === row.id}
+              open={() => select(row.id)}
+              menu={setMenu}
             >
               <span className="chat-avatar">
                 <Avatar name={row.name} />
@@ -161,20 +197,10 @@ export function Chats(props: Props) {
                 {row.unread > 0 ? (
                   <b>{row.unread}</b>
                 ) : row.waiting_since ? (
-                  <em>
-                    ждёт{" "}
-                    {Math.max(
-                      1,
-                      Math.floor(
-                        (Date.now() - new Date(row.waiting_since).getTime()) /
-                          60000,
-                      ),
-                    )}{" "}
-                    мин
-                  </em>
+                  <em>ждёт {waitingTime(row.waiting_since)}</em>
                 ) : null}
               </span>
-            </button>
+            </ChatListItem>
           ))}
         </div>
         {!list.loading && !list.data?.results.length && (
@@ -212,6 +238,7 @@ export function Chats(props: Props) {
           key={business.id + chatId}
           {...props}
           chatId={chatId}
+          actionRevision={actionRevision}
           changed={() => setRevision((v) => v + 1)}
         />
       ) : (
@@ -250,6 +277,25 @@ export function Chats(props: Props) {
           </div>
         </div>
       )}
+      {menu && (
+        <ChatContextMenu
+          key={menu.row.id}
+          target={{
+            ...menu,
+            row:
+              list.data?.results.find((row) => row.id === menu.row.id) ||
+              menu.row,
+          }}
+          businessId={business.id}
+          userId={props.userId}
+          close={closeMenu}
+          open={select}
+          changed={() => {
+            setRevision((value) => value + 1);
+            setActionRevision((value) => value + 1);
+          }}
+        />
+      )}
     </section>
   );
 }
@@ -263,9 +309,11 @@ function ConversationPane({
   openOrder,
   newOrder,
   changed,
-}: Props & { chatId: string; changed: () => void }) {
+  actionRevision,
+}: Props & { chatId: string; changed: () => void; actionRevision: number }) {
   const path = businessPath(business.id, `chats/${chatId}`);
   const [revision, setRevision] = useState(0);
+  useEffect(() => setRevision((value) => value + 1), [actionRevision]);
   const detail = useRemote<ChatDetail>(path, revision);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [{ text, requestId }, setDraft] = useChatDraft(

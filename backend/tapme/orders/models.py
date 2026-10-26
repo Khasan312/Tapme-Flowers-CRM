@@ -133,6 +133,10 @@ class OrderEvent(models.Model):
 
 
 class OrderDraft(models.Model):
+    extraction_actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL
+    )
+    extraction_state = models.JSONField(default=dict, db_default={})
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     business = models.ForeignKey("businesses.Business", on_delete=models.PROTECT)
     conversation = models.ForeignKey("messaging.Conversation", on_delete=models.CASCADE)

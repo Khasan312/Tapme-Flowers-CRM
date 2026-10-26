@@ -40,7 +40,13 @@ from tapme.messaging.api import (
 )
 from tapme.orders.api import OrderDetailView, OrderListView
 from tapme.orders.desk_api import DeskView, NoteDoneView, NotesView
-from tapme.orders.draft_api import DraftConvertView, DraftRestoreView, DraftView, ExtendPaymentView
+from tapme.orders.draft_api import (
+    DraftConvertView,
+    DraftExtractView,
+    DraftRestoreView,
+    DraftView,
+    ExtendPaymentView,
+)
 from tapme.orders.overview_api import OverviewView
 from tapme.orders.public_api import PublicView, ShareView
 from tapme.orders.workflow_api import (
@@ -63,6 +69,10 @@ from tapme.reminders.api import (
 )
 
 urlpatterns = [
+    path(
+        "api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/order-draft/extract/",
+        DraftExtractView.as_view(),
+    ),
     path(
         "api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/order-draft/",
         DraftView.as_view(),

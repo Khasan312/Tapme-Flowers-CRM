@@ -16,6 +16,9 @@ class DraftVersion(VersionInput):
 
 class DraftInput(DraftVersion):
     fields = serializers.DictField()
+    reviewed_fields = serializers.ListField(
+        child=serializers.CharField(max_length=40), required=False, max_length=20
+    )
 
 
 class ConvertInput(DraftVersion):
@@ -84,3 +87,15 @@ class ExtendPaymentView(APIView):
             request_scope(request, business_id), order_id, **validated(VersionInput, request.data)
         )
         return Response(OrderOutput(order).data)
+
+
+class DraftExtractView(APIView):
+    @extend_schema(request=DraftVersion, responses=DraftOutput)
+    def post(self, request, business_id, chat_id):
+        return Response(
+            composition.drafts().extract(
+                request_scope(request, business_id),
+                chat_id,
+                **validated(DraftVersion, request.data),
+            )
+        )
