@@ -11,12 +11,33 @@ from tapme.customers.models import CustomerRecord
 from tapme.messaging.domain import message_text, reply_allowed
 from tapme.messaging.infrastructure.channels import ChannelOperations
 from tapme.messaging.infrastructure.features import ChatFeatures
+from tapme.messaging.infrastructure.folders import ChatFolders
 from tapme.messaging.models import ChannelAccount, Conversation, ConversationRead, Message
 from tapme.orders.models import OrderRecord
 from tapme.shared.domain import Conflict, InvalidInput, NotFound
 
 
-def message_data(row):
+def reply_data(row):
+    return {
+        "id": str(row.id),
+        "text": row.text[:500],
+        "direction": row.direction,
+        "sender": row.sender.get_full_name() or row.sender.username if row.sender else "",
+        "kind": row.kind,
+        "media_name": row.media_name,
+    }
+
+
+def message_data(row, replies=None):
+    original = None
+    if row.context_id:
+        original = (
+            replies.get(row.context_id)
+            if replies is not None
+            else row.conversation.messages.select_related("sender")
+            .filter(external_id=row.context_id, direction__in=["in", "out"])
+            .first()
+        )
     return {
         "id": str(row.id),
         "request_id": str(row.request_id),
@@ -34,6 +55,7 @@ def message_data(row):
         "automated": row.automated,
         "context_id": row.context_id,
         "external_id": row.external_id,
+        "reply_to": reply_data(original) if original else None,
         "media_type": row.media_type,
         "media_name": row.media_name,
     }
@@ -79,10 +101,11 @@ def conversation_data(row, user_id):
         "can_reply": not reason,
         "reply_reason": reason,
         "tags": row.customer.tags if row.customer else [],
+        "folder_ids": [str(folder.id) for folder in row.folders.all()],
     }
 
 
-class DjangoChatRepository(ChannelOperations, ChatFeatures):
+class DjangoChatRepository(ChannelOperations, ChatFeatures, ChatFolders):
     def __init__(self, gateway, storage=None):
         self.gateway, self.storage = gateway, storage
 
@@ -98,10 +121,15 @@ class DjangoChatRepository(ChannelOperations, ChatFeatures):
             raise NotFound("Диалог не найден.")
         return row
 
-    def listing(self, scope, search="", category="all", limit=50, offset=0):
-        qs = Conversation.objects.filter(channel__business_id=scope.business_id).select_related(
-            "channel", "customer", "assigned_to"
+    def listing(self, scope, search="", category="all", limit=50, offset=0, folder_id=None):
+        qs = (
+            Conversation.objects.filter(channel__business_id=scope.business_id)
+            .select_related("channel", "customer", "assigned_to")
+            .prefetch_related("folders")
         )
+        if folder_id:
+            self._folder(scope, folder_id)
+            qs = qs.filter(folders__id=folder_id)
         stats = {
             "all": qs.exclude(mode="closed").count(),
             "waiting": qs.filter(mode="human", waiting_since__isnull=False).count(),
@@ -186,7 +214,14 @@ class DjangoChatRepository(ChannelOperations, ChatFeatures):
         rows = rows[:limit]
         if not after:
             rows.reverse()
-        return {"results": [message_data(m) for m in rows], "has_more": more}
+        replies = {
+            m.external_id: m
+            for m in chat.messages.select_related("sender").filter(
+                external_id__in={row.context_id for row in rows if row.context_id},
+                direction__in=["in", "out"],
+            )
+        }
+        return {"results": [message_data(m, replies) for m in rows], "has_more": more}
 
     @transaction.atomic
     def read(self, scope, chat_id, last_message_id):
@@ -270,24 +305,50 @@ class DjangoChatRepository(ChannelOperations, ChatFeatures):
         row.save()
         return self.detail(scope, chat_id)
 
+    def _reply_context(self, chat, reply_to_id):
+        if reply_to_id is None:
+            return ""
+        original = chat.messages.filter(id=reply_to_id, direction__in=["in", "out"]).first()
+        if not original:
+            raise InvalidInput("Сообщение для ответа не найдено в этом диалоге.")
+        if not original.external_id or original.status not in {
+            "received",
+            "sent",
+            "delivered",
+            "read",
+        }:
+            raise InvalidInput(
+                "Ответ с цитатой доступен только для полученного или отправленного сообщения."
+            )
+        return original.external_id
+
     @transaction.atomic
-    def send(self, scope, chat_id, text, request_id):
+    def send(self, scope, chat_id, text, request_id, reply_to_id=None):
         chat = self._conversation(scope, chat_id, lock=True)
         text = message_text(text)
         old = chat.messages.filter(request_id=request_id).first()
         if old:
-            if old.direction != "out" or old.text != text or old.sender_id != scope.user_id:
+            if (
+                old.direction != "out"
+                or old.kind != "text"
+                or old.text != text
+                or old.sender_id != scope.user_id
+                or old.payload.get("reply_to_id") != (str(reply_to_id) if reply_to_id else None)
+            ):
                 raise Conflict("Этот запрос уже использован для другого сообщения.")
             return message_data(old)
         current = conversation_data(chat, scope.user_id)
         if not current["can_reply"]:
             raise InvalidInput(current["reply_reason"])
+        context_id = self._reply_context(chat, reply_to_id)
         row = Message.objects.create(
             conversation=chat,
             direction="out",
             sender_id=scope.user_id,
             text=text,
             request_id=request_id,
+            context_id=context_id,
+            payload={"reply_to_id": str(reply_to_id)} if reply_to_id else {},
         )
         if not chat.assigned_to_id:
             chat.assigned_to_id = scope.user_id
@@ -318,7 +379,7 @@ class DjangoChatRepository(ChannelOperations, ChatFeatures):
         return message_data(row)
 
     @transaction.atomic
-    def attach(self, scope, chat_id, content, mime, name, text, request_id):
+    def attach(self, scope, chat_id, content, mime, name, text, request_id, reply_to_id=None):
         chat = self._conversation(scope, chat_id, lock=True)
         fingerprint = hashlib.sha256(content).hexdigest()
         old = chat.messages.filter(request_id=request_id).first()
@@ -327,12 +388,14 @@ class DjangoChatRepository(ChannelOperations, ChatFeatures):
                 old.payload.get("digest") != fingerprint
                 or old.text != text
                 or old.sender_id != scope.user_id
+                or old.payload.get("reply_to_id") != (str(reply_to_id) if reply_to_id else None)
             ):
                 raise Conflict("Этот запрос уже использован для другого вложения.")
             return message_data(old)
         current = conversation_data(chat, scope.user_id)
         if not current["can_reply"]:
             raise InvalidInput(current["reply_reason"])
+        context_id = self._reply_context(chat, reply_to_id)
         if mime not in {"image/jpeg", "image/png", "image/webp", "application/pdf"}:
             raise InvalidInput("Прикрепите фотографию или PDF до 16 МБ (фото до 5 МБ).")
         key, stored_type = self.storage.save(
@@ -352,7 +415,11 @@ class DjangoChatRepository(ChannelOperations, ChatFeatures):
                 media_key=key,
                 media_type=stored_type,
                 media_name=name[:150],
-                payload={"digest": fingerprint},
+                context_id=context_id,
+                payload={
+                    "digest": fingerprint,
+                    **({"reply_to_id": str(reply_to_id)} if reply_to_id else {}),
+                },
             )
             if not chat.assigned_to_id:
                 chat.assigned_to_id = scope.user_id

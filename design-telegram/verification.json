@@ -1,0 +1,50 @@
+{
+  "date": "2026-10-27",
+  "syntax": "node --check app.js passed",
+  "staticReferences": "index.html and system.html: no missing local files or duplicate IDs",
+  "desktop": {
+    "width": 1440,
+    "height": 900,
+    "matchingMeasuredDimensions": [
+      "sidebar 360",
+      "row 72",
+      "avatar 54",
+      "search 44 / R22",
+      "header 48 / R24",
+      "composer 48 / R24"
+    ],
+    "horizontalOverflow": false
+  },
+  "mobile": {
+    "width": 390,
+    "height": 844,
+    "headerHeight": 48,
+    "composerHeight": 48,
+    "outerPadding": 8,
+    "chatHorizontalOverflow": false,
+    "listHorizontalOverflow": false
+  },
+  "interactions": {
+    "chatSearch": true,
+    "emptySearch": true,
+    "messageSearch": true,
+    "localComposer": true,
+    "settingsNavigation": true,
+    "settingsSwitch": true,
+    "chatInfo": true,
+    "mobileBackAndSelect": true
+  },
+  "designSystem": {
+    "wideAndMobile": true,
+    "switchStates": true,
+    "horizontalOverflow": false
+  },
+  "consoleErrors": [],
+  "screenshots": [
+    "screenshots/desktop.jpg",
+    "screenshots/settings.jpg",
+    "screenshots/mobile-chat.jpg",
+    "screenshots/mobile-list.jpg",
+    "screenshots/design-system.jpg"
+  ]
+}

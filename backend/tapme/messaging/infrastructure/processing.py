@@ -298,6 +298,8 @@ def deliver(message_id, gateway, storage=None):
         "text": {"body": row.text, "preview_url": False},
         "biz_opaque_callback_data": str(row.delivery_key),
     }
+    if row.context_id:
+        payload["context"] = {"message_id": row.context_id}
     try:
         if gateway is None:
             gateway = gateway_for(channel)

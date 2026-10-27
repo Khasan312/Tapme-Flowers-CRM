@@ -1,0 +1,298 @@
+/* Desktop channels belong to the app menu; mobile channels stay above the chat. */
+.crm .chat-channel-picker.is-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 2px 4px 10px 18px;
+  padding-left: 10px;
+  border-left: 1px solid var(--rail-line);
+}
+.crm .chat-channel-picker button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+  min-width: 0;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--rail-dim);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 140ms,
+    color 140ms;
+}
+.crm .chat-channel-picker button svg {
+  flex: none;
+}
+.crm .chat-channel-picker.is-sidebar button:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--rail-ink);
+}
+.crm .chat-channel-picker.is-sidebar button[aria-pressed="true"] {
+  background: #254a3c;
+  color: #d5f1df;
+}
+.crm
+  .chat-channel-picker.is-sidebar
+  button[data-channel="instagram"][aria-pressed="true"] {
+  background: #483652;
+  color: #f1e4fb;
+}
+.crm .chat-channel-picker.is-sidebar button[data-channel="whatsapp"] svg {
+  color: #8ccca4;
+}
+.crm .chat-channel-picker.is-sidebar button[data-channel="instagram"] svg {
+  color: #d5a2ed;
+}
+.crm .chat-channel-count {
+  margin-left: auto;
+  padding: 1px 6px;
+  min-width: 20px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.13);
+  color: inherit;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.crm .chat-channel-picker.is-mobile {
+  display: none;
+}
+.crm .page-content.chat-inbox-content {
+  max-width: none;
+  padding-inline: 12px;
+}
+.crm .chat-inbox-page {
+  min-width: 0;
+}
+.crm .instagram-workspace {
+  display: grid;
+  grid-template-columns: 310px minmax(0, 1fr);
+  min-height: 600px;
+  height: calc(100dvh - 112px);
+  background: #fff;
+  border: 1px solid #e4dfe9;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.crm .instagram-list {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-right: 1px solid #ede8f1;
+}
+.crm .instagram-list > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 18px;
+  border-bottom: 1px solid #ede8f1;
+}
+.crm .instagram-brand {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: #32233f;
+}
+.crm .instagram-brand svg {
+  color: #8d4cc2;
+}
+.crm .instagram-status {
+  border: 1px solid #e8e1ec;
+  border-radius: 20px;
+  padding: 4px 8px;
+  color: #776c7c;
+  font-size: 11px;
+  background: #faf8fc;
+}
+.crm .instagram-list-empty {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 44px 26px;
+  color: #7a6d81;
+  text-align: center;
+}
+.crm .instagram-list-empty svg {
+  color: #a58cb6;
+}
+.crm .instagram-list-empty strong {
+  font-size: 13px;
+  font-weight: 500;
+  color: #594960;
+}
+.crm .instagram-list-empty p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.crm .instagram-welcome {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 42px 34px;
+  background:
+    radial-gradient(ellipse at 50% 32%, #faf4ff, transparent 66%), #fff;
+  overflow-y: auto;
+}
+.crm .instagram-logo {
+  display: grid;
+  place-items: center;
+  width: 78px;
+  height: 78px;
+  border-radius: 24px;
+  margin-bottom: 24px;
+  color: #fff;
+  background: linear-gradient(140deg, #7058ce 5%, #b046a0 70%, #d77568);
+}
+.crm .instagram-eyebrow {
+  color: #8c6e9a;
+  font-size: 11px;
+  letter-spacing: 0.035em;
+}
+.crm .instagram-welcome h2 {
+  margin: 10px 0 12px;
+  font-size: 25px;
+  font-weight: 600;
+  color: #392e43;
+}
+.crm .instagram-welcome > p {
+  max-width: 390px;
+  margin: 0;
+  color: #7a6d81;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.crm .instagram-setup {
+  width: 100%;
+  max-width: 400px;
+  text-align: left;
+  margin-top: 26px;
+  padding: 15px 17px;
+  border-radius: 14px;
+  border: 1px solid #e8e0ef;
+  background: #fff;
+  color: #6c507c;
+  font-size: 12px;
+}
+.crm .instagram-setup summary {
+  cursor: pointer;
+  font-weight: 500;
+  line-height: 1.6;
+}
+.crm .instagram-setup ol {
+  padding-left: 19px;
+  margin: 14px 0;
+}
+.crm .instagram-setup li + li {
+  margin-top: 9px;
+}
+.crm .instagram-setup p {
+  border-top: 1px solid #ede8f1;
+  padding-top: 12px;
+  color: #807188;
+  margin: 0;
+}
+@media (max-width: 1400px) {
+  .crm .instagram-workspace {
+    grid-template-columns: 270px minmax(0, 1fr);
+  }
+}
+@media (max-width: 1180px) {
+  .crm .instagram-workspace {
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
+}
+@media (max-width: 700px) {
+  .crm .chat-channel-picker.is-sidebar {
+    display: none;
+  }
+  .crm .chat-channel-picker.is-mobile {
+    display: flex;
+    gap: 6px;
+    padding: 5px;
+    margin-bottom: 12px;
+    border: 1px solid #e0e5df;
+    border-radius: 13px;
+    background: #fff;
+  }
+  .crm .chat-channel-picker.is-mobile button {
+    flex: 1;
+    min-height: 42px;
+    justify-content: center;
+    color: #6b736e;
+    border-radius: 9px;
+    padding: 8px;
+    gap: 7px;
+  }
+  .crm .chat-channel-picker.is-mobile button[aria-pressed="true"] {
+    background: #e8f2eb;
+    color: #285c40;
+  }
+  .crm
+    .chat-channel-picker.is-mobile
+    button[data-channel="instagram"][aria-pressed="true"] {
+    background: #f1eafa;
+    color: #7841a5;
+  }
+  .crm .chat-channel-picker.is-mobile .chat-channel-count {
+    background: #edf0ec;
+    color: #506258;
+    margin-left: 0;
+  }
+  .crm .page-content.chat-inbox-content {
+    padding-inline: 8px;
+  }
+  .crm .chat-inbox-page .chat-workspace {
+    height: calc(100dvh - 355px);
+    min-height: 360px;
+  }
+  .crm .instagram-workspace {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    min-height: 430px;
+    border-radius: 12px;
+  }
+  .crm .instagram-list {
+    border: 0;
+  }
+  .crm .instagram-list > header {
+    justify-content: space-between;
+    padding: 14px;
+  }
+  .crm .instagram-list-empty {
+    display: none;
+  }
+  .crm .instagram-welcome {
+    padding: 30px 20px;
+    overflow: visible;
+  }
+  .crm .instagram-welcome h2 {
+    font-size: 22px;
+  }
+  .crm .instagram-logo {
+    width: 64px;
+    height: 64px;
+    border-radius: 21px;
+    margin-bottom: 20px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .crm .chat-channel-picker button {
+    transition: none;
+  }
+}

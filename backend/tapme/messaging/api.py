@@ -25,6 +25,8 @@ from tapme.businesses.point_scope import request_scope
 from tapme.messaging.infrastructure.processing import receive
 from tapme.messaging.schemas import (
     ChannelOutput,
+    ChatFolderListOutput,
+    ChatFolderOutput,
     ChatMessageOutput,
     ChatPaymentOutput,
     ConversationDetailOutput,
@@ -49,6 +51,7 @@ class ConnectInput(StrictSerializer):
 class ChatQuery(ListQuery):
     search = serializers.CharField(max_length=150, required=False, allow_blank=True)
     category = serializers.ChoiceField(choices=["all", "waiting", "mine", "closed"], default="all")
+    folder_id = serializers.UUIDField(required=False)
 
 
 class MessageQuery(StrictSerializer):
@@ -60,6 +63,9 @@ class MessageQuery(StrictSerializer):
 class SendInput(StrictSerializer):
     text = serializers.CharField(max_length=4096)
     request_id = serializers.UUIDField()
+    reply_to_id = serializers.IntegerField(
+        min_value=1, max_value=2**63 - 1, required=False, allow_null=True, default=None
+    )
 
 
 class ReadInput(StrictSerializer):
@@ -82,6 +88,9 @@ class AttachmentInput(StrictSerializer):
     file = serializers.FileField()
     text = serializers.CharField(max_length=1024, required=False, default="", allow_blank=True)
     request_id = serializers.UUIDField()
+    reply_to_id = serializers.IntegerField(
+        min_value=1, max_value=2**63 - 1, required=False, allow_null=True, default=None
+    )
 
 
 class ChatAPIView(APIView):
@@ -127,6 +136,69 @@ class ChatDetailView(ChatAPIView):
     def patch(self, request, business_id, chat_id):
         return self.run(
             request, business_id, "update", chat_id=chat_id, **validated(UpdateInput, request.data)
+        )
+
+
+class FolderCreateInput(StrictSerializer):
+    name = serializers.CharField(max_length=40)
+
+
+class FolderVersionInput(StrictSerializer):
+    version = serializers.IntegerField(min_value=1)
+
+
+class FolderUpdateInput(FolderCreateInput, FolderVersionInput):
+    pass
+
+
+class ChatFoldersInput(StrictSerializer):
+    version = serializers.IntegerField(min_value=1)
+    folder_ids = serializers.ListField(child=serializers.UUIDField(), max_length=30)
+
+
+class ChatFolderListView(ChatAPIView):
+    @extend_schema(operation_id="chat_folder_list", responses=ChatFolderListOutput)
+    def get(self, request, business_id):
+        return self.run(request, business_id, "folders")
+
+    @extend_schema(request=FolderCreateInput, responses=ChatFolderOutput)
+    def post(self, request, business_id):
+        return self.run(
+            request, business_id, "create_folder", **validated(FolderCreateInput, request.data)
+        )
+
+
+class ChatFolderDetailView(ChatAPIView):
+    @extend_schema(request=FolderUpdateInput, responses=OkOutput)
+    def patch(self, request, business_id, folder_id):
+        return self.run(
+            request,
+            business_id,
+            "rename_folder",
+            folder_id=folder_id,
+            **validated(FolderUpdateInput, request.data),
+        )
+
+    @extend_schema(request=FolderVersionInput, responses=OkOutput)
+    def delete(self, request, business_id, folder_id):
+        return self.run(
+            request,
+            business_id,
+            "delete_folder",
+            folder_id=folder_id,
+            **validated(FolderVersionInput, request.data),
+        )
+
+
+class ChatFoldersView(ChatAPIView):
+    @extend_schema(request=ChatFoldersInput, responses=ConversationDetailOutput)
+    def put(self, request, business_id, chat_id):
+        return self.run(
+            request,
+            business_id,
+            "set_chat_folders",
+            chat_id=chat_id,
+            **validated(ChatFoldersInput, request.data),
         )
 
 

@@ -27,6 +27,9 @@ from tapme.messaging.api import (
     ChatAttachmentView,
     ChatDetailView,
     ChatFileView,
+    ChatFolderDetailView,
+    ChatFolderListView,
+    ChatFoldersView,
     ChatListView,
     ChatMessagesView,
     ChatPaymentView,
@@ -118,6 +121,15 @@ urlpatterns = [
     ),
     path("api/v1/businesses/<uuid:business_id>/channels/whatsapp/", ChannelView.as_view()),
     path("api/v1/businesses/<uuid:business_id>/chats/", ChatListView.as_view()),
+    path("api/v1/businesses/<uuid:business_id>/chat-folders/", ChatFolderListView.as_view()),
+    path(
+        "api/v1/businesses/<uuid:business_id>/chat-folders/<uuid:folder_id>/",
+        ChatFolderDetailView.as_view(),
+    ),
+    path(
+        "api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/folders/",
+        ChatFoldersView.as_view(),
+    ),
     path("api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/", ChatDetailView.as_view()),
     path(
         "api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/messages/",

@@ -1,0 +1,110 @@
+.crm .chat-action-bubble {
+  position: relative;
+}
+.crm .chat-action-bubble:focus-visible {
+  outline: 2px solid #9770c1;
+  outline-offset: 3px;
+}
+.crm .chat-action-bubble.is-selecting {
+  cursor: pointer;
+  padding-right: 38px;
+}
+.crm .chat-action-bubble.is-selected {
+  outline: 2px solid #9672bd;
+  outline-offset: 1px;
+}
+.crm .chat-action-bubble .chat-message-select {
+  position: absolute;
+  right: 9px;
+  top: 10px;
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: #6b3fa0;
+  cursor: pointer;
+}
+.crm .chat-selection-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 9px 14px;
+  background: #f0eafa;
+  color: #6b3fa0;
+  flex-shrink: 0;
+  font-size: 12px;
+}
+.crm .chat-selection-bar strong {
+  margin-right: auto;
+}
+.crm .chat-selection-bar button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: #fff;
+  color: #6b3fa0;
+  font-size: 12px;
+}
+.crm .chat-selection-bar button:disabled {
+  opacity: 0.5;
+}
+.crm .chat-copy-status {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  font-size: 12px;
+  color: #526b48;
+  background: #f6f9f2;
+}
+.crm .chat-reply-preview {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border-left: 3px solid #9672bd;
+  border-radius: 9px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  background: #fff;
+  color: #6b3fa0;
+}
+.crm .chat-reply-preview > div {
+  flex: 1;
+  min-width: 0;
+}
+.crm .chat-reply-preview strong {
+  display: block;
+  font-size: 11px;
+}
+.crm .chat-reply-preview p {
+  font-size: 12px;
+  color: #667068;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.crm .chat-reply-preview button {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: #7a837c;
+}
+.crm .chat-quote strong {
+  display: block;
+  font-size: 11px;
+  color: #627d58;
+}
+@media (hover: none) {
+  .crm .chat-action-bubble {
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
+}

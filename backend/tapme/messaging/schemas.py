@@ -57,6 +57,20 @@ class ConversationOutput(serializers.Serializer):
     can_reply = serializers.BooleanField()
     reply_reason = serializers.CharField()
     tags = serializers.ListField(child=serializers.CharField())
+    folder_ids = serializers.ListField(child=serializers.UUIDField())
+
+
+class ChatFolderOutput(serializers.Serializer):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    version = serializers.IntegerField()
+    count = serializers.IntegerField()
+    total = serializers.IntegerField()
+
+
+class ChatFolderListOutput(serializers.Serializer):
+    results = ChatFolderOutput(many=True)
+    all_count = serializers.IntegerField()
 
 
 class ConversationDetailOutput(ConversationOutput):
@@ -69,6 +83,15 @@ class ConversationListOutput(serializers.Serializer):
     count = serializers.IntegerField()
     stats = serializers.DictField(child=serializers.IntegerField())
     results = ConversationOutput(many=True)
+
+
+class ReplyMessageOutput(serializers.Serializer):
+    id = serializers.CharField()
+    text = serializers.CharField()
+    direction = serializers.CharField()
+    sender = serializers.CharField()
+    kind = serializers.CharField()
+    media_name = serializers.CharField()
 
 
 class ChatMessageOutput(serializers.Serializer):
@@ -88,6 +111,7 @@ class ChatMessageOutput(serializers.Serializer):
     automated = serializers.BooleanField()
     context_id = serializers.CharField()
     external_id = serializers.CharField(allow_null=True)
+    reply_to = ReplyMessageOutput(allow_null=True)
 
 
 class MessageListOutput(serializers.Serializer):

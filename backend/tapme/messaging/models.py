@@ -126,6 +126,22 @@ class ConversationRead(models.Model):
         ]
 
 
+class ChatFolder(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    business = models.ForeignKey("businesses.Business", on_delete=models.CASCADE)
+    name = models.CharField(max_length=40)
+    name_key = models.CharField(max_length=120)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(default=timezone.now)
+    conversations = models.ManyToManyField(Conversation, related_name="folders", blank=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["business", "name_key"], name="chat_folder_name")
+        ]
+
+
 class WebhookEvent(models.Model):
     digest = models.CharField(primary_key=True, max_length=64)
     payload = models.JSONField()

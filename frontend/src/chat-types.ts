@@ -1,3 +1,5 @@
+export type ChatChannel = "whatsapp" | "instagram";
+
 export type Channel = {
   configured: boolean;
   version: number;
@@ -39,6 +41,7 @@ export type Conversation = {
   can_reply: boolean;
   reply_reason: string;
   tags: string[];
+  folder_ids: string[];
   new_customer: boolean;
   origin: string;
 };
@@ -66,6 +69,14 @@ export type ChatDetail = Conversation & {
     }[];
   };
 };
+export type ChatReply = {
+  id: string;
+  text: string;
+  direction: "in" | "out" | "system";
+  sender: string;
+  kind: string;
+  media_name: string;
+};
 export type ChatMessage = {
   id: string;
   request_id: string;
@@ -86,6 +97,7 @@ export type ChatMessage = {
   automated: boolean;
   context_id: string;
   external_id: string | null;
+  reply_to: ChatReply | null;
   happened_at: string;
   created_at: string;
   media_url: string | null;
@@ -112,3 +124,12 @@ export type QuickReply = {
   text: string;
   version: number;
 };
+
+export type ChatFolder = {
+  id: string;
+  name: string;
+  version: number;
+  count: number;
+  total: number;
+};
+export type ChatFoldersData = { results: ChatFolder[]; all_count: number };

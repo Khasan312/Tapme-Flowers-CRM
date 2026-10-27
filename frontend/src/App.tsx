@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { Fragment, useEffect, useState, type FormEvent } from "react";
 import {
   ClipboardList,
   Users,
@@ -25,6 +25,9 @@ import type { ShopSettings } from "./types";
 import { CustomerTransfer } from "./customers";
 import { Reminders } from "./reminders";
 import { Chats } from "./chats";
+import { ChatChannelPicker, InstagramChats } from "./chat-channels";
+import { useChatChannelNavigation } from "./chat-channel-navigation";
+import type { ChatChannel } from "./chat-types";
 import { useChatNotifications, ChatNotificationControls } from "./chat-extras";
 import { clearChatDrafts } from "./chat-drafts";
 import { PublicOrderPage } from "./public";
@@ -89,7 +92,9 @@ function Workspace() {
     customerId: customerDetail,
     orderId,
     chatId,
+    chatChannel,
   } = route;
+  const chatDestination = useChatChannelNavigation(user?.id || "", route);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
   const [settingsRevision, setSettingsRevision] = useState(0);
@@ -171,7 +176,7 @@ function Workspace() {
   const chatNotifications = useChatNotifications(
     office ? businessId : null,
     user?.id || "",
-    view === "chats" ? chatId : null,
+    view === "chats" && chatChannel === "whatsapp" ? chatId : null,
   );
   const navCounts: Record<string, number | undefined> = {
     chats: chatNotifications.waiting,
@@ -276,6 +281,10 @@ function Workspace() {
       : settingsTab,
   ) {
     setMenuOpen(false);
+    if (next === "chats") {
+      go(chatDestination());
+      return;
+    }
     const destination = {
       ...route,
       view: next,
@@ -293,6 +302,9 @@ function Workspace() {
   function openCustomer(id: string) {
     go({ ...route, view: "customers", customerId: id, orderId: null });
   }
+  function selectChatChannel(channel: ChatChannel) {
+    go(chatDestination(channel));
+  }
   async function openChat(customerId: string) {
     if (!business) return;
     try {
@@ -306,6 +318,7 @@ function Workspace() {
       go({
         ...route,
         view: "chats",
+        chatChannel: "whatsapp",
         chatId: chat.id,
         customerId: null,
         orderId: null,
@@ -433,22 +446,31 @@ function Workspace() {
           ).map((key) => {
             const Icon = icons[key];
             return (
-              <button
-                className="nav-item"
-                key={key}
-                aria-current={view === key ? "page" : undefined}
-                onClick={() => navigate(key)}
-                title={labels[key]}
-                aria-label={office ? labels[key] : "Мои задания"}
-              >
-                <Icon size={16} />
-                {office ? labels[key] : "Мои задания"}
-                {office && Boolean(navCounts[key]) && (
-                  <span className="cnt" aria-hidden="true">
-                    {navCounts[key]}
-                  </span>
+              <Fragment key={key}>
+                <button
+                  className="nav-item"
+                  aria-current={view === key ? "page" : undefined}
+                  onClick={() => navigate(key)}
+                  title={labels[key]}
+                  aria-label={office ? labels[key] : "Мои задания"}
+                >
+                  <Icon size={16} />
+                  {office ? labels[key] : "Мои задания"}
+                  {office && Boolean(navCounts[key]) && (
+                    <span className="cnt" aria-hidden="true">
+                      {navCounts[key]}
+                    </span>
+                  )}
+                </button>
+                {key === "chats" && office && (
+                  <ChatChannelPicker
+                    placement="sidebar"
+                    value={view === "chats" ? chatChannel : null}
+                    unread={chatNotifications.unread}
+                    select={selectChatChannel}
+                  />
                 )}
-              </button>
+              </Fragment>
             );
           })}
         </nav>
@@ -502,6 +524,7 @@ function Workspace() {
                       {
                         ...route,
                         businessId: e.target.value,
+                        chatChannel: "whatsapp",
                         pointId: "",
                         customerId: null,
                         orderId: null,
@@ -559,6 +582,7 @@ function Workspace() {
                 go({
                   ...route,
                   view: "chats",
+                  chatChannel: "whatsapp",
                   chatId: id,
                   customerId: null,
                   orderId: null,
@@ -637,7 +661,10 @@ function Workspace() {
             )}
           </div>
         </header>
-        <div className="page-content" key={businessId + pointId}>
+        <div
+          className={`page-content${office && view === "chats" ? " chat-inbox-content" : ""}`}
+          key={businessId + pointId}
+        >
           {view === "settings" && settingsTab !== "reminders" && (
             <div className="page-hd">
               <h1>Настройки</h1>
@@ -677,21 +704,33 @@ function Workspace() {
               />
             )
           ) : office && view === "chats" ? (
-            <Chats
-              userId={user.id}
-              key={business.id}
-              business={business}
-              chatId={chatId}
-              select={(id) => go({ ...route, chatId: id })}
-              settings={() => navigate("settings", "channels")}
-              openCustomer={openCustomer}
-              openOrder={(id) => go({ ...route, orderId: id })}
-              newOrder={(c) => {
-                setNewOrderCustomer(c);
-                setNewOrderReminder(null);
-                setForm("orders");
-              }}
-            />
+            <div className="chat-inbox-page" data-channel={chatChannel}>
+              <ChatChannelPicker
+                placement="mobile"
+                value={chatChannel}
+                unread={chatNotifications.unread}
+                select={selectChatChannel}
+              />
+              {chatChannel === "instagram" ? (
+                <InstagramChats />
+              ) : (
+                <Chats
+                  userId={user.id}
+                  key={business.id}
+                  business={business}
+                  chatId={chatId}
+                  select={(id) => go({ ...route, chatId: id })}
+                  settings={() => navigate("settings", "channels")}
+                  openCustomer={openCustomer}
+                  openOrder={(id) => go({ ...route, orderId: id })}
+                  newOrder={(c) => {
+                    setNewOrderCustomer(c);
+                    setNewOrderReminder(null);
+                    setForm("orders");
+                  }}
+                />
+              )}
+            </div>
           ) : office && view === "orders" ? (
             <OrderDesk
               key={business.id}

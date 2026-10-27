@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { SettingsTab } from "./settings";
 import type { Business } from "./types";
+import type { ChatChannel } from "./chat-types";
 
 export type View =
   "orders" | "chats" | "customers" | "reminders" | "deliveries" | "settings";
@@ -12,6 +13,7 @@ export type WorkspaceRoute = {
   customerId: string | null;
   orderId: string | null;
   chatId: string | null;
+  chatChannel: ChatChannel;
 };
 export const homeRoute: WorkspaceRoute = {
   view: "orders",
@@ -21,6 +23,7 @@ export const homeRoute: WorkspaceRoute = {
   customerId: null,
   orderId: null,
   chatId: null,
+  chatChannel: "whatsapp",
 };
 const views: View[] = [
   "orders",
@@ -51,6 +54,8 @@ export function readRoute(): WorkspaceRoute {
   const candidate = params.get("view") as View;
   const view = views.includes(candidate) ? candidate : "orders";
   const tab = params.get("tab") as SettingsTab;
+  const chatChannel =
+    params.get("channel") === "instagram" ? "instagram" : "whatsapp";
   return {
     view,
     settingsTab: settingsTabs.includes(tab) ? tab : "staff",
@@ -59,7 +64,11 @@ export function readRoute(): WorkspaceRoute {
       uuid(params.get("point")) || (params.get("point") === "all" ? "all" : ""),
     customerId: view === "customers" ? uuid(params.get("customer")) : null,
     orderId: uuid(params.get("order")),
-    chatId: view === "chats" ? uuid(params.get("chat")) : null,
+    chatId:
+      view === "chats" && chatChannel === "whatsapp"
+        ? uuid(params.get("chat"))
+        : null,
+    chatChannel,
   };
 }
 
@@ -71,7 +80,10 @@ export function routeUrl(route: WorkspaceRoute) {
   if (route.view === "customers" && route.customerId)
     params.set("customer", route.customerId);
   if (route.orderId) params.set("order", route.orderId);
-  if (route.view === "chats" && route.chatId) params.set("chat", route.chatId);
+  if (route.view === "chats") {
+    if (route.chatChannel === "instagram") params.set("channel", "instagram");
+    else if (route.chatId) params.set("chat", route.chatId);
+  }
   return `${import.meta.env.BASE_URL}?${params}`;
 }
 
@@ -92,6 +104,8 @@ export function accessibleRoute(
     customerId: office && !unavailable ? route.customerId : null,
     orderId: office && !unavailable ? route.orderId : null,
     chatId: office && !unavailable ? route.chatId : null,
+    chatChannel:
+      office && !unavailable ? route.chatChannel : ("whatsapp" as const),
   };
   return Object.keys(next).every(
     (key) =>

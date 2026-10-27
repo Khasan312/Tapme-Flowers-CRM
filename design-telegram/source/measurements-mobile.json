@@ -1,0 +1,130 @@
+{
+  "mobile": {
+    "samples": [
+      {
+        "rect": {
+          "height": 844,
+          "width": 390.22222900390625,
+          "x": -97.55555725097656,
+          "y": 0
+        },
+        "selector": "#column-left",
+        "styles": {
+          "background": "rgba(0, 0, 0, 0)",
+          "borderRadius": "0px",
+          "fontSize": "16px",
+          "maxWidth": "none",
+          "padding": "0px"
+        }
+      },
+      {
+        "rect": {
+          "height": 828,
+          "width": 374.22222900390625,
+          "x": 8,
+          "y": 8
+        },
+        "selector": "#column-center",
+        "styles": {
+          "background": "rgba(0, 0, 0, 0)",
+          "borderRadius": "0px",
+          "fontSize": "16px",
+          "maxWidth": "none",
+          "padding": "0px"
+        }
+      },
+      {
+        "rect": {
+          "height": 48,
+          "width": 374.22222900390625,
+          "x": 8,
+          "y": 8
+        },
+        "selector": "#column-center .topbar",
+        "styles": {
+          "background": "rgb(33, 33, 33)",
+          "borderRadius": "24px",
+          "fontSize": "16px",
+          "maxWidth": "390px",
+          "padding": "0px 4px"
+        }
+      },
+      {
+        "rect": {
+          "height": 48,
+          "width": 374.22222900390625,
+          "x": 8,
+          "y": 788
+        },
+        "selector": "#column-center .chat-input",
+        "styles": {
+          "background": "rgba(0, 0, 0, 0)",
+          "borderRadius": "0px",
+          "fontSize": "16px",
+          "maxWidth": "100%",
+          "padding": "0px"
+        }
+      },
+      {
+        "rect": {
+          "height": 48,
+          "width": 374.22222900390625,
+          "x": 8,
+          "y": 788
+        },
+        "selector": "#column-center .chat-input-wrapper",
+        "styles": {
+          "background": "rgb(33, 33, 33)",
+          "borderRadius": "24px",
+          "fontSize": "16px",
+          "maxWidth": "100%",
+          "padding": "0px"
+        }
+      },
+      {
+        "rect": {
+          "height": 732,
+          "width": 374,
+          "x": 8.111111640930176,
+          "y": 0
+        },
+        "selector": "#column-center .bubbles-inner",
+        "styles": {
+          "background": "rgba(0, 0, 0, 0)",
+          "borderRadius": "0px",
+          "fontSize": "16px",
+          "maxWidth": "374px",
+          "padding": "0px"
+        }
+      },
+      {
+        "rect": {
+          "height": 72,
+          "width": 374.22222900390625,
+          "x": -89.55555725097656,
+          "y": -89.66666412353516
+        },
+        "selector": "#column-left .chatlist-chat",
+        "styles": {
+          "background": "rgba(0, 0, 0, 0)",
+          "borderRadius": "0px",
+          "fontSize": "16px",
+          "maxWidth": "none",
+          "padding": "6px 12px 6px 72px"
+        }
+      }
+    ],
+    "viewport": {
+      "height": 844,
+      "width": 390
+    }
+  },
+  "menu": {
+    "backdropFilter": "blur(50px)",
+    "background": "rgba(33, 33, 33, 0.75)",
+    "borderRadius": "16px",
+    "boxShadow": "rgba(0, 0, 0, 0.15) 0px 0px 10px 0px",
+    "padding": "4px 0px",
+    "rowHeight": 32
+  }
+}
