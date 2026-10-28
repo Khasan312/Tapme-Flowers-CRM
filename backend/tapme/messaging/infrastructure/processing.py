@@ -25,7 +25,9 @@ def receive(body, signature, channel=None):
     if not hmac.compare_digest(expected.encode(), (signature or "").encode()):
         return False
     payload = json.loads(body)
-    if not isinstance(payload, dict) or payload.get("object") != "whatsapp_business_account":
+    if not isinstance(payload, dict) or payload.get("object") != (
+        "instagram" if channel and channel.kind == "instagram" else "whatsapp_business_account"
+    ):
         raise ValueError("Unexpected object")
     WebhookEvent.objects.get_or_create(
         digest=hashlib.sha256((str(channel.id).encode() if channel else b"") + body).hexdigest(),
@@ -213,6 +215,14 @@ def process_event(digest):
     event = WebhookEvent.objects.select_for_update().get(digest=digest)
     if event.processed_at:
         return
+    if event.payload.get("object") == "instagram":
+        from tapme.messaging.infrastructure.instagram_events import process_instagram
+
+        process_instagram(event)
+        event.processed_at = timezone.now()
+        event.error = ""
+        event.save(update_fields=["processed_at", "error"])
+        return
     for entry in event.payload.get("entry", []):
         for change in entry.get("changes", []):
             if change.get("field") != "messages":
@@ -226,6 +236,7 @@ def process_event(digest):
             channel = (
                 accounts.select_for_update()
                 .filter(
+                    kind="whatsapp",
                     phone_number_id=value.get("metadata", {}).get("phone_number_id"),
                     status="active",
                 )
@@ -263,7 +274,7 @@ def deliver(message_id, gateway, storage=None):
         chat, channel = row.conversation, row.conversation.channel
         error = ""
         if channel.status != "active" or not channel.token_encrypted:
-            error = "WhatsApp отключён."
+            error = "Канал отключён."
         elif (
             not row.automated
             and not Membership.objects.filter(
@@ -303,6 +314,10 @@ def deliver(message_id, gateway, storage=None):
     try:
         if gateway is None:
             gateway = gateway_for(channel)
+        if row.media_key and channel.kind == "instagram":
+            raise DeliveryRejected(
+                "Вложения Instagram пока отправляются через приложение Instagram."
+            )
         if row.media_key:
             try:
                 media_id = gateway.upload(
@@ -318,7 +333,17 @@ def deliver(message_id, gateway, storage=None):
             payload[row.kind] = {"id": media_id, **({"caption": row.text} if row.text else {})}
             if row.kind == "document":
                 payload[row.kind]["filename"] = row.media_name
-        external = gateway.send(channel.phone_number_id, token, payload)
+        if channel.kind == "instagram":
+            if row.media_key or len(row.text.encode("utf-8")) > 1000:
+                raise DeliveryRejected("Instagram: отправьте текст длиной до 1000 байт UTF-8.")
+            payload = {"recipient": {"id": chat.external_user_id}, "message": {"text": row.text}}
+            if row.context_id:
+                payload["reply_to"] = {"mid": row.context_id}
+        external = gateway.send(
+            channel.ig_user_id if channel.kind == "instagram" else channel.phone_number_id,
+            token,
+            payload,
+        )
         status, error = "sent", ""
     except DeliveryRejected as exc:
         status, error, external = "failed", str(exc), None

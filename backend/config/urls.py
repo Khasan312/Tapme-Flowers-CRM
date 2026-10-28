@@ -36,9 +36,12 @@ from tapme.messaging.api import (
     ChatReadView,
     ChatRetryView,
     ChatSummaryView,
+    InstagramActionView,
+    InstagramChannelView,
     PaymentSettingsView,
     QuickReplyDetailView,
     QuickReplyView,
+    instagram_webhook,
     whatsapp_webhook,
 )
 from tapme.orders.api import OrderDetailView, OrderListView
@@ -99,6 +102,14 @@ urlpatterns = [
     path(
         "api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/messages/<int:message_id>/file/",
         ChatFileView.as_view(),
+    ),
+    path("api/v1/webhooks/meta/instagram/<str:webhook_key>/", instagram_webhook),
+    path(
+        "api/v1/businesses/<uuid:business_id>/channels/instagram/", InstagramChannelView.as_view()
+    ),
+    path(
+        "api/v1/businesses/<uuid:business_id>/channels/instagram/<str:action>/",
+        InstagramActionView.as_view(),
     ),
     path("api/v1/webhooks/meta/whatsapp/", whatsapp_webhook),
     path("api/v1/webhooks/meta/whatsapp/<str:webhook_key>/", ChannelWebhookView.as_view()),

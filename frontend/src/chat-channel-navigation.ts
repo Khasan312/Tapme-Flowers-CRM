@@ -5,10 +5,12 @@ import type { WorkspaceRoute } from "./navigation";
 type ChannelHistory = {
   channel: ChatChannel;
   whatsapp: string | null;
+  instagram: string | null;
 };
 const emptyHistory = (): ChannelHistory => ({
   channel: "whatsapp",
   whatsapp: null,
+  instagram: null,
 });
 const isChatId = (value: unknown): value is string =>
   typeof value === "string" &&
@@ -33,6 +35,7 @@ export function useChatChannelNavigation(
       return {
         channel: stored?.channel === "instagram" ? "instagram" : "whatsapp",
         whatsapp: isChatId(stored?.whatsapp) ? stored.whatsapp : null,
+        instagram: isChatId(stored?.instagram) ? stored.instagram : null,
       };
     } catch {
       return emptyHistory();
@@ -45,7 +48,7 @@ export function useChatChannelNavigation(
     const next = {
       ...saved,
       channel: route.chatChannel,
-      ...(route.chatChannel === "whatsapp" ? { whatsapp: route.chatId } : {}),
+      [route.chatChannel]: route.chatId,
     };
     memory.current.set(key, next);
     try {
@@ -70,7 +73,7 @@ export function useChatChannelNavigation(
       ...route,
       view: "chats",
       chatChannel: next,
-      chatId: next === "whatsapp" ? saved.whatsapp : null,
+      chatId: saved[next],
       orderId: null,
       customerId: null,
     };

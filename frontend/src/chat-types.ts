@@ -21,7 +21,26 @@ export type Channel = {
   last_webhook_at: string | null;
   webhook_path: string;
 };
+export type InstagramChannel = Pick<
+  Channel,
+  | "configured"
+  | "version"
+  | "provider_mode"
+  | "server_mode"
+  | "simulator"
+  | "connection_error"
+  | "checks"
+  | "status"
+  | "display_name"
+  | "display_phone"
+  | "last_webhook_at"
+  | "webhook_path"
+  | "verify_token"
+> & { ig_user_id: string; ig_username: string };
+
 export type Conversation = {
+  channel_kind: ChatChannel;
+  external_user_id: string;
   id: string;
   customer_id: string | null;
   name: string;
@@ -103,6 +122,14 @@ export type ChatMessage = {
   media_url: string | null;
   media_type: string;
   media_name: string;
+};
+
+export type ChatMessagePage = {
+  results: ChatMessage[];
+  has_more: boolean;
+  cursor?: string;
+  conversation_cursor?: string;
+  unchanged?: boolean;
 };
 
 export type AutoReply = {

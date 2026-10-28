@@ -32,6 +32,7 @@ from tapme.messaging.schemas import (
     ConversationDetailOutput,
     ConversationListOutput,
     ConversationOutput,
+    InstagramChannelOutput,
     MessageListOutput,
     OkOutput,
     QuickReplyOutput,
@@ -49,6 +50,7 @@ class ConnectInput(StrictSerializer):
 
 
 class ChatQuery(ListQuery):
+    channel_kind = serializers.ChoiceField(choices=["whatsapp", "instagram"], default="whatsapp")
     search = serializers.CharField(max_length=150, required=False, allow_blank=True)
     category = serializers.ChoiceField(choices=["all", "waiting", "mine", "closed"], default="all")
     folder_id = serializers.UUIDField(required=False)
@@ -58,6 +60,7 @@ class MessageQuery(StrictSerializer):
     before = serializers.IntegerField(min_value=0, default=0)
     after = serializers.IntegerField(min_value=0, default=0)
     limit = serializers.IntegerField(min_value=1, max_value=100, default=50)
+    cursor = serializers.RegexField(r"^[a-f0-9]{64}$", allow_blank=True, required=False)
 
 
 class SendInput(StrictSerializer):
@@ -119,6 +122,54 @@ class ChannelView(ChatAPIView):
         return self.run(request, business_id, "disconnect")
 
 
+class InstagramConnectInput(StrictSerializer):
+    ig_user_id = serializers.RegexField(r"^[0-9]{5,80}$")
+    token = serializers.CharField(max_length=4096, write_only=True)
+    app_secret = serializers.CharField(max_length=512, write_only=True)
+    version = serializers.IntegerField(min_value=0)
+
+
+class InstagramChannelView(ChatAPIView):
+    @extend_schema(responses=InstagramChannelOutput)
+    def get(self, request, business_id):
+        return self.run(request, business_id, "instagram_channel")
+
+    @extend_schema(
+        operation_id="instagram_connect",
+        request=InstagramConnectInput,
+        responses=InstagramChannelOutput,
+    )
+    def post(self, request, business_id):
+        if not request.is_secure() and request.get_host().split(":")[0] not in {
+            "127.0.0.1",
+            "localhost",
+            "testserver",
+        }:
+            raise InvalidInput("Для передачи токена откройте CRM по HTTPS или через localhost.")
+        return self.run(
+            request,
+            business_id,
+            "instagram_connect",
+            **validated(InstagramConnectInput, request.data),
+        )
+
+    @extend_schema(responses=InstagramChannelOutput)
+    def delete(self, request, business_id):
+        return self.run(request, business_id, "instagram_disconnect")
+
+
+class InstagramActionView(ChatAPIView):
+    @extend_schema(
+        operation_id="instagram_channel_action", request=None, responses=InstagramChannelOutput
+    )
+    def post(self, request, business_id, action):
+        if action not in {"check", "subscribe"}:
+            from tapme.shared.domain import NotFound
+
+            raise NotFound("Действие не найдено.")
+        return self.run(request, business_id, "instagram_action", action=action)
+
+
 class ChatListView(ChatAPIView):
     def get(self, request, business_id):
         return self.run(
@@ -156,10 +207,18 @@ class ChatFoldersInput(StrictSerializer):
     folder_ids = serializers.ListField(child=serializers.UUIDField(), max_length=30)
 
 
+class FolderQuery(StrictSerializer):
+    channel_kind = serializers.ChoiceField(choices=["whatsapp", "instagram"], default="whatsapp")
+
+
 class ChatFolderListView(ChatAPIView):
-    @extend_schema(operation_id="chat_folder_list", responses=ChatFolderListOutput)
+    @extend_schema(
+        operation_id="chat_folder_list", parameters=[FolderQuery], responses=ChatFolderListOutput
+    )
     def get(self, request, business_id):
-        return self.run(request, business_id, "folders")
+        return self.run(
+            request, business_id, "folders", **validated(FolderQuery, request.query_params)
+        )
 
     @extend_schema(request=FolderCreateInput, responses=ChatFolderOutput)
     def post(self, request, business_id):
@@ -274,7 +333,7 @@ class WebhookThrottle(SimpleRateThrottle):
 
 
 @csrf_exempt
-def whatsapp_webhook(request, webhook_key=None):
+def meta_webhook(request, webhook_key=None, kind="whatsapp"):
     throttle = WebhookThrottle()
     if not throttle.allow_request(request, None):
         response = HttpResponse(status=429)
@@ -288,7 +347,7 @@ def whatsapp_webhook(request, webhook_key=None):
     verify_token = settings.META_WEBHOOK_VERIFY_TOKEN
     if webhook_key:
         channel = (
-            ChannelAccount.objects.filter(webhook_key=webhook_key, status="active")
+            ChannelAccount.objects.filter(webhook_key=webhook_key, status="active", kind=kind)
             .exclude(app_secret_encrypted="")
             .first()
         )
@@ -318,6 +377,16 @@ def whatsapp_webhook(request, webhook_key=None):
     except (ValueError, json.JSONDecodeError, InvalidInput):
         return HttpResponse(status=400)
     return JsonResponse({"received": True}) if accepted else HttpResponse(status=401)
+
+
+@csrf_exempt
+def whatsapp_webhook(request, webhook_key=None):
+    return meta_webhook(request, webhook_key, "whatsapp")
+
+
+@csrf_exempt
+def instagram_webhook(request, webhook_key):
+    return meta_webhook(request, webhook_key, "instagram")
 
 
 class RegisterInput(StrictSerializer):

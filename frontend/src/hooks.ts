@@ -1,6 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { ApiError, errorText, request } from "./api";
 
+export function useDebouncedValue<T>(value: T, delay = 250) {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSettled(value), delay);
+    return () => window.clearTimeout(timer);
+  }, [value, delay]);
+  return settled;
+}
+
 type RemoteState<T> = {
   path: string | null;
   data: T | null;

@@ -16,12 +16,16 @@ class ChatFolders:
             raise NotFound("Папка не найдена.")
         return folder
 
-    def folders(self, scope):
+    def folders(self, scope, channel_kind="whatsapp"):
         folders = (
             ChatFolder.objects.filter(business_id=scope.business_id)
             .annotate(
-                count=Count("conversations", filter=~Q(conversations__mode="closed")),
-                total=Count("conversations"),
+                count=Count(
+                    "conversations",
+                    filter=~Q(conversations__mode="closed")
+                    & Q(conversations__channel__kind=channel_kind),
+                ),
+                total=Count("conversations", filter=Q(conversations__channel__kind=channel_kind)),
             )
             .order_by("created_at", "id")
         )
@@ -36,7 +40,9 @@ class ChatFolders:
                 }
                 for f in folders
             ],
-            "all_count": Conversation.objects.filter(channel__business_id=scope.business_id)
+            "all_count": Conversation.objects.filter(
+                channel__business_id=scope.business_id, channel__kind=channel_kind
+            )
             .exclude(mode="closed")
             .count(),
         }

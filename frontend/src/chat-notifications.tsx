@@ -6,12 +6,20 @@ import {
   playChatNotification,
 } from "./chat-notification-sound";
 import "./chat-notifications.css";
+import type { ChatChannel } from "./chat-types";
 
 type Summary = {
   waiting: number;
   unread: number;
+  unread_by_channel?: Partial<Record<ChatChannel, number>>;
   latest_inbound_id: string;
-  items: { id: string; chat_id: string; name: string; text: string }[];
+  items: {
+    id: string;
+    chat_id: string;
+    channel_kind?: ChatChannel;
+    name: string;
+    text: string;
+  }[];
 };
 function soundPreference(key: string) {
   try {
@@ -36,10 +44,12 @@ export function useChatNotifications(
     businessId,
     userId,
     unread: 0,
+    instagramUnread: 0,
     waiting: 0,
   });
   const [toast, setToast] = useState<Summary["items"][number] | null>(null);
   const [feedback, setFeedback] = useState("");
+  const [activity, setActivity] = useState({ businessId, userId, revision: 0 });
   const audio = useRef<AudioContext | null>(null);
   const soundRef = useRef(sound),
     activeRef = useRef(activeChat);
@@ -138,9 +148,20 @@ export function useChatNotifications(
         );
         if (cancelled) return;
         unread = data.unread;
-        setCounts({ businessId, userId, unread, waiting: data.waiting });
+        setCounts({
+          businessId,
+          userId,
+          unread,
+          instagramUnread: data.unread_by_channel?.instagram || 0,
+          waiting: data.waiting,
+        });
         if (!unread) flashing = false;
         if (initialized && data.items.length) {
+          setActivity((previous) => ({
+            businessId,
+            userId,
+            revision: previous.revision + 1,
+          }));
           const item = data.items.find(
             (item) => item.chat_id !== activeRef.current || !focused(),
           );
@@ -253,11 +274,16 @@ export function useChatNotifications(
   return {
     waiting: current ? counts.waiting : 0,
     unread: current ? counts.unread : 0,
+    instagramUnread: current ? counts.instagramUnread : 0,
     toast,
     dismiss: () => setToast(null),
     sound,
     toggle,
     feedback,
+    activityRevision:
+      activity.businessId === businessId && activity.userId === userId
+        ? activity.revision
+        : 0,
   };
 }
 
@@ -266,7 +292,7 @@ export function ChatNotificationControls({
   open,
 }: {
   state: ReturnType<typeof useChatNotifications>;
-  open: (id: string) => void;
+  open: (id: string, channel: ChatChannel) => void;
 }) {
   return (
     <>
@@ -295,7 +321,10 @@ export function ChatNotificationControls({
           <Bell size={18} />
           <button
             onClick={() => {
-              open(state.toast!.chat_id);
+              open(
+                state.toast!.chat_id,
+                state.toast!.channel_kind || "whatsapp",
+              );
               state.dismiss();
             }}
           >

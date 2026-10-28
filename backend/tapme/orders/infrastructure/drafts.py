@@ -311,7 +311,7 @@ class DjangoDraftRepository:
                 notes=notes.strip(),
                 card=fields["card_text"],
                 occasion=fields["occasion"],
-                source="whatsapp",
+                source=chat.channel.kind,
             )
             order = self.orders.create(
                 scope,

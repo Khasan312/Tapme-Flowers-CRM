@@ -639,25 +639,6 @@
   }
 }
 @media (max-width: 700px) {
-  .crm:has(.chat-workspace.has-conversation) {
-    height: 100dvh;
-    min-height: 0;
-    overflow: hidden;
-  }
-  .crm:has(.chat-workspace.has-conversation) > .rail,
-  .crm:has(.chat-workspace.has-conversation) > .workspace > .topbar {
-    display: none;
-  }
-  .crm:has(.chat-workspace.has-conversation) .page-content {
-    padding: 8px;
-  }
-  .crm:has(.chat-workspace.has-conversation) .chat-channel-picker.is-mobile {
-    margin-bottom: 8px;
-  }
-  .crm:has(.chat-workspace.has-conversation) .chat-workspace {
-    height: calc(100dvh - 78px);
-    min-height: 0;
-  }
   .crm .chat-inbox-page .chat-workspace {
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
@@ -755,13 +736,6 @@
   }
   .crm .chat-compose-status {
     padding-top: 4px;
-  }
-  .crm .chat-mobile-draft {
-    min-height: 34px;
-    margin-top: 6px;
-    padding: 7px 10px;
-    border-radius: 12px;
-    font-size: 11px;
   }
   .crm .chat-profile.show {
     border-radius: 16px;

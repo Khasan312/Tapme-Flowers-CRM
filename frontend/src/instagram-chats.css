@@ -1,0 +1,637 @@
+.crm .ig-preview {
+  --chat-surface: #fff;
+  --chat-canvas: #f2eff4;
+  --chat-panel-radius: 20px;
+  min-width: 0;
+}
+.crm .ig-preview-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 9px 14px;
+  margin-bottom: 10px;
+  border: 1px solid #e5ddec;
+  border-radius: 12px;
+  background: #f7f3fb;
+  color: #735b88;
+  font-size: 12px;
+}
+.crm .ig-preview-notice > svg {
+  flex: none;
+}
+.crm .ig-preview-notice p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 12px;
+}
+.crm .ig-preview-notice strong {
+  font-weight: 600;
+  color: #59406f;
+}
+.crm .ig-preview-label {
+  margin-left: auto;
+  white-space: nowrap;
+  font-size: 11px;
+  color: #967fa6;
+}
+.crm .ig-workspace {
+  display: grid;
+  grid-template-columns: 154px 290px minmax(0, 1fr);
+  gap: 12px;
+  height: calc(100dvh - 175px);
+  min-height: 540px;
+  position: relative;
+  min-width: 0;
+}
+.crm .ig-workspace .chat-folder-rail {
+  border: 1px solid var(--border);
+  border-radius: 20px;
+}
+.crm .ig-list {
+  border: 1px solid var(--border);
+  border-radius: 20px;
+}
+.crm .ig-channel-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #9871a7;
+}
+.crm .ig-list .chat-search {
+  flex-direction: row;
+  align-items: center;
+  height: 44px;
+  min-height: 44px;
+  margin: 0 12px 10px;
+  padding: 0 13px;
+  border-radius: 24px;
+}
+.crm .ig-list .chat-search:focus-within {
+  border-color: #a68cb9;
+}
+.crm .ig-list .chat-search input {
+  min-width: 0;
+}
+.crm .ig-list .chat-row {
+  min-height: 90px;
+  align-items: center;
+}
+.crm .ig-list .chat-row-copy {
+  gap: 3px;
+  text-align: left;
+}
+.crm .ig-list .chat-row-copy small {
+  color: #93889a;
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crm .ig-list .chat-row-copy > span {
+  font-size: 11px;
+}
+.crm .ig-list .chat-row-meta {
+  align-self: flex-start;
+  padding-top: 5px;
+  font-size: 10px;
+}
+.crm .ig-list .chat-row-meta > b {
+  background: #8c5ba8;
+  min-width: 19px;
+  height: 19px;
+}
+.crm .ig-list .chat-row-meta > em {
+  max-width: 40px;
+  text-align: right;
+  white-space: normal;
+  line-height: 1.35;
+  color: #ad7568;
+}
+.crm .ig-list .chat-row-meta > svg {
+  color: #9c8aa7;
+}
+.crm .ig-avatar > svg {
+  background: #a16baf;
+  padding: 2px;
+}
+.crm .ig-avatar-maria .av {
+  color: #956644;
+  background: #f6ebde;
+}
+.crm .ig-avatar-diana .av {
+  color: #5b7b73;
+  background: #e4eeea;
+}
+.crm .ig-avatar-supplier .av {
+  color: #8a6754;
+  background: #f1e7de;
+}
+.crm .ig-avatar-aizhan .av {
+  color: #747f9e;
+  background: #e8edf6;
+}
+.crm .ig-account {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 15px;
+  border-top: 1px solid #ede8f0;
+  font-size: 12px;
+  color: #80658d;
+}
+.crm .ig-account > svg {
+  flex: none;
+}
+.crm .ig-account > span:not(.ig-account-demo) {
+  display: grid;
+  gap: 2px;
+}
+.crm .ig-account small {
+  font-size: 10px;
+  color: #a095a6;
+}
+.crm .ig-account-demo {
+  margin-left: auto;
+  font-size: 10px;
+  background: #f1ebf5;
+  padding: 3px 7px;
+  border-radius: 6px;
+}
+.crm .ig-dialog {
+  border: 1px solid #e6e0e9;
+  border-radius: 20px;
+  min-width: 0;
+  background: var(--chat-canvas);
+}
+.crm .ig-dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 15px;
+  background: #fff;
+  border-bottom: 1px solid #ece6ef;
+  flex: none;
+}
+.crm .ig-dialog-header .av {
+  height: 42px;
+  width: 42px;
+  min-width: 42px;
+  border-radius: 50%;
+}
+.crm .ig-dialog-header > div {
+  min-width: 0;
+  flex: 1;
+}
+.crm .ig-dialog-header h2 {
+  font-size: 15px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crm .ig-dialog-header p {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 3px;
+  font-size: 11px;
+  color: #9a8ca2;
+  overflow-wrap: anywhere;
+}
+.crm .ig-back {
+  display: none;
+}
+.crm .ig-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px 5px;
+}
+.crm .ig-dialog-actions .chat-assignee {
+  min-width: 0;
+  width: 190px;
+  max-width: 54%;
+}
+.crm .ig-dialog-actions .chat-resolve {
+  min-height: 43px;
+  padding: 9px 13px;
+  white-space: nowrap;
+  font-size: 11px;
+}
+.crm .ig-folder-toolbar {
+  display: flex;
+  justify-content: center;
+  flex: none;
+  padding: 3px 12px 8px;
+}
+.crm .ig-thread {
+  padding: 14px 18px;
+  background: transparent;
+  overflow-anchor: none;
+}
+.crm .ig-thread .chat-day {
+  font-size: 10px;
+  margin-bottom: 18px;
+  color: #9b8fa4;
+}
+.crm .ig-thread .chat-bubble {
+  max-width: min(87%, 520px);
+  margin-bottom: 12px;
+}
+.crm .ig-thread .chat-bubble p {
+  font-size: 13px;
+  line-height: 1.65;
+}
+.crm .ig-thread .chat-bubble.outgoing {
+  background: #e9def3;
+}
+.crm .ig-thread .chat-author {
+  color: #926ba5;
+}
+.crm .ig-thread .chat-bubble footer {
+  color: #a193ac;
+}
+.crm .ig-thread .chat-quote {
+  border-color: #ab89c3;
+  color: #81658e;
+  background: #ffffff65;
+}
+.crm .ig-composer {
+  position: relative;
+  width: auto;
+  max-width: none;
+  margin: 0;
+  padding: 10px 14px 11px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.crm .ig-composer .chat-compose-field {
+  width: 100%;
+  background: white;
+  border-radius: 23px;
+  padding: 5px 8px;
+  gap: 6px;
+  border-color: #e5ddea;
+}
+.crm .ig-composer .chat-compose-field textarea {
+  font-size: 13px;
+  min-height: 40px;
+  max-height: 144px;
+  padding: 9px 3px;
+}
+.crm .ig-composer .chat-compose-field .chat-send {
+  color: #fff;
+  border: 0;
+  border-radius: 50%;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  padding: 8px;
+  background: #8a5bad;
+  margin-bottom: 2px;
+}
+.crm .ig-composer .chat-compose-field .chat-send:disabled {
+  background: #f0eaf4;
+  color: #c5b4cf;
+  opacity: 1;
+}
+.crm .ig-compose-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 3px 8px;
+  padding: 7px 5px 0;
+  font-size: 9px;
+  color: #a093a8;
+}
+.crm .ig-feedback {
+  font-size: 10px;
+  color: #866895;
+  line-height: 1.5;
+  padding: 0 5px 7px;
+}
+.crm .ig-closed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: #fff;
+  border-radius: 14px;
+  color: #887792;
+  font-size: 12px;
+}
+.crm .ig-closed svg {
+  flex: none;
+}
+.crm .ig-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+}
+.crm .ig-welcome > span {
+  display: grid;
+  place-items: center;
+  width: 80px;
+  height: 80px;
+  border-radius: 26px;
+  background: #f2eaf8;
+  color: #a779b9;
+  margin-bottom: 20px;
+}
+.crm .ig-welcome h2 {
+  font-size: 23px;
+  margin-bottom: 10px;
+}
+.crm .ig-welcome p {
+  max-width: 330px;
+  font-size: 13px;
+  color: #8a7b94;
+  line-height: 1.7;
+}
+.crm .ig-welcome small {
+  margin-top: 24px;
+  font-size: 11px;
+  color: #b1a6b7;
+}
+.crm .ig-profile {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 22;
+  width: min(300px, 100%);
+  border: 1px solid #e3dce9;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: -8px 0 35px #30213b19;
+  overflow-y: auto;
+}
+.crm .ig-profile.is-open {
+  display: block;
+}
+.crm .ig-profile > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 12px 12px 18px;
+  border-bottom: 1px solid #eee8f1;
+}
+.crm .ig-profile h2 {
+  font-size: 14px;
+}
+.crm .ig-profile-example {
+  font-size: 10px;
+  color: #b3a7bc;
+  padding: 15px 18px;
+}
+.ig-folder-modal {
+  display: grid;
+  gap: 18px;
+  max-width: 430px;
+  min-width: min(360px, calc(100vw - 64px));
+}
+.ig-folder-modal > p,
+.ig-folder-modal form {
+  font-size: 13px;
+  line-height: 1.6;
+}
+.ig-folder-modal form {
+  display: grid;
+  gap: 16px;
+}
+.ig-folder-modal form > label {
+  display: grid;
+  gap: 7px;
+}
+.ig-folder-options {
+  display: grid;
+  gap: 6px;
+}
+.ig-folder-options label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: #f8f5fa;
+  border-radius: 9px;
+}
+.ig-folder-options input {
+  width: 16px;
+  height: 16px;
+  accent-color: #8a5bad;
+}
+.ig-manage-folders {
+  display: grid;
+  gap: 7px;
+}
+.ig-manage-folders > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ig-manage-folders span {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.ig-manage-folders button {
+  padding: 8px;
+}
+@media (max-width: 1450px) and (min-width: 701px) {
+  .crm .ig-workspace {
+    grid-template-columns: 160px 280px minmax(0, 1fr);
+    gap: 10px;
+  }
+}
+@media (max-width: 1150px) and (min-width: 851px) {
+  .crm .ig-workspace {
+    grid-template-columns: 112px 245px minmax(0, 1fr);
+    gap: 8px;
+  }
+  .crm .ig-list .chat-row {
+    padding-inline: 7px;
+    gap: 7px;
+  }
+  .crm .ig-list .chat-row-meta em {
+    display: none;
+  }
+  .crm .ig-avatar .av {
+    height: 40px;
+    width: 40px;
+    min-width: 40px;
+    font-size: 13px;
+  }
+}
+@media (max-width: 850px) and (min-width: 701px) {
+  .crm .ig-workspace {
+    grid-template-columns: 144px minmax(0, 1fr);
+  }
+  .crm .ig-workspace.has-conversation .ig-list {
+    display: none;
+  }
+  .crm .ig-workspace:not(.has-conversation) .ig-welcome {
+    display: none;
+  }
+  .crm .ig-back {
+    display: flex;
+  }
+}
+@media (max-width: 700px) {
+  .crm .ig-preview-notice {
+    align-items: flex-start;
+    padding: 9px 11px;
+    gap: 8px;
+    font-size: 10px;
+    line-height: 1.6;
+  }
+  .crm .ig-preview-notice p {
+    flex-direction: column;
+    gap: 0;
+  }
+  .crm .ig-preview-label {
+    display: none;
+  }
+  .crm .ig-workspace {
+    grid-template-columns: 100px minmax(0, 1fr);
+    gap: 0;
+    min-height: 410px;
+    height: calc(100dvh - 390px);
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .crm .ig-workspace .chat-folder-rail {
+    border: 0;
+    border-right: 1px solid var(--border);
+    border-radius: 0;
+    padding-inline: 3px;
+  }
+  .crm .ig-list {
+    border: 0;
+    border-radius: 0;
+  }
+  .crm .ig-list .chat-list-heading {
+    height: 54px;
+    min-height: 54px;
+    padding-inline: 10px;
+  }
+  .crm .ig-list .chat-list-heading h1 {
+    font-size: 17px;
+  }
+  .crm .ig-channel-mark {
+    font-size: 10px;
+  }
+  .crm .ig-list .chat-search {
+    margin-inline: 8px;
+    padding-inline: 10px;
+  }
+  .crm .ig-list .chat-search input {
+    font-size: 12px;
+  }
+  .crm .ig-list .chat-filters {
+    padding-inline: 8px;
+  }
+  .crm .ig-list .chat-row {
+    min-height: 83px;
+    padding-inline: 7px;
+    gap: 7px;
+  }
+  .crm .ig-list .chat-row-copy strong {
+    font-size: 12px;
+  }
+  .crm .ig-list .chat-row-meta em {
+    display: none;
+  }
+  .crm .ig-list .ig-avatar .av {
+    height: 38px;
+    width: 38px;
+    min-width: 38px;
+    font-size: 12px;
+  }
+  .crm .ig-account {
+    padding: 12px 8px;
+    font-size: 10px;
+    gap: 6px;
+  }
+  .crm .ig-account small {
+    font-size: 9px;
+  }
+  .crm .ig-account-demo {
+    padding: 3px 5px;
+    font-size: 9px;
+  }
+  .crm .ig-workspace:not(.has-conversation) .ig-welcome {
+    display: none;
+  }
+  .crm .ig-workspace.has-conversation {
+    grid-template-columns: minmax(0, 1fr);
+    height: calc(100dvh - 157px);
+    min-height: 0;
+  }
+  .crm .ig-workspace.has-conversation > .chat-folder-rail,
+  .crm .ig-workspace.has-conversation .ig-list {
+    display: none;
+  }
+  .crm .ig-dialog {
+    border: 0;
+    border-radius: 0;
+  }
+  .crm .ig-dialog-header {
+    padding: 10px 8px;
+    gap: 7px;
+  }
+  .crm .ig-dialog-header h2 {
+    font-size: 14px;
+  }
+  .crm .ig-dialog-header .av {
+    width: 35px;
+    height: 35px;
+    min-width: 35px;
+    font-size: 12px;
+  }
+  .crm .ig-dialog-actions {
+    padding: 8px 9px 4px;
+    gap: 6px;
+  }
+  .crm .ig-dialog-actions .chat-assignee {
+    max-width: 53%;
+    width: 170px;
+  }
+  .crm .ig-dialog-actions .chat-resolve {
+    font-size: 10px;
+    padding: 8px;
+  }
+  .crm .ig-back {
+    display: flex;
+    width: 30px;
+    height: 34px;
+    padding: 5px;
+  }
+  .crm .ig-thread {
+    padding: 12px 10px;
+  }
+  .crm .ig-thread .chat-bubble p {
+    font-size: 13px;
+  }
+  .crm .ig-composer {
+    padding: 6px 9px 10px;
+  }
+  .crm .ig-compose-hint > span:last-child {
+    display: none;
+  }
+  .crm .ig-profile {
+    border-radius: 0;
+  }
+}

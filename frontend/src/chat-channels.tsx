@@ -1,15 +1,18 @@
-import { Instagram, MessageCircle, MessagesSquare } from "lucide-react";
+import { Instagram, MessageCircle } from "lucide-react";
 import type { ChatChannel } from "./chat-types";
 import "./chat-channels.css";
+export { InstagramChats } from "./instagram-chats";
 
 export function ChatChannelPicker({
   value,
   unread,
+  instagramUnread = 0,
   select,
   placement,
 }: {
   value: ChatChannel | null;
   unread: number;
+  instagramUnread?: number;
   select: (channel: ChatChannel) => void;
   placement: "sidebar" | "mobile";
 }) {
@@ -22,7 +25,7 @@ export function ChatChannelPicker({
       {(["whatsapp", "instagram"] as const).map((channel) => {
         const name = channel === "whatsapp" ? "WhatsApp" : "Instagram";
         const Icon = channel === "whatsapp" ? MessageCircle : Instagram;
-        const count = channel === "whatsapp" ? unread : 0;
+        const count = channel === "whatsapp" ? unread : instagramUnread;
         return (
           <button
             key={channel}
@@ -46,54 +49,5 @@ export function ChatChannelPicker({
         );
       })}
     </div>
-  );
-}
-
-export function InstagramChats() {
-  return (
-    <section className="instagram-workspace" aria-label="Переписка в Instagram">
-      <aside className="instagram-list">
-        <header>
-          <span className="instagram-brand">
-            <Instagram size={20} />
-            Instagram
-          </span>
-          <span className="instagram-status">Не подключён</span>
-        </header>
-        <div className="instagram-list-empty">
-          <MessagesSquare size={26} />
-          <strong>Сообщения Direct</strong>
-          <p>Здесь появятся переписки с клиентами из Instagram.</p>
-        </div>
-      </aside>
-      <div className="instagram-welcome">
-        <span className="instagram-logo">
-          <Instagram size={38} strokeWidth={1.6} />
-        </span>
-        <span className="instagram-eyebrow">
-          Новый канал для вашего магазина
-        </span>
-        <h2>Ваш Instagram — рядом</h2>
-        <p>
-          Подключение пока не настроено. После подключения профессионального
-          аккаунта вы сможете читать Direct и отвечать клиентам здесь.
-        </p>
-        <details className="instagram-setup">
-          <summary>Что нужно для подключения?</summary>
-          <ol>
-            <li>
-              Профессиональный аккаунт магазина в Instagram: «Бизнес» или
-              «Автор».
-            </li>
-            <li>Настройка интеграции Meta и разрешений на переписку.</li>
-            <li>Проверка входящего сообщения и ответа из CRM.</li>
-          </ol>
-          <p>
-            Интеграцию Instagram ещё предстоит подключить. Добавлять сообщения
-            вручную не нужно.
-          </p>
-        </details>
-      </div>
-    </section>
   );
 }

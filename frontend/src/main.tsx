@@ -19,3 +19,4 @@ import "@fontsource/ibm-plex-mono/400.css";
 import "@fontsource/ibm-plex-mono/500.css";
 import "./chat-layout.css";
 import "./chat-folders.css";
+import "./chat-mobile.css";

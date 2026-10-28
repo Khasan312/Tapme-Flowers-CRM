@@ -296,6 +296,7 @@ test("new inbound flashes the tab, plays once and shows a toast; old unread hist
   assert.equal(app.state[2].chat_id, "other");
   assert.equal(app.played.length, 1);
   assert.match(app.calls[1], /after=100/);
+  assert.equal(app.state[4].revision, 1);
   app.tick();
   assert.equal(app.document.title, "(4) Tapme Flowers");
   app.tick();

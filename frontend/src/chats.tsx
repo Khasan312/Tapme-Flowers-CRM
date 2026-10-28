@@ -30,10 +30,12 @@ import {
 } from "lucide-react";
 import { ApiError, businessPath, errorText, price, request } from "./api";
 import { Notice, Pager } from "./components";
-import { useRemote } from "./hooks";
+import { useDebouncedValue, useRemote } from "./hooks";
 import { Avatar, shortDate } from "./ui";
 import { newUuid } from "./uuid";
 import { useChatDraft } from "./chat-drafts";
+import { startChatPolling } from "./chat-polling";
+import { ChatMobileDetails, revealChatDetails } from "./chat-mobile-details";
 import { ChatEmojiPicker } from "./chat-emoji";
 import { ChatAssignee } from "./chat-assignee";
 import {
@@ -53,13 +55,16 @@ import {
 import type { Business, Customer, Page } from "./types";
 import type {
   Channel,
+  ChatChannel,
   ChatDetail,
   ChatMessage,
+  ChatMessagePage,
   Conversation,
   ChatFoldersData,
 } from "./chat-types";
 import "./chats.css";
 import { PaymentDialog, QuickReplies } from "./chat-extras";
+import { InstagramCustomerLink } from "./instagram-customer-link";
 import { OrderDraftCard } from "./order-draft";
 import {
   ChatContextMenu,
@@ -95,8 +100,11 @@ function waitingTime(since: string) {
   return remainder ? `${hours}ч ${remainder}мин` : `${hours}ч`;
 }
 
-type Props = {
+export type ChatsProps = {
+  channelKind?: ChatChannel;
   userId: string;
+  activityRevision: number;
+  workspaceRevision: number;
   business: Business;
   chatId: string | null;
   select: (id: string | null) => void;
@@ -105,11 +113,25 @@ type Props = {
   openOrder: (id: string) => void;
   newOrder: (customer: Customer) => void;
 };
-export function Chats(props: Props) {
-  const { business, chatId, select, settings } = props;
+export function Chats(props: ChatsProps) {
+  const {
+    business,
+    chatId,
+    select,
+    settings,
+    channelKind = "whatsapp",
+  } = props;
+  const channelName = channelKind === "instagram" ? "Instagram" : "WhatsApp";
   const [revision, setRevision] = useState(0);
+  const [folderRevision, setFolderRevision] = useState(0);
+  const [channelRevision, setChannelRevision] = useState(0);
+  const refreshInbox = useCallback((folders = false) => {
+    setRevision((value) => value + 1);
+    if (folders) setFolderRevision((value) => value + 1);
+  }, []);
   const [category, setCategory] = useState<keyof typeof filters>("all");
   const [search, setSearch] = useState("");
+  const settledSearch = useDebouncedValue(search);
   const [offset, setOffset] = useState(0);
   const [menu, setMenu] = useState<ChatMenuTarget | null>(null);
   const [actionRevision, setActionRevision] = useState(0);
@@ -119,8 +141,8 @@ export function Chats(props: Props) {
   );
   const [folderDialog, setFolderDialog] = useState<FolderDialog | null>(null);
   const folders = useRemote<ChatFoldersData>(
-    businessPath(business.id, "chat-folders"),
-    revision,
+    businessPath(business.id, "chat-folders") + `?channel_kind=${channelKind}`,
+    folderRevision,
   );
   const activeFolder = folders.data?.results.find(
     (folder) => folder.id === folderId,
@@ -147,23 +169,56 @@ export function Chats(props: Props) {
     closeMenu,
   ]);
   const channel = useRemote<Channel>(
-    businessPath(business.id, "channels/whatsapp"),
-    revision,
+    businessPath(business.id, `channels/${channelKind}`),
+    channelRevision,
   );
   const list = useRemote<
     Page<Conversation> & { stats: Record<string, number> }
   >(
     businessPath(business.id, "chats") +
-      `?category=${category}&search=${encodeURIComponent(search)}&offset=${offset}&limit=50${activeFolder ? `&folder_id=${activeFolder.id}` : ""}`,
+      `?channel_kind=${channelKind}&category=${category}&search=${encodeURIComponent(settledSearch)}&offset=${offset}&limit=50${activeFolder ? `&folder_id=${activeFolder.id}` : ""}`,
     revision,
   );
   useEffect(() => {
+    let ticks = 0;
     const timer = window.setInterval(() => {
-      if (document.visibilityState === "visible" && navigator.onLine)
+      if (document.visibilityState === "visible" && navigator.onLine) {
+        ticks += 1;
         setRevision((v) => v + 1);
-    }, 5000);
+        if (ticks % 2 === 0) setFolderRevision((v) => v + 1);
+        if (ticks % 4 === 0) setChannelRevision((v) => v + 1);
+      }
+    }, 15000);
     return () => window.clearInterval(timer);
   }, []);
+  const external = useRef({
+    activity: props.activityRevision,
+    workspace: props.workspaceRevision,
+    point: business.point_id,
+  });
+  useEffect(() => {
+    const old = external.current;
+    const workspaceChanged =
+      old.workspace !== props.workspaceRevision ||
+      old.point !== business.point_id;
+    if (
+      (workspaceChanged || old.activity !== props.activityRevision) &&
+      document.visibilityState === "visible" &&
+      navigator.onLine
+    )
+      refreshInbox(true);
+    if (workspaceChanged) setActionRevision((value) => value + 1);
+    external.current = {
+      activity: props.activityRevision,
+      workspace: props.workspaceRevision,
+      point: business.point_id,
+    };
+  }, [
+    props.activityRevision,
+    props.workspaceRevision,
+    business.point_id,
+    refreshInbox,
+  ]);
   return (
     <section
       className={`chat-workspace has-folders ${chatId ? "has-conversation" : ""}`}
@@ -184,10 +239,10 @@ export function Chats(props: Props) {
       <aside className="chat-list-panel">
         <div className="chat-list-heading">
           <h1 title={activeFolder?.name}>{activeFolder?.name || "Чаты"}</h1>
-          <span>WhatsApp</span>
+          <span>{channelName}</span>
           <button
             className="chat-icon"
-            aria-label="Подключение WhatsApp"
+            aria-label={`Подключение ${channelName}`}
             onClick={settings}
           >
             <Settings2 size={18} />
@@ -197,6 +252,7 @@ export function Chats(props: Props) {
           <Search size={16} />
           <input
             aria-label="Поиск диалогов"
+            maxLength={150}
             placeholder="Имя или телефон"
             value={search}
             onChange={(e) => {
@@ -277,8 +333,8 @@ export function Chats(props: Props) {
               {activeFolder
                 ? "Добавьте диалог через меню чата или кнопку «В папку» в переписке. Проверьте также выбранный фильтр."
                 : channel.data?.status === "active"
-                  ? "Когда клиент напишет на подключённый номер, его сообщение появится здесь."
-                  : "Подключите WhatsApp, чтобы принимать сообщения клиентов."}
+                  ? `Когда клиент напишет в ${channelName}, его сообщение появится здесь.`
+                  : `Подключите ${channelName}, чтобы принимать сообщения клиентов.`}
             </p>
           </div>
         )}
@@ -295,8 +351,8 @@ export function Chats(props: Props) {
         >
           <i />
           {channel.data?.status === "active"
-            ? channel.data.display_phone
-            : "Подключить WhatsApp"}
+            ? channel.data.display_phone || channel.data.display_name
+            : `Подключить ${channelName}`}
         </button>
       </aside>
       {chatId ? (
@@ -311,7 +367,7 @@ export function Chats(props: Props) {
               .map((folder) => folder.name) || []
           }
           editFolders={() => setFolderDialog({ kind: "assign", chatId })}
-          changed={() => setRevision((v) => v + 1)}
+          changed={refreshInbox}
         />
       ) : (
         <div className="chat-welcome">
@@ -321,7 +377,7 @@ export function Chats(props: Props) {
           <h2>
             {channel.data?.status === "active"
               ? "Все разговоры — рядом"
-              : "Ваш WhatsApp — в CRM"}
+              : `Ваш ${channelName} — в CRM`}
           </h2>
           <p>
             {channel.data?.status === "active"
@@ -367,7 +423,7 @@ export function Chats(props: Props) {
             setFolderDialog({ kind: "create" });
           }}
           changed={() => {
-            setRevision((value) => value + 1);
+            refreshInbox(true);
             setActionRevision((value) => value + 1);
           }}
         />
@@ -384,7 +440,7 @@ export function Chats(props: Props) {
           show={setFolderDialog}
           close={() => setFolderDialog(null)}
           changed={() => {
-            setRevision((value) => value + 1);
+            refreshInbox(true);
             setActionRevision((value) => value + 1);
           }}
         />
@@ -403,19 +459,26 @@ function ConversationPane({
   newOrder,
   changed,
   actionRevision,
+  activityRevision,
   folderNames,
   editFolders,
-}: Props & {
+}: ChatsProps & {
   chatId: string;
-  changed: () => void;
+  changed: (folders?: boolean) => void;
   actionRevision: number;
   folderNames: (ids: string[]) => string[];
   editFolders: () => void;
 }) {
   const path = businessPath(business.id, `chats/${chatId}`);
   const [revision, setRevision] = useState(0);
-  useEffect(() => setRevision((value) => value + 1), [actionRevision]);
   const detail = useRemote<ChatDetail>(path, revision);
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible" && navigator.onLine)
+        setRevision((value) => value + 1);
+    }, 30000);
+    return () => window.clearInterval(timer);
+  }, []);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [{ text, requestId, replyTo }, setDraft] = useChatDraft(
     userId,
@@ -446,10 +509,12 @@ function ConversationPane({
   }>(templatesOpen ? businessPath(business.id, "reminder-rules") : null);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const [pollError, setPollError] = useState("");
   const [denied, setDenied] = useState(false);
   const [more, setMore] = useState(false),
     [olderBusy, setOlderBusy] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const profilePanel = useRef<HTMLElement>(null);
   const [newMessages, setNewMessages] = useState(false);
   const [scrolledUp, setScrolledUp] = useState(false);
   const [messageMenu, setMessageMenu] = useState<MessageMenuTarget | null>(
@@ -516,13 +581,17 @@ function ConversationPane({
   const scroll = useRef<HTMLDivElement>(null),
     bottom = useRef(true),
     initial = useRef(true);
+  const pollNow = useRef<() => void>(() => {});
+  const readWatermark = useRef("0");
   const syncScrollPosition = useCallback(() => {
     const node = scroll.current;
     if (!node) return;
+    const wasBottom = bottom.current;
     bottom.current =
       node.scrollHeight - node.scrollTop - node.clientHeight < 70;
     setScrolledUp(!bottom.current);
     if (bottom.current) setNewMessages(false);
+    if (!wasBottom && bottom.current) pollNow.current();
   }, []);
   const messageRef = useRef(messages);
   messageRef.current = messages;
@@ -541,23 +610,34 @@ function ConversationPane({
     );
   }
   useEffect(() => {
-    let live = true,
-      active = false;
+    let live = true;
+    let cursor = "",
+      signature = "",
+      metadata = "",
+      pageHead = "";
     const controller = new AbortController();
-    async function poll() {
-      if (active || document.visibilityState !== "visible" || !navigator.onLine)
-        return;
-      active = true;
+    async function poll(): Promise<boolean> {
       try {
-        const result = await request<{
-          results: ChatMessage[];
-          has_more: boolean;
-        }>(path + "messages/?limit=50", { signal: controller.signal });
-        if (!live) return;
+        const result = await request<ChatMessagePage>(
+          path + `messages/?limit=50${cursor ? `&cursor=${cursor}` : ""}`,
+          { signal: controller.signal },
+        );
+        if (!live) return false;
+        const nextSignature = result.cursor || JSON.stringify(result.results);
+        const payloadChanged = !result.unchanged && nextSignature !== signature;
+        const metadataChanged =
+          !!metadata &&
+          !!result.conversation_cursor &&
+          metadata !== result.conversation_cursor;
         // Also fetch a gap after the newest known message if a large burst arrived.
         let rows = result.results;
         const newest = messageRef.current.at(-1)?.id;
-        if (newest && rows.length && Number(rows[0].id) > Number(newest)) {
+        if (
+          payloadChanged &&
+          newest &&
+          rows.length &&
+          Number(rows[0].id) > Number(newest)
+        ) {
           let after = newest;
           for (;;) {
             const delta = await request<{
@@ -566,56 +646,90 @@ function ConversationPane({
             }>(path + `messages/?after=${after}&limit=100`, {
               signal: controller.signal,
             });
-            if (!live) return;
+            if (!live) return false;
             rows = [...rows, ...delta.results];
             if (!delta.has_more || !delta.results.length) break;
             after = delta.results.at(-1)!.id;
           }
         }
-        merge(rows);
-        if (initial.current) {
+        if (payloadChanged) {
+          merge(rows);
+          pageHead = result.results.at(-1)?.id || pageHead;
+        }
+        cursor = result.cursor || "";
+        signature = nextSignature;
+        metadata = result.conversation_cursor || "";
+        if (initial.current && !result.unchanged) {
           setMore(result.has_more);
           initial.current = false;
         }
-        if (bottom.current && result.results.length)
+        if (
+          document.visibilityState === "visible" &&
+          bottom.current &&
+          pageHead &&
+          BigInt(pageHead) > BigInt(readWatermark.current)
+        ) {
           await request(path + "read/", {
             method: "POST",
             body: JSON.stringify({
-              last_message_id: result.results.at(-1)!.id,
+              last_message_id: pageHead,
             }),
             signal: controller.signal,
           });
-        if (live) {
-          setRevision((v) => v + 1);
+          if (!live) return false;
+          readWatermark.current = pageHead;
           changed();
         }
+        if (live && metadataChanged) {
+          setRevision((v) => v + 1);
+          changed(true);
+        }
+        if (live) setPollError("");
+        return payloadChanged || metadataChanged;
       } catch (e) {
         if (!live || (e instanceof DOMException && e.name === "AbortError"))
-          return;
-        setError(errorText(e));
+          return false;
+        setPollError(errorText(e));
         if (e instanceof ApiError && [401, 403, 404].includes(e.status)) {
           setMessages([]);
           setDenied(true);
         }
-      } finally {
-        active = false;
+        return false;
       }
     }
-    void poll();
-    const timer = window.setInterval(() => void poll(), 3000);
-    const refresh = () => void poll();
+    const polling = startChatPolling(poll);
+    pollNow.current = polling.wake;
+    const refresh = polling.wake;
     window.addEventListener("focus", refresh);
     window.addEventListener("online", refresh);
     document.addEventListener("visibilitychange", refresh);
     return () => {
       live = false;
       controller.abort();
-      window.clearInterval(timer);
+      polling.stop();
+      pollNow.current = () => {};
       window.removeEventListener("focus", refresh);
       window.removeEventListener("online", refresh);
       document.removeEventListener("visibilitychange", refresh);
     };
-  }, [path]);
+  }, [path, business.point_id]);
+  const seenUpdates = useRef({
+    activity: activityRevision,
+    action: actionRevision,
+  });
+  useEffect(() => {
+    const previous = seenUpdates.current;
+    if (previous.action !== actionRevision) setRevision((value) => value + 1);
+    if (
+      previous.action !== actionRevision ||
+      previous.activity !== activityRevision
+    )
+      pollNow.current();
+    seenUpdates.current = {
+      activity: activityRevision,
+      action: actionRevision,
+    };
+  }, [activityRevision, actionRevision]);
   useLayoutEffect(() => {
     const node = scroll.current;
     if (!node) return;
@@ -673,6 +787,7 @@ function ConversationPane({
       if (fileInput.current) fileInput.current.value = "";
       changed();
       setRevision((v) => v + 1);
+      pollNow.current();
     } catch (e) {
       setError(errorText(e));
     } finally {
@@ -689,7 +804,7 @@ function ConversationPane({
         body: JSON.stringify({ version: detail.data.version, ...values }),
       });
       setRevision((v) => v + 1);
-      changed();
+      changed(true);
     } catch (e) {
       setError(errorText(e));
       setRevision((v) => v + 1);
@@ -705,6 +820,7 @@ function ConversationPane({
           method: "POST",
         }),
       ]);
+      pollNow.current();
     } catch (e) {
       setError(errorText(e));
     } finally {
@@ -712,10 +828,12 @@ function ConversationPane({
     }
   }
   const row = detail.data;
+  const isInstagram = row?.channel_kind === "instagram";
+  const channelName = isInstagram ? "Instagram" : "WhatsApp";
   if (denied)
     return (
       <div className="chat-welcome">
-        <Notice>{error || "Диалог недоступен"}</Notice>
+        <Notice>{error || pollError || "Диалог недоступен"}</Notice>
         <button className="btn" onClick={() => select(null)}>
           К списку диалогов
         </button>
@@ -747,7 +865,8 @@ function ConversationPane({
               <div>
                 <h2>{row?.name || "Загружаем диалог…"}</h2>
                 <p>
-                  WhatsApp {row?.channel_phone ? `· ${row.channel_phone}` : ""}
+                  {channelName}{" "}
+                  {row?.channel_phone ? `· ${row.channel_phone}` : ""}
                   {row?.provider_mode === "fake" ? " · тестовый режим" : ""}
                 </p>
               </div>
@@ -790,7 +909,16 @@ function ConversationPane({
             />
           </div>
         )}
-        {(error || detail.error) && <Notice>{error || detail.error}</Notice>}
+        <ChatMobileDetails
+          canDraft={Boolean(row?.customer_id)}
+          open={(section) => {
+            setShowProfile(true);
+            revealChatDetails(profilePanel, section);
+          }}
+        />
+        {(error || pollError || detail.error) && (
+          <Notice>{error || pollError || detail.error}</Notice>
+        )}
         {selecting && (
           <div
             className="chat-selection-bar"
@@ -968,6 +1096,7 @@ function ConversationPane({
                 });
                 setScrolledUp(false);
                 setNewMessages(false);
+                pollNow.current();
               }}
             >
               {newMessages && <span>Новые сообщения</span>}
@@ -997,7 +1126,12 @@ function ConversationPane({
             </button>
             <button
               type="button"
-              disabled={busy || !row?.can_reply}
+              disabled={busy || !row?.can_reply || isInstagram}
+              title={
+                isInstagram
+                  ? "Отправка QR в Instagram пока недоступна"
+                  : undefined
+              }
               onClick={() => setPaymentOpen(true)}
             >
               <QrCode size={15} />
@@ -1073,6 +1207,12 @@ function ConversationPane({
               </button>
             </div>
           )}
+          {isInstagram && (
+            <p className="chat-reply-reason">
+              Текстовые ответы — до 1000 байт. Вложения пока открывайте в
+              Instagram.
+            </p>
+          )}
           {row && !row.can_reply && (
             <p className="chat-reply-reason">
               <Clock3 size={16} />
@@ -1125,17 +1265,21 @@ function ConversationPane({
               className="chat-attach"
               type="button"
               aria-label="Фото / PDF"
-              title="Прикрепить фото или PDF"
-              disabled={busy || !row?.can_reply}
+              title={
+                isInstagram
+                  ? "Вложения пока отправляются через Instagram"
+                  : "Прикрепить фото или PDF"
+              }
+              disabled={busy || !row?.can_reply || isInstagram}
               onClick={() => fileInput.current?.click()}
             >
               <Paperclip size={20} />
             </button>
             <textarea
               ref={messageInput}
-              aria-label="Сообщение в WhatsApp"
-              placeholder="Ответить в WhatsApp…"
-              maxLength={file ? 1024 : 4096}
+              aria-label={`Сообщение в ${channelName}`}
+              placeholder={`Ответить в ${channelName}…`}
+              maxLength={isInstagram ? 1000 : file ? 1024 : 4096}
               rows={1}
               value={text}
               readOnly={busy}
@@ -1172,7 +1316,7 @@ function ConversationPane({
             {row?.can_reply && row.last_inbound_at && (
               <p
                 className="chat-window"
-                title="Окно WhatsApp — 24 часа после последнего сообщения клиента"
+                title={`Окно ${channelName} — 24 часа после последнего сообщения клиента`}
               >
                 <Clock3 size={12} aria-hidden="true" />
                 Можно ответить ещё{" "}
@@ -1194,23 +1338,6 @@ function ConversationPane({
                 : "Enter — отправить · Shift + Enter — новая строка"}
             </span>
           </div>
-          {row?.customer_id && (
-            <button
-              className="chat-mobile-draft"
-              type="button"
-              onClick={() => {
-                setShowProfile(true);
-                requestAnimationFrame(() =>
-                  document
-                    .querySelector(".order-draft-card")
-                    ?.scrollIntoView({ block: "nearest" }),
-                );
-              }}
-            >
-              <ShoppingBag size={16} />
-              Черновик заказа<span>Открыть →</span>
-            </button>
-          )}
         </form>
       </div>
       {messageMenu && (
@@ -1228,7 +1355,7 @@ function ConversationPane({
           }
           replyReason={
             row?.reply_reason ||
-            "Дождитесь подтверждения отправки. Для цитаты нужен идентификатор WhatsApp."
+            "Дождитесь подтверждения отправки. Для цитаты нужен идентификатор сообщения."
           }
           copy={() => copyMessages([messageMenu.message])}
           select={() => {
@@ -1256,6 +1383,7 @@ function ConversationPane({
         />
       )}
       <aside
+        ref={profilePanel}
         className={`chat-profile ${showProfile ? "show" : ""}`}
         aria-label="Клиент в переписке"
       >
@@ -1274,7 +1402,11 @@ function ConversationPane({
             <div className="chat-profile-card">
               <Avatar name={row.name} />
               <h3>{row.name}</h3>
-              <a href={`tel:${row.phone}`}>{row.phone}</a>
+              {row.phone ? (
+                <a href={`tel:${row.phone}`}>{row.phone}</a>
+              ) : (
+                <p className="muted">Instagram · {row.external_user_id}</p>
+              )}
               <div className="chat-tags">
                 {row.tags.map((tag) => (
                   <span key={tag}>{tag}</span>
@@ -1289,6 +1421,13 @@ function ConversationPane({
                 </button>
               )}
             </div>
+            {isInstagram && !row.customer_id && (
+              <InstagramCustomerLink
+                businessId={business.id}
+                busy={busy}
+                link={(customerId) => update({ customer_id: customerId })}
+              />
+            )}
             {row.new_customer && row.customer_id && (
               <form
                 className="chat-name-card"
@@ -1298,7 +1437,7 @@ function ConversationPane({
                 }}
               >
                 <span className="chat-mini green">
-                  Новый клиент · из WhatsApp
+                  Новый клиент · из {channelName}
                 </span>
                 <h3>Как зовут клиента?</h3>
                 <p>
@@ -1388,7 +1527,7 @@ function ConversationPane({
                   </button>
                   <button
                     className="btn"
-                    disabled={busy || !row.can_reply}
+                    disabled={busy || !row.can_reply || isInstagram}
                     onClick={() => setPaymentOpen(true)}
                   >
                     Отправить QR для оплаты

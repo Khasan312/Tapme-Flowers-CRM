@@ -64,10 +64,7 @@ export function readRoute(): WorkspaceRoute {
       uuid(params.get("point")) || (params.get("point") === "all" ? "all" : ""),
     customerId: view === "customers" ? uuid(params.get("customer")) : null,
     orderId: uuid(params.get("order")),
-    chatId:
-      view === "chats" && chatChannel === "whatsapp"
-        ? uuid(params.get("chat"))
-        : null,
+    chatId: view === "chats" ? uuid(params.get("chat")) : null,
     chatChannel,
   };
 }
@@ -82,7 +79,7 @@ export function routeUrl(route: WorkspaceRoute) {
   if (route.orderId) params.set("order", route.orderId);
   if (route.view === "chats") {
     if (route.chatChannel === "instagram") params.set("channel", "instagram");
-    else if (route.chatId) params.set("chat", route.chatId);
+    if (route.chatId) params.set("chat", route.chatId);
   }
   return `${import.meta.env.BASE_URL}?${params}`;
 }

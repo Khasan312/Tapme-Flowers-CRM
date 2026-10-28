@@ -25,7 +25,8 @@ import type { ShopSettings } from "./types";
 import { CustomerTransfer } from "./customers";
 import { Reminders } from "./reminders";
 import { Chats } from "./chats";
-import { ChatChannelPicker, InstagramChats } from "./chat-channels";
+import { ChatChannelPicker } from "./chat-channels";
+import { InstagramInbox } from "./instagram-inbox";
 import { useChatChannelNavigation } from "./chat-channel-navigation";
 import type { ChatChannel } from "./chat-types";
 import { useChatNotifications, ChatNotificationControls } from "./chat-extras";
@@ -176,7 +177,7 @@ function Workspace() {
   const chatNotifications = useChatNotifications(
     office ? businessId : null,
     user?.id || "",
-    view === "chats" && chatChannel === "whatsapp" ? chatId : null,
+    view === "chats" ? chatId : null,
   );
   const navCounts: Record<string, number | undefined> = {
     chats: chatNotifications.waiting,
@@ -466,7 +467,11 @@ function Workspace() {
                   <ChatChannelPicker
                     placement="sidebar"
                     value={view === "chats" ? chatChannel : null}
-                    unread={chatNotifications.unread}
+                    unread={
+                      chatNotifications.unread -
+                      chatNotifications.instagramUnread
+                    }
+                    instagramUnread={chatNotifications.instagramUnread}
                     select={selectChatChannel}
                   />
                 )}
@@ -578,11 +583,11 @@ function Workspace() {
           {office && (
             <ChatNotificationControls
               state={chatNotifications}
-              open={(id) =>
+              open={(id, channel) =>
                 go({
                   ...route,
                   view: "chats",
-                  chatChannel: "whatsapp",
+                  chatChannel: channel,
                   chatId: id,
                   customerId: null,
                   orderId: null,
@@ -708,14 +713,35 @@ function Workspace() {
               <ChatChannelPicker
                 placement="mobile"
                 value={chatChannel}
-                unread={chatNotifications.unread}
+                unread={
+                  chatNotifications.unread - chatNotifications.instagramUnread
+                }
+                instagramUnread={chatNotifications.instagramUnread}
                 select={selectChatChannel}
               />
               {chatChannel === "instagram" ? (
-                <InstagramChats />
+                <InstagramInbox
+                  userId={user.id}
+                  activityRevision={chatNotifications.activityRevision}
+                  workspaceRevision={revision}
+                  key={business.id}
+                  business={business}
+                  chatId={chatId}
+                  select={(id) => go({ ...route, chatId: id })}
+                  settings={() => navigate("settings", "channels")}
+                  openCustomer={openCustomer}
+                  openOrder={(id) => go({ ...route, orderId: id })}
+                  newOrder={(c) => {
+                    setNewOrderCustomer(c);
+                    setNewOrderReminder(null);
+                    setForm("orders");
+                  }}
+                />
               ) : (
                 <Chats
                   userId={user.id}
+                  activityRevision={chatNotifications.activityRevision}
+                  workspaceRevision={revision}
                   key={business.id}
                   business={business}
                   chatId={chatId}

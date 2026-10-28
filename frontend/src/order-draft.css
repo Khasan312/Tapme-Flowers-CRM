@@ -141,28 +141,6 @@
   background: #fff0ce;
   color: #885b12;
 }
-.crm .chat-mobile-draft {
-  display: none;
-}
-@media (max-width: 1180px) {
-  .crm .chat-mobile-draft {
-    display: flex;
-    width: 100%;
-    align-items: center;
-    gap: 8px;
-    padding: 9px 10px;
-    background: #f2f5eb;
-    border: 1px solid #d5dfc9;
-    border-radius: 8px;
-    color: #344b34;
-    font-size: 12px;
-    margin-top: 8px;
-  }
-  .crm .chat-mobile-draft span {
-    margin-left: auto;
-    font-size: 11px;
-  }
-}
 .pending-confirmation {
   margin: 18px 0;
   padding: 16px;

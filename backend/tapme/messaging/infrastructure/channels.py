@@ -14,13 +14,13 @@ from tapme.shared.domain import Conflict, InvalidInput, NotFound
 
 class ChannelOperations:
     def _channel(self, scope):
-        row = ChannelAccount.objects.filter(business_id=scope.business_id).first()
+        row = ChannelAccount.objects.filter(business_id=scope.business_id, kind="whatsapp").first()
         if not row:
             raise NotFound("Сначала подключите номер WhatsApp.")
         return row
 
     def channel(self, scope):
-        row = ChannelAccount.objects.filter(business_id=scope.business_id).first()
+        row = ChannelAccount.objects.filter(business_id=scope.business_id, kind="whatsapp").first()
         owner = Membership.objects.filter(
             business_id=scope.business_id, user_id=scope.user_id, role="owner", is_active=True
         ).exists()
@@ -82,7 +82,7 @@ class ChannelOperations:
                 Business.objects.select_for_update().get(id=scope.business_id)
                 old = (
                     ChannelAccount.objects.select_for_update()
-                    .filter(business_id=scope.business_id)
+                    .filter(business_id=scope.business_id, kind="whatsapp")
                     .first()
                 )
                 if old and old.phone_number_id != phone_number_id:
@@ -140,7 +140,7 @@ class ChannelOperations:
                         last_inbound_at=None,
                     )
                 ChannelAccount.objects.update_or_create(
-                    business_id=scope.business_id, defaults=defaults
+                    business_id=scope.business_id, kind="whatsapp", defaults=defaults
                 )
         except IntegrityError:
             raise Conflict("Этот номер уже подключён к другому магазину.") from None
@@ -149,7 +149,9 @@ class ChannelOperations:
     @transaction.atomic
     def disconnect(self, scope):
         row = (
-            ChannelAccount.objects.select_for_update().filter(business_id=scope.business_id).first()
+            ChannelAccount.objects.select_for_update()
+            .filter(business_id=scope.business_id, kind="whatsapp")
+            .first()
         )
         if row:
             row.token_encrypted = row.app_secret_encrypted = ""

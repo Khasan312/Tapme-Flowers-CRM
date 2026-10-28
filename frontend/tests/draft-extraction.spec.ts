@@ -74,7 +74,11 @@ async function openEditor(page: Page, mobile = false) {
   await page.goto(
     `/?view=chats&business=${account.business_id}&chat=${seeded.chat_id}`,
   );
-  if (mobile) await page.locator(".chat-mobile-draft").click();
+  if (mobile)
+    await page
+      .getByRole("group", { name: "Клиент и черновик", exact: true })
+      .getByRole("button", { name: "Черновик заказа", exact: true })
+      .click();
   await page
     .getByRole("button", { name: "Создать черновик", exact: true })
     .click();

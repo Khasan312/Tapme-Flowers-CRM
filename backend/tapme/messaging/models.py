@@ -22,8 +22,11 @@ def default_autoreply():
 
 class ChannelAccount(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    business = models.OneToOneField("businesses.Business", on_delete=models.PROTECT)
-    phone_number_id = models.CharField(max_length=80, unique=True)
+    business = models.ForeignKey("businesses.Business", on_delete=models.PROTECT)
+    kind = models.CharField(max_length=20, default="whatsapp", db_default="whatsapp")
+    phone_number_id = models.CharField(max_length=80, unique=True, null=True, blank=True)
+    ig_user_id = models.CharField(max_length=80, unique=True, null=True, blank=True)
+    ig_username = models.CharField(max_length=150, blank=True)
     display_phone = models.CharField(max_length=40)
     display_name = models.CharField(max_length=150)
     token_encrypted = models.TextField()
@@ -45,12 +48,18 @@ class ChannelAccount(models.Model):
     autoreply = models.JSONField(default=default_autoreply)
     version = models.PositiveIntegerField(default=1)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["business", "kind"], name="business_channel_kind")
+        ]
+
 
 class Conversation(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     channel = models.ForeignKey(ChannelAccount, on_delete=models.CASCADE)
     customer = models.ForeignKey("customers.CustomerRecord", null=True, on_delete=models.PROTECT)
     phone = models.CharField(max_length=16)
+    external_user_id = models.CharField(max_length=80, blank=True)
     profile_name = models.CharField(max_length=150, blank=True)
     needs_customer_link = models.BooleanField(default=False)
     assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
@@ -70,7 +79,16 @@ class Conversation(models.Model):
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["channel", "phone"], name="chat_channel_phone")
+            models.UniqueConstraint(
+                fields=["channel", "phone"],
+                condition=~models.Q(phone=""),
+                name="chat_channel_phone",
+            ),
+            models.UniqueConstraint(
+                fields=["channel", "external_user_id"],
+                condition=~models.Q(external_user_id=""),
+                name="chat_channel_external_user",
+            ),
         ]
         indexes = [models.Index(fields=["channel", "last_message_at"])]
 

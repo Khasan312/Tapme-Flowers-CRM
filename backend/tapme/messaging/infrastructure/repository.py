@@ -1,8 +1,10 @@
 import hashlib
+import json
 from uuid import uuid4
 
 from django.db import transaction
-from django.db.models import F, Max, Q
+from django.db.models import Count, F, Max, Q
+from django.db.models.functions import MD5
 from django.utils import timezone
 
 from tapme.businesses.infrastructure.access import DjangoMembershipReader
@@ -12,9 +14,15 @@ from tapme.messaging.domain import message_text, reply_allowed
 from tapme.messaging.infrastructure.channels import ChannelOperations
 from tapme.messaging.infrastructure.features import ChatFeatures
 from tapme.messaging.infrastructure.folders import ChatFolders
+from tapme.messaging.infrastructure.instagram import InstagramOperations
+from tapme.messaging.infrastructure.queries import unread_messages
 from tapme.messaging.models import ChannelAccount, Conversation, ConversationRead, Message
 from tapme.orders.models import OrderRecord
 from tapme.shared.domain import Conflict, InvalidInput, NotFound
+
+
+def sync_digest(value):
+    return hashlib.sha256(json.dumps(value, default=str).encode()).hexdigest()
 
 
 def reply_data(row):
@@ -61,14 +69,17 @@ def message_data(row, replies=None):
     }
 
 
-def conversation_data(row, user_id):
-    marker = ConversationRead.objects.filter(conversation=row, user_id=user_id).first()
-    unread = row.messages.filter(
-        direction="in", id__gt=marker.last_message_id if marker else 0
-    ).count()
+def conversation_data(row, user_id, unread=None):
+    if unread is None:
+        marker = ConversationRead.objects.filter(conversation=row, user_id=user_id).first()
+        unread = row.messages.filter(
+            direction="in", id__gt=marker.last_message_id if marker else 0
+        ).count()
     reason = ""
     if row.channel.status != "active":
-        reason = "WhatsApp не подключён. История доступна для просмотра."
+        reason = (
+            "Instagram" if row.channel.kind == "instagram" else "WhatsApp"
+        ) + " не подключён. История доступна для просмотра."
     elif row.needs_customer_link:
         reason = "Этот номер найден у нескольких клиентов. Сначала выберите карточку клиента."
     elif row.opted_out:
@@ -82,6 +93,8 @@ def conversation_data(row, user_id):
         "customer_id": str(row.customer_id) if row.customer_id else None,
         "name": row.customer.name if row.customer else row.profile_name or row.phone,
         "phone": row.phone,
+        "channel_kind": row.channel.kind,
+        "external_user_id": row.external_user_id,
         "channel_phone": row.channel.display_phone,
         "provider_mode": row.channel.provider_mode,
         "preview": row.last_message_preview,
@@ -105,7 +118,7 @@ def conversation_data(row, user_id):
     }
 
 
-class DjangoChatRepository(ChannelOperations, ChatFeatures, ChatFolders):
+class DjangoChatRepository(ChannelOperations, InstagramOperations, ChatFeatures, ChatFolders):
     def __init__(self, gateway, storage=None):
         self.gateway, self.storage = gateway, storage
 
@@ -121,21 +134,32 @@ class DjangoChatRepository(ChannelOperations, ChatFeatures, ChatFolders):
             raise NotFound("Диалог не найден.")
         return row
 
-    def listing(self, scope, search="", category="all", limit=50, offset=0, folder_id=None):
+    def listing(
+        self,
+        scope,
+        search="",
+        category="all",
+        limit=50,
+        offset=0,
+        folder_id=None,
+        channel_kind="whatsapp",
+    ):
         qs = (
-            Conversation.objects.filter(channel__business_id=scope.business_id)
+            Conversation.objects.filter(
+                channel__business_id=scope.business_id, channel__kind=channel_kind
+            )
             .select_related("channel", "customer", "assigned_to")
             .prefetch_related("folders")
         )
         if folder_id:
             self._folder(scope, folder_id)
             qs = qs.filter(folders__id=folder_id)
-        stats = {
-            "all": qs.exclude(mode="closed").count(),
-            "waiting": qs.filter(mode="human", waiting_since__isnull=False).count(),
-            "mine": qs.filter(assigned_to_id=scope.user_id).exclude(mode="closed").count(),
-            "closed": qs.filter(mode="closed").count(),
-        }
+        stats = qs.aggregate(
+            all=Count("id", filter=~Q(mode="closed")),
+            waiting=Count("id", filter=Q(mode="human", waiting_since__isnull=False)),
+            mine=Count("id", filter=Q(assigned_to_id=scope.user_id) & ~Q(mode="closed")),
+            closed=Count("id", filter=Q(mode="closed")),
+        )
         if category == "closed":
             qs = qs.filter(mode="closed")
         else:
@@ -151,10 +175,22 @@ class DjangoChatRepository(ChannelOperations, ChatFeatures, ChatFolders):
                 | Q(profile_name__icontains=search)
             )
         qs = qs.order_by(F("waiting_since").asc(nulls_last=True), "-last_message_at", "id")
+        count = qs.count()
+        rows = list(qs[offset : offset + limit])
+        unread = dict(
+            unread_messages(scope.user_id)
+            .filter(conversation_id__in=[row.id for row in rows])
+            .order_by()
+            .values("conversation_id")
+            .annotate(total=Count("id"))
+            .values_list("conversation_id", "total")
+        )
         return {
-            "count": qs.count(),
+            "count": count,
             "stats": stats,
-            "results": [conversation_data(r, scope.user_id) for r in qs[offset : offset + limit]],
+            "results": [
+                conversation_data(row, scope.user_id, unread.get(row.id, 0)) for row in rows
+            ],
         }
 
     def detail(self, scope, chat_id):
@@ -202,14 +238,72 @@ class DjangoChatRepository(ChannelOperations, ChatFeatures, ChatFolders):
         ]
         return result
 
-    def messages(self, scope, chat_id, before=0, after=0, limit=50):
+    def messages(self, scope, chat_id, before=0, after=0, limit=50, cursor=None):
         chat = self._conversation(scope, chat_id)
         qs = chat.messages.select_related("sender", "conversation__channel")
         if before:
             qs = qs.filter(id__lt=before)
         if after:
             qs = qs.filter(id__gt=after)
-        rows = list(qs.order_by("id" if after else "-id")[: limit + 1])
+        qs = qs.order_by("id" if after else "-id")
+        sync = {}
+        if cursor is not None or not (before or after):
+            state = list(
+                qs.annotate(body_digest=MD5("text")).values_list(
+                    "id",
+                    "status",
+                    "error",
+                    "external_id",
+                    "media_key",
+                    "media_type",
+                    "media_name",
+                    "context_id",
+                    "body_digest",
+                    "sender__first_name",
+                    "sender__last_name",
+                    "sender__username",
+                )[: limit + 1]
+            )
+            context_ids = {row[7] for row in state[:limit] if row[7]}
+            replies_state = list(
+                chat.messages.filter(external_id__in=context_ids)
+                .filter(direction__in=["in", "out"])
+                .annotate(body_digest=MD5("text"))
+                .order_by("id")
+                .values_list(
+                    "id",
+                    "body_digest",
+                    "media_name",
+                    "kind",
+                    "direction",
+                    "sender__first_name",
+                    "sender__last_name",
+                    "sender__username",
+                )
+            )
+            sync = {
+                "cursor": sync_digest([str(chat.id), before, after, limit, state, replies_state]),
+                "conversation_cursor": sync_digest(
+                    [
+                        chat.version,
+                        chat.waiting_since,
+                        chat.last_inbound_at,
+                        chat.mode,
+                        chat.opted_out,
+                        chat.needs_customer_link,
+                        chat.customer_id,
+                        chat.customer.version if chat.customer else None,
+                        chat.assigned_to.get_full_name() if chat.assigned_to else "",
+                        chat.channel.version,
+                        chat.channel.status,
+                        reply_allowed(chat.last_inbound_at, timezone.now()),
+                    ]
+                ),
+                "unchanged": False,
+            }
+            if cursor == sync["cursor"]:
+                return {"results": [], "has_more": len(state) > limit, **sync, "unchanged": True}
+        rows = list(qs[: limit + 1])
         more = len(rows) > limit
         rows = rows[:limit]
         if not after:
@@ -221,25 +315,32 @@ class DjangoChatRepository(ChannelOperations, ChatFeatures, ChatFolders):
                 direction__in=["in", "out"],
             )
         }
-        return {"results": [message_data(m, replies) for m in rows], "has_more": more}
+        return {"results": [message_data(m, replies) for m in rows], "has_more": more, **sync}
 
     @transaction.atomic
     def read(self, scope, chat_id, last_message_id):
         chat = self._conversation(scope, chat_id, lock=True)
+        marker = ConversationRead.objects.filter(conversation=chat, user_id=scope.user_id).first()
+        if marker and last_message_id <= marker.last_message_id:
+            return {"ok": True}
         # Mark only the messages the browser actually displayed, never unseen arrivals.
         maximum = (
             chat.messages.filter(id__lte=last_message_id).aggregate(value=Max("id"))["value"] or 0
         )
-        marker, _ = ConversationRead.objects.get_or_create(conversation=chat, user_id=scope.user_id)
-        marker.last_message_id = max(marker.last_message_id, maximum)
-        marker.save(update_fields=["last_message_id"])
+        if not maximum:
+            return {"ok": True}
+        if not marker:
+            marker = ConversationRead.objects.create(conversation=chat, user_id=scope.user_id)
+        if maximum > marker.last_message_id:
+            marker.last_message_id = maximum
+            marker.save(update_fields=["last_message_id"])
         latest = (
             chat.messages.filter(direction="in", id__lte=maximum)
             .exclude(external_id=None)
             .order_by("-id")
             .first()
         )
-        if latest:
+        if latest and latest.id > chat.provider_read_message_id:
             chat.provider_read_message_id = max(chat.provider_read_message_id, latest.id)
             chat.save(update_fields=["provider_read_message_id"])
         return {"ok": True}
@@ -249,7 +350,9 @@ class DjangoChatRepository(ChannelOperations, ChatFeatures, ChatFolders):
         customer = CustomerRecord.objects.filter(
             id=customer_id, business_id=scope.business_id
         ).first()
-        channel = ChannelAccount.objects.filter(business_id=scope.business_id).first()
+        channel = ChannelAccount.objects.filter(
+            business_id=scope.business_id, kind="whatsapp"
+        ).first()
         if not customer:
             raise NotFound("Клиент не найден.")
         if not channel or channel.status != "active":
@@ -290,14 +393,24 @@ class DjangoChatRepository(ChannelOperations, ChatFeatures, ChatFolders):
         if "mode" in changes:
             row.mode = changes["mode"]
         if "customer_id" in changes:
+            if (
+                row.channel.kind == "instagram"
+                and row.customer_id
+                and str(row.customer_id) != str(changes["customer_id"])
+            ):
+                raise InvalidInput("Этот диалог уже связан с клиентом.")
             customer = (
                 CustomerRecord.objects.filter(
                     business_id=scope.business_id, id=changes["customer_id"]
                 )
-                .filter(Q(phone=row.phone) | Q(additional_phones__contains=[row.phone]))
+                .filter(
+                    Q()
+                    if row.channel.kind == "instagram"
+                    else (Q(phone=row.phone) | Q(additional_phones__contains=[row.phone]))
+                )
                 .first()
             )
-            if not row.needs_customer_link or not customer:
+            if (row.channel.kind != "instagram" and not row.needs_customer_link) or not customer:
                 raise InvalidInput("Выберите клиента, которому принадлежит этот номер.")
             row.customer = customer
             row.needs_customer_link = False
@@ -326,6 +439,10 @@ class DjangoChatRepository(ChannelOperations, ChatFeatures, ChatFolders):
     def send(self, scope, chat_id, text, request_id, reply_to_id=None):
         chat = self._conversation(scope, chat_id, lock=True)
         text = message_text(text)
+        if chat.channel.kind == "instagram" and len(text.encode("utf-8")) > 1000:
+            raise InvalidInput(
+                "Сообщение Instagram должно быть не длиннее 1000 байт UTF-8. Сократите текст."
+            )
         old = chat.messages.filter(request_id=request_id).first()
         if old:
             if (
@@ -381,6 +498,8 @@ class DjangoChatRepository(ChannelOperations, ChatFeatures, ChatFolders):
     @transaction.atomic
     def attach(self, scope, chat_id, content, mime, name, text, request_id, reply_to_id=None):
         chat = self._conversation(scope, chat_id, lock=True)
+        if chat.channel.kind == "instagram":
+            raise InvalidInput("Отправка файлов в Instagram пока недоступна. Отправьте текст.")
         fingerprint = hashlib.sha256(content).hexdigest()
         old = chat.messages.filter(request_id=request_id).first()
         if old:
