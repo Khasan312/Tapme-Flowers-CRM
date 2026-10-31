@@ -1,5 +1,12 @@
-import { useEffect, useState } from "react";
-import { Search, MapPin, MoreHorizontal, RefreshCw } from "lucide-react";
+import { useEffect, useId, useState } from "react";
+import {
+  Search,
+  MapPin,
+  MoreHorizontal,
+  RefreshCw,
+  SlidersHorizontal,
+  ChevronDown,
+} from "lucide-react";
 import { businessPath, errorText, price, request } from "./api";
 import { Notice, Pager, RefreshIndicator } from "./components";
 import { useRemote } from "./hooks";
@@ -42,6 +49,13 @@ const modes: Record<string, string> = {
   board: "Доска",
   list: "Список",
   calendar: "Календарь",
+};
+const statuses: Record<string, string> = {
+  "": "Все",
+  build: "Собрать",
+  delivery: "Везём",
+  pickup: "Самовывоз",
+  done: "Вручено",
 };
 function timing(order: Order, business: Business, now: Date) {
   if (order.status === "pending")
@@ -88,11 +102,17 @@ export function OrderDesk({
   business,
   revision,
   openOrder,
+  section,
+  chooseSection,
 }: {
   business: Business;
   revision: number;
   openOrder: (order: Order) => void;
+  section: "orders" | "tasks";
+  chooseSection: (section: "orders" | "tasks") => void;
 }) {
+  const filterId = useId();
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [scope, setScope] = useState("today"),
     [mode, setMode] = useState("wall"),
     [filter, setFilter] = useState(""),
@@ -138,6 +158,7 @@ export function OrderDesk({
     );
   const source = data.data,
     orders = source?.results || [];
+  const taskPanelOpen = tasksOpen || section === "tasks";
   const totals = source?.summary;
   const team = (id: string | null) =>
     staff.data?.find((s) => s.id === id)?.name || "";
@@ -195,8 +216,10 @@ export function OrderDesk({
     })[order.status] || "";
   function chooseScope(value: string) {
     setScope(value);
+    if (value !== "date") setDay("");
     setFilter("");
     setOffset(0);
+    setFiltersOpen(false);
   }
   const calendarStart = new Date(shopDay(business.timezone) + "T12:00:00Z");
   calendarStart.setUTCDate(
@@ -205,7 +228,35 @@ export function OrderDesk({
       calendarShift * 21,
   );
   return (
-    <>
+    <section
+      className={`order-desk${section === "tasks" ? " is-tasks" : ""}${filtersOpen ? " filters-open" : ""}`}
+    >
+      <div
+        className="seg desk-mobile-sections"
+        role="group"
+        aria-label="Заказы и задачи"
+      >
+        <button
+          className={section === "orders" ? "is-on" : ""}
+          aria-label="Показать заказы"
+          aria-pressed={section === "orders"}
+          onClick={() => chooseSection("orders")}
+        >
+          Заказы
+        </button>
+        <button
+          className={section === "tasks" ? "is-on" : ""}
+          aria-label="Показать задачи"
+          aria-description={`${(source?.tasks.length || 0) + (notes.data?.length || 0)} открытых задач`}
+          aria-pressed={section === "tasks"}
+          onClick={() => chooseSection("tasks")}
+        >
+          Задачи
+          <span className="desk-task-count">
+            {(source?.tasks.length || 0) + (notes.data?.length || 0)}
+          </span>
+        </button>
+      </div>
       <div className="thd">
         <div className="thd-clock">
           {new Intl.DateTimeFormat("ru-RU", {
@@ -249,8 +300,12 @@ export function OrderDesk({
           ))}
         </div>
         <button
-          className={`btn sm${tasksOpen ? "" : " ghost"}`}
-          onClick={() => setTasksOpen(!tasksOpen)}
+          className={`btn sm desktop-task-toggle${taskPanelOpen ? "" : " ghost"}`}
+          aria-expanded={taskPanelOpen}
+          onClick={() => {
+            setTasksOpen(!taskPanelOpen);
+            if (section === "tasks") chooseSection("orders");
+          }}
         >
           Задачи
           {Boolean((source?.tasks.length || 0) + (notes.data?.length || 0)) && (
@@ -260,7 +315,21 @@ export function OrderDesk({
           )}
         </button>
       </div>
-      <div className="pills order-scopes">
+      <button
+        className="btn desk-filter-toggle"
+        aria-expanded={filtersOpen}
+        aria-controls={`${filterId}-scopes${mode === "wall" ? ` ${filterId}-statuses` : ""}`}
+        onClick={() => setFiltersOpen(!filtersOpen)}
+      >
+        <SlidersHorizontal size={16} />
+        <span>Фильтры</span>
+        <span className="desk-filter-summary">
+          {scope === "date" ? shortDate(day) : scopes[scope]}
+          {filter ? ` · ${statuses[filter]}` : ""}
+        </span>
+        <ChevronDown size={16} aria-hidden="true" />
+      </button>
+      <div className="pills order-scopes" id={`${filterId}-scopes`}>
         {Object.entries(scopes).map(([key, label]) => (
           <button
             key={key}
@@ -289,7 +358,7 @@ export function OrderDesk({
       {(error || data.error || notes.error) && (
         <Notice>{error || data.error || notes.error}</Notice>
       )}
-      <div className={`today-grid${tasksOpen ? "" : " solo"}`}>
+      <div className={`today-grid${taskPanelOpen ? "" : " solo"}`}>
         <div className="order-main">
           <label className="search order-local-search">
             <Search size={14} />
@@ -314,20 +383,15 @@ export function OrderDesk({
             </button>
           </label>
           {mode === "wall" && (
-            <div className="pills wall-filters">
-              {Object.entries({
-                "": "Все",
-                build: "Собрать",
-                delivery: "Везём",
-                pickup: "Самовывоз",
-                done: "Вручено",
-              }).map(([key, label]) => (
+            <div className="pills wall-filters" id={`${filterId}-statuses`}>
+              {Object.entries(statuses).map(([key, label]) => (
                 <button
                   key={key}
                   className={`pill${filter === key ? " is-on" : ""}`}
                   onClick={() => {
                     setFilter(key);
                     setOffset(0);
+                    setFiltersOpen(false);
                   }}
                 >
                   {label}
@@ -638,7 +702,7 @@ export function OrderDesk({
             />
           )}
         </div>
-        {tasksOpen && (
+        {taskPanelOpen && (
           <aside className="tpanel">
             <div className="card">
               <div className="card-hd">
@@ -726,6 +790,6 @@ export function OrderDesk({
           </aside>
         )}
       </div>
-    </>
+    </section>
   );
 }

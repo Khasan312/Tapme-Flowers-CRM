@@ -7,6 +7,7 @@ export type View =
   "orders" | "chats" | "customers" | "reminders" | "deliveries" | "settings";
 export type WorkspaceRoute = {
   view: View;
+  orderSection: "orders" | "tasks";
   settingsTab: SettingsTab;
   businessId: string;
   pointId: string;
@@ -17,6 +18,7 @@ export type WorkspaceRoute = {
 };
 export const homeRoute: WorkspaceRoute = {
   view: "orders",
+  orderSection: "orders",
   settingsTab: "staff",
   businessId: "",
   pointId: "",
@@ -58,6 +60,7 @@ export function readRoute(): WorkspaceRoute {
     params.get("channel") === "instagram" ? "instagram" : "whatsapp";
   return {
     view,
+    orderSection: params.get("desk") === "tasks" ? "tasks" : "orders",
     settingsTab: settingsTabs.includes(tab) ? tab : "staff",
     businessId: uuid(params.get("business")) || "",
     pointId:
@@ -71,6 +74,8 @@ export function readRoute(): WorkspaceRoute {
 
 export function routeUrl(route: WorkspaceRoute) {
   const params = new URLSearchParams({ view: route.view });
+  if (route.view === "orders" && route.orderSection === "tasks")
+    params.set("desk", "tasks");
   if (route.businessId) params.set("business", route.businessId);
   if (route.pointId) params.set("point", route.pointId);
   if (route.view === "settings") params.set("tab", route.settingsTab);
@@ -97,6 +102,7 @@ export function accessibleRoute(
     businessId: business?.id || "",
     pointId: unavailable ? "" : route.pointId,
     view: office ? route.view : ("orders" as const),
+    orderSection: office ? route.orderSection : ("orders" as const),
     settingsTab: office ? route.settingsTab : ("staff" as const),
     customerId: office && !unavailable ? route.customerId : null,
     orderId: office && !unavailable ? route.orderId : null,

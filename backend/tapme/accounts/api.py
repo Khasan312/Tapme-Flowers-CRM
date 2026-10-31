@@ -4,17 +4,23 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
 from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from config.api import StrictSerializer, validated
+from tapme.accounts.permissions import is_platform_admin
 
 
 class UserOutput(serializers.Serializer):
     id = serializers.UUIDField()
     username = serializers.CharField()
+    must_change_password = serializers.BooleanField()
+    is_platform_admin = serializers.SerializerMethodField()
+
+    def get_is_platform_admin(self, user) -> bool:
+        return is_platform_admin(user)
 
 
 class LoginInput(StrictSerializer):
@@ -57,12 +63,16 @@ class LoginView(APIView):
 
 
 class MeView(APIView):
+    permission_classes = [IsAuthenticated]
+
     @extend_schema(responses=UserOutput)
     def get(self, request):
         return Response(UserOutput(request.user).data)
 
 
 class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
     @extend_schema(request=None, responses={204: None})
     def post(self, request):
         logout(request)
@@ -75,6 +85,7 @@ class PasswordInput(StrictSerializer):
 
 
 class PasswordView(APIView):
+    permission_classes = [IsAuthenticated]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "login"
 
@@ -97,6 +108,7 @@ class PasswordView(APIView):
             except ValidationError as exc:
                 raise serializers.ValidationError(exc.messages) from None
             user.set_password(data["new_password"])
-            user.save(update_fields=["password"])
+            user.must_change_password = False
+            user.save(update_fields=["password", "must_change_password"])
             update_session_auth_hash(request, user)
         return Response(status=204)

@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     "tapme.feedback",
     "tapme.reminders",
     "tapme.messaging",
+    "tapme.platform_ops",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -88,7 +89,10 @@ CSRF_COOKIE_SECURE = not DEBUG
 CSRF_FAILURE_VIEW = "config.errors.csrf_failure"
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework.authentication.SessionAuthentication"],
-    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+        "tapme.accounts.permissions.PasswordChanged",
+    ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "config.errors.exception_handler",
     "DEFAULT_THROTTLE_RATES": {"login": "10/minute", "public": "60/minute"},
@@ -149,7 +153,7 @@ TAPME_META_MODE = os.getenv("TAPME_META_MODE", "live")
 # Off by default. Demo never sends data outside the local process.
 TAPME_AI_ENABLED = os.getenv("TAPME_AI_ENABLED", "false").lower() == "true"
 TAPME_AI_MODE = os.getenv("TAPME_AI_MODE", "mistral")
-TAPME_AI_MODEL = os.getenv("TAPME_AI_MODEL", "ministral-3b-2512")
+TAPME_AI_MODEL = os.getenv("TAPME_AI_MODEL", "ministral-8b-2512")
 MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
 # Optional local trial: only this fake conversation may reach the external model.
 TAPME_AI_TEST_CHAT_ID = os.getenv("TAPME_AI_TEST_CHAT_ID", "").strip()

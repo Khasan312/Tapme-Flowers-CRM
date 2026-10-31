@@ -1,4 +1,10 @@
-import { Fragment, useEffect, useState, type FormEvent } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useState,
+  type FormEvent,
+} from "react";
 import {
   ClipboardList,
   Users,
@@ -33,11 +39,14 @@ import { useChatNotifications, ChatNotificationControls } from "./chat-extras";
 import { clearChatDrafts } from "./chat-drafts";
 import { PublicOrderPage } from "./public";
 import { PasswordPanel } from "./account";
+import { FirstPasswordPage, SignInPage, platformUrl } from "./auth";
+import PlatformApp from "./platform";
 import { CustomerDirectory } from "./customer-directory";
 import { CustomerPage } from "./customer-page";
 import { DeliveryDesk } from "./deliveries";
 import { PointSwitcher } from "./point-switcher";
 import { OrderDesk } from "./order-desk";
+import { startChatViewport } from "./chat-keyboard";
 import {
   accessibleRoute,
   homeRoute,
@@ -70,6 +79,20 @@ const roles: Record<string, string> = {
 };
 
 function Workspace() {
+  const measureTopbar = useCallback((node: HTMLElement | null) => {
+    if (!node) return;
+    const update = () =>
+      node
+        .closest<HTMLElement>(".app-shell")
+        ?.style.setProperty(
+          "--workspace-header-height",
+          `${node.getBoundingClientRect().height}px`,
+        );
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
   const [newOrderCustomer, setNewOrderCustomer] = useState<Customer | null>(
     null,
   );
@@ -144,6 +167,9 @@ function Workspace() {
   }, [user, businessId, pointId, points.data, go, route]);
   const office = business && ["owner", "manager"].includes(business.role);
   useEffect(() => {
+    if (office && view === "chats") return startChatViewport(window, document);
+  }, [office, view]);
+  useEffect(() => {
     if (user && !starting) go(route, "replace");
   }, [user, starting, route, go]);
   useEffect(() => {
@@ -210,7 +236,13 @@ function Workspace() {
     (async () => {
       try {
         const current = await request<User>("/auth/me/");
-        const choices = await request<Business[]>("/businesses/");
+        if (current.is_platform_admin) {
+          location.replace(platformUrl());
+          return;
+        }
+        const choices = current.must_change_password
+          ? []
+          : await request<Business[]>("/businesses/");
         if (live) {
           setUser(current);
           setBusinesses(choices);
@@ -245,7 +277,13 @@ function Workspace() {
           password: data.get("password"),
         }),
       });
-      const choices = await request<Business[]>("/businesses/");
+      if (result.user.is_platform_admin) {
+        location.assign(platformUrl());
+        return;
+      }
+      const choices = result.user.must_change_password
+        ? []
+        : await request<Business[]>("/businesses/");
       setUser(result.user);
       setBusinesses(choices);
       setRevision((r) => r + 1);
@@ -282,6 +320,7 @@ function Workspace() {
       : settingsTab,
   ) {
     setMenuOpen(false);
+    window.scrollTo(0, 0);
     if (next === "chats") {
       go(chatDestination());
       return;
@@ -289,6 +328,7 @@ function Workspace() {
     const destination = {
       ...route,
       view: next,
+      orderSection: "orders" as const,
       settingsTab: tab,
       customerId: null,
       orderId: null,
@@ -346,67 +386,13 @@ function Workspace() {
       </div>
     );
   if (!user)
+    return <SignInPage onSubmit={signIn} error={error} busy={loginBusy} />;
+  if (user.must_change_password)
     return (
-      <main className="login-page">
-        <section className="login-story">
-          <div className="brand">
-            <span className="brand-mark">
-              <Flower2 />
-            </span>
-            <span>
-              tapme<small>Flowers</small>
-            </span>
-          </div>
-          <div>
-            <span className="eyebrow">КАЖДЫЙ БУКЕТ — ВАЖЕН</span>
-            <h1>
-              Больше внимания
-              <br />
-              цветам и людям.
-            </h1>
-            <p>
-              Заказы, клиенты и команда вашего магазина
-              <br />в одном рабочем пространстве.
-            </p>
-          </div>
-          <span className="login-foot">Tapme Flowers · Бишкек</span>
-        </section>
-        <section className="login-panel">
-          <form className="login-card" onSubmit={signIn}>
-            <span className="eyebrow">ВАШ МАГАЗИН</span>
-            <h2>С возвращением</h2>
-            <p className="muted">Войдите, чтобы начать рабочий день.</p>
-            {error && <Notice>{error}</Notice>}
-            <label>
-              Логин
-              <input
-                name="username"
-                required
-                autoComplete="username"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-              />
-            </label>
-            <label>
-              Пароль
-              <input
-                name="password"
-                type="password"
-                required
-                autoComplete="current-password"
-              />
-            </label>
-            <button className="primary" disabled={loginBusy}>
-              {loginBusy ? "Входим…" : "Войти в CRM"}
-              <ArrowUpRight size={18} />
-            </button>
-            <p className="login-hint">
-              Доступ сотрудникам выдаёт владелец магазина.
-            </p>
-          </form>
-        </section>
-      </main>
+      <FirstPasswordPage
+        signedOut={() => void signOut()}
+        changed={() => location.reload()}
+      />
     );
 
   if (business && pointContextReady !== business.id)
@@ -433,7 +419,7 @@ function Workspace() {
           </span>
         </button>
 
-        <nav className="nav">
+        <nav className="nav" aria-label="Основные разделы">
           {(office
             ? ([
                 "orders",
@@ -456,7 +442,14 @@ function Workspace() {
                   aria-label={office ? labels[key] : "Мои задания"}
                 >
                   <Icon size={16} />
-                  {office ? labels[key] : "Мои задания"}
+                  <span className="nav-label-full">
+                    {office ? labels[key] : "Мои задания"}
+                  </span>
+                  {office && key === "reminders" && (
+                    <span className="nav-label-short" aria-hidden="true">
+                      Напом.
+                    </span>
+                  )}
                   {office && Boolean(navCounts[key]) && (
                     <span className="cnt" aria-hidden="true">
                       {navCounts[key]}
@@ -551,7 +544,7 @@ function Workspace() {
         </div>
       </aside>
       <main className="workspace">
-        <header className="topbar">
+        <header className="topbar" ref={measureTopbar}>
           <div className="topbar-title">
             <h1>{office ? labels[view] : "Мои задания"}</h1>
             {points.data && points.data.length > 1 && (
@@ -763,6 +756,11 @@ function Workspace() {
               business={business}
               revision={revision}
               openOrder={openOrder}
+              section={route.orderSection}
+              chooseSection={(orderSection) => {
+                go({ ...route, orderSection, orderId: null });
+                window.scrollTo(0, 0);
+              }}
             />
           ) : office && view === "deliveries" ? (
             <DeliveryDesk
@@ -867,6 +865,11 @@ function Workspace() {
 }
 
 export default function App() {
+  if (
+    location.pathname === platformUrl() ||
+    location.pathname === platformUrl().replace(/\/$/, "")
+  )
+    return <PlatformApp />;
   const match = location.pathname.match(/^\/track\/([^/]+)\/?$/);
   return match ? <PublicOrderPage token={match[1]} /> : <Workspace />;
 }

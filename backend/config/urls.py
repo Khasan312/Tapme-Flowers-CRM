@@ -65,6 +65,7 @@ from tapme.orders.workflow_api import (
     TaskListView,
     TransitionView,
 )
+from tapme.platform_ops.api import CompanyListView, EventListView, OwnerResetView
 from tapme.reminders.api import (
     ConfigurationView,
     ReminderActionView,
@@ -208,6 +209,15 @@ urlpatterns += [
     path(
         "api/v1/businesses/<uuid:business_id>/orders/<uuid:order_id>/photos/<uuid:photo_id>/",
         PhotoFileView.as_view(),
+    ),
+]
+
+urlpatterns += [
+    path("api/v1/platform/businesses/", CompanyListView.as_view()),
+    path("api/v1/platform/events/", EventListView.as_view()),
+    path(
+        "api/v1/platform/businesses/<uuid:business_id>/owners/<uuid:owner_id>/reset-password/",
+        OwnerResetView.as_view(),
     ),
 ]
 

@@ -12,6 +12,9 @@ class Business(models.Model):
     currency = models.CharField(max_length=3, default="KGS")
     timezone = models.CharField(max_length=60, default="Asia/Bishkek")
 
+    class Meta:
+        permissions = [("manage_platform", "Manage TapMe companies and initial owner access")]
+
     def __str__(self):
         return self.name
 
