@@ -1,4 +1,9 @@
 name: tapme-core
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
 services:
   postgres:
     image: postgres:17-bookworm
@@ -9,6 +14,7 @@ services:
     volumes: [database:/var/lib/postgresql/data]
     networks: [private]
     restart: unless-stopped
+    logging: *logging
     stop_grace_period: 60s
     healthcheck:
       test: [CMD-SHELL, 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
@@ -21,6 +27,7 @@ services:
     volumes: [redis:/data]
     networks: [private]
     restart: unless-stopped
+    logging: *logging
     stop_grace_period: 30s
     healthcheck:
       test: [CMD, redis-cli, ping]
@@ -38,6 +45,7 @@ services:
       - caddy_config:/config
     networks: [edge]
     restart: unless-stopped
+    logging: *logging
     healthcheck:
       test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1:8080/health/"]
       interval: 5s

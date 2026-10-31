@@ -1,3 +1,8 @@
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
 x-app: &app
   image: ${TAPME_IMAGE_PREFIX:?Set image prefix}-api:${IMAGE_TAG:?Set commit SHA}
   env_file: ${TAPME_DEPLOY_ROOT:?Set deploy root}/.env.production
@@ -13,6 +18,7 @@ x-app: &app
   volumes: [photos:/data/media]
   networks: [private, edge]
   restart: unless-stopped
+  logging: *logging
   stop_grace_period: 90s
 services:
   api:
@@ -39,6 +45,7 @@ services:
       - assets:/srv/shared-assets:ro
     networks: [edge]
     restart: unless-stopped
+    logging: *logging
     stop_grace_period: 90s
     depends_on:
       api:
@@ -67,6 +74,7 @@ services:
       - photos:/data/media
       - scheduler:/data/celery
   assets:
+    logging: *logging
     image: ${TAPME_IMAGE_PREFIX}-web:${IMAGE_TAG}
     profiles: [init]
     entrypoint: [/bin/sh, -c]
