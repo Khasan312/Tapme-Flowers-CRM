@@ -5,6 +5,7 @@ from datetime import date, time
 
 import pytest
 from django.db import connection
+from django.db.migrations.executor import MigrationExecutor
 from django.db.migrations.loader import MigrationLoader
 from django.utils import timezone
 
@@ -79,3 +80,39 @@ def test_previous_release_can_insert_into_expanded_schema(setup):
     reminder_settings = ReminderSettings.objects.get(pk=business.id)
     assert reminder_settings.min_days_between == 7
     assert reminder_settings.scenarios_initialized is False
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("repair_existing", [False, True])
+def test_old_shop_insert_between_branch_migrations(repair_existing):
+    executor = MigrationExecutor(connection)
+    latest = executor.loader.graph.leaf_nodes()
+    previous = [("businesses", "0005_shop_payment_message_shop_payment_note_and_more")]
+    expanded = [("businesses", "0006_membershippoint_alter_shop_options_shop_active_and_more")]
+    try:
+        executor.migrate(previous)
+        old = executor.loader.project_state(previous).apps
+        business = old.get_model("businesses", "Business").objects.create(name="Old API store")
+        executor = MigrationExecutor(connection)
+        executor.migrate(expanded)
+        if repair_existing:
+            with connection.cursor() as cursor:
+                cursor.execute("""ALTER TABLE businesses_shop
+                    ALTER COLUMN active DROP DEFAULT,
+                    ALTER COLUMN is_primary DROP DEFAULT,
+                    ALTER COLUMN short_name DROP DEFAULT,
+                    ALTER COLUMN sort DROP DEFAULT""")
+            executor = MigrationExecutor(connection)
+            expanded = [
+                ("businesses", "0007_alter_membership_is_active_alter_shop_active_and_more")
+            ]
+            executor.migrate(expanded)
+        shop = old.get_model("businesses", "Shop").objects.create(
+            business_id=business.id, name="Old API point"
+        )
+        current = executor.loader.project_state(expanded).apps
+        point = current.get_model("businesses", "Shop").objects.get(id=shop.id)
+        assert point.active and point.is_primary
+        assert point.short_name == "Основная" and point.sort == 0
+    finally:
+        MigrationExecutor(connection).migrate(latest)

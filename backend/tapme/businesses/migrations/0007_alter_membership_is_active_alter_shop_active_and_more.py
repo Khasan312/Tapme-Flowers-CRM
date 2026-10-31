@@ -9,6 +9,17 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # Also repair databases that ran the original 0006 without SQL defaults.
+        # The corrected 0006 retains them from column creation, avoiding a gap
+        # for old API processes between migration commits.
+        migrations.RunSQL(
+            """ALTER TABLE businesses_shop
+                ALTER COLUMN active SET DEFAULT true,
+                ALTER COLUMN is_primary SET DEFAULT true,
+                ALTER COLUMN short_name SET DEFAULT 'Основная',
+                ALTER COLUMN sort SET DEFAULT 0""",
+            reverse_sql=migrations.RunSQL.noop,
+        ),
         migrations.AlterField(
             model_name="shop",
             name="active",

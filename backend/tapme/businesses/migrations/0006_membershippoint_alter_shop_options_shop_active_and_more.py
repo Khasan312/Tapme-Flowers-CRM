@@ -28,22 +28,22 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="shop",
             name="active",
-            field=models.BooleanField(default=True),
+            field=models.BooleanField(db_default=True, default=True),
         ),
         migrations.AddField(
             model_name="shop",
             name="is_primary",
-            field=models.BooleanField(default=True),
+            field=models.BooleanField(db_default=True, default=True),
         ),
         migrations.AddField(
             model_name="shop",
             name="short_name",
-            field=models.CharField(default="Основная", max_length=40),
+            field=models.CharField(db_default="Основная", default="Основная", max_length=40),
         ),
         migrations.AddField(
             model_name="shop",
             name="sort",
-            field=models.PositiveIntegerField(default=0),
+            field=models.PositiveIntegerField(db_default=0, default=0),
         ),
         migrations.AlterField(
             model_name="shop",

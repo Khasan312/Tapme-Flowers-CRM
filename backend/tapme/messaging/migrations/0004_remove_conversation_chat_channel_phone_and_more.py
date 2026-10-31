@@ -26,7 +26,8 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="channelaccount",
             name="ig_username",
-            field=models.CharField(blank=True, max_length=150),
+            # Old API/worker processes keep writing until the release switches.
+            field=models.CharField(blank=True, db_default="", max_length=150),
         ),
         migrations.AddField(
             model_name="channelaccount",
@@ -36,7 +37,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="conversation",
             name="external_user_id",
-            field=models.CharField(blank=True, max_length=80),
+            field=models.CharField(blank=True, db_default="", max_length=80),
         ),
         migrations.AlterField(
             model_name="channelaccount",

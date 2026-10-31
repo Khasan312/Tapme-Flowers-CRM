@@ -17,11 +17,18 @@ class Assets(HTMLParser):
     def __init__(self):
         super().__init__()
         self.urls = []
+        self.icons = []
 
     def handle_starttag(self, tag, attrs):
-        for name, value in attrs:
-            if tag in {"script", "link"} and name in {"src", "href"} and value:
-                self.urls.append(value)
+        attributes = dict(attrs)
+        if tag == "script" and attributes.get("src"):
+            self.urls.append(attributes["src"])
+        if tag == "link" and attributes.get("href"):
+            rel = set((attributes.get("rel") or "").lower().split())
+            if rel & {"icon", "apple-touch-icon"}:
+                self.icons.append(attributes["href"])
+            elif rel & {"stylesheet", "modulepreload", "preload"}:
+                self.urls.append(attributes["href"])
 
 
 def check(base):
@@ -61,10 +68,21 @@ def check(base):
         assert "immutable" in headers["Cache-Control"], path
         # Already opened pages from the previous root deployment still load assets.
         assert get(path.removeprefix("/crm-flowers"))[0] == 200
+    for path in assets.icons:
+        assert path.startswith("/crm-flowers/"), path
+        status, headers, body = get(path)
+        assert status == 200 and body, (path, status)
+        # A missing public file may fall back to index.html with HTTP 200.
+        mime = headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+        assert mime.startswith("image/"), (path, mime)
+        # Public icons have stable names and must refresh after a release.
+        assert "no-cache" in headers.get("Cache-Control", ""), path
     assert get("/crm-flowers/assets/absent.js")[0] == 404
     assert get("/track/existing-customer-link")[0] == 200
     assert get("/unknown-page")[0] == 404
-    print("Web routes verified: redirects, query strings, JS/CSS, cache, public tracking, 404.")
+    print(
+        "Web routes verified: redirects, query strings, JS/CSS, icons, cache, public tracking, 404."
+    )
 
 
 if __name__ == "__main__":
