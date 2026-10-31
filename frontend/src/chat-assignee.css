@@ -1,0 +1,116 @@
+.crm .chat-assignee-popup {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 6px;
+  border: 1px solid #e5dfed;
+  border-radius: 16px;
+  background: #fff;
+  color: var(--ink);
+  box-shadow:
+    0 6px 24px #30203b1a,
+    0 1px 4px #30203b0a;
+  overflow: hidden;
+  font-family: "Golos Text", sans-serif;
+}
+.crm .chat-assignee-popup:popover-open {
+  display: flex;
+  flex-direction: column;
+  animation: chat-assignee-appear 160ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.crm .chat-assignee-heading {
+  flex-shrink: 0;
+  padding: 8px 10px 10px;
+  color: #7a7183;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+}
+.crm .chat-assignee-list {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #d8c8e9 transparent;
+  outline: none;
+}
+.crm .chat-assignee-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  cursor: pointer;
+  transition:
+    background-color 120ms,
+    border-color 120ms;
+}
+.crm .chat-assignee-option.is-unassigned {
+  margin-bottom: 4px;
+}
+.crm .chat-assignee-option[aria-selected="true"] {
+  background: #f5effb;
+  color: var(--accent);
+}
+.crm .chat-assignee-list:focus-visible .chat-assignee-option.is-active {
+  border-color: #b49acb;
+  background: #f0e9fa;
+}
+.crm .chat-assignee-option-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.crm .chat-assignee-option .av,
+.crm .chat-assignee-empty-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  border-radius: 50%;
+  background: #f0e9fa;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+}
+.crm .chat-assignee-empty-icon {
+  background: #f0f2ec;
+  color: #7a8474;
+}
+.crm .chat-assignee-check {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+}
+@media (hover: hover) {
+  .crm .chat-assignee-option:hover {
+    background: #f5f1fa;
+  }
+}
+@keyframes chat-assignee-appear {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .crm .chat-assignee-popup:popover-open {
+    animation: none;
+  }
+}

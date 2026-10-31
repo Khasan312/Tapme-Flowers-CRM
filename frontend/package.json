@@ -8,6 +8,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "test:e2e": "playwright test",
+    "test:notifications": "node tests/chat-notification-sound.test.mjs",
+    "test:chat-polling": "node tests/chat-polling.test.mjs",
     "format:check": "prettier --check src tests *.ts *.json index.html"
   },
   "dependencies": {

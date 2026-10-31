@@ -2,7 +2,6 @@ import { useState } from "react";
 import {
   CheckCircle2,
   Circle,
-  Copy,
   MessageCircle,
   QrCode,
   ShieldCheck,
@@ -14,6 +13,8 @@ import { useRemote } from "./hooks";
 import type { Business } from "./types";
 import type { AutoReply, Channel, PaymentSettings } from "./chat-types";
 import "./chats.css";
+import { CopyField } from "./channel-copy-field";
+import { InstagramChannelSettings } from "./instagram-channel-settings";
 
 const checklist = {
   token_checked_at: "Токен работает",
@@ -66,9 +67,9 @@ export function Channels({ business }: { business: Business }) {
       <div className="chat-channel-intro">
         <div>
           <h2>Каналы общения</h2>
-          <p>Подключите номер для заказов — переписка появится в «Чатах».</p>
+          <p>Подключите WhatsApp и Instagram — переписка появится в «Чатах».</p>
         </div>
-        <span className="chat-mini">WhatsApp Business Platform</span>
+        <span className="chat-mini">WhatsApp · Instagram</span>
       </div>
       {data.server_mode === "fake" && (
         <div className="chat-test-banner">
@@ -404,6 +405,7 @@ export function Channels({ business }: { business: Business }) {
           )}
         </div>
         <div className="stack">
+          <InstagramChannelSettings business={business} />
           <PaymentForm
             key={`payment-${data.payment.version}`}
             data={data.payment}
@@ -490,45 +492,6 @@ export function Channels({ business }: { business: Business }) {
         </Modal>
       )}
     </section>
-  );
-}
-function CopyField({ label, value }: { label: string; value: string }) {
-  const [copied, setCopied] = useState(false);
-  const [manual, setManual] = useState(false);
-  return (
-    <label>
-      {label}
-      <div className="chat-copy">
-        {value.length > 130 ? (
-          <textarea readOnly value={value} onFocus={(e) => e.target.select()} />
-        ) : (
-          <input readOnly value={value} onFocus={(e) => e.target.select()} />
-        )}
-        <button
-          type="button"
-          className="btn"
-          aria-label={`Копировать ${label}`}
-          onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(value);
-              setCopied(true);
-            } catch {
-              setCopied(false);
-              setManual(true);
-            }
-          }}
-        >
-          <Copy size={16} />
-          {copied ? "Скопировано" : "Копировать"}
-        </button>
-      </div>
-      {manual && (
-        <small>
-          Нажмите на текст: он выделится. Затем выберите «Копировать» в меню
-          телефона.
-        </small>
-      )}
-    </label>
   );
 }
 function PaymentForm({
@@ -733,8 +696,10 @@ function AutoReplyForm({
           />
         </label>
         <p className="muted">
-          На первое сообщение и после суток тишины. Не чаще одного раза за 12
-          часов. {"{магазин}"} заменится названием магазина.
+          В рабочее время — на первое сообщение и после суток тишины, не чаще
+          одного раза за 12 часов. В нерабочее время — один ответ за период
+          закрытия, даже если клиент уже писал днём. После полуночи ответ не
+          повторяется. {"{магазин}"} заменится названием магазина.
         </p>
         {owner && (
           <button className="btn" disabled={busy || !connected}>

@@ -1,13 +1,13 @@
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import BigIntegerField, F, OuterRef, Q, Subquery
-from django.db.models.functions import Coalesce
+from django.db.models import Count, F, Q
 
 from tapme.businesses.infrastructure.access import DjangoMembershipReader
 from tapme.businesses.models import Shop
 from tapme.customers.models import CustomerRecord
-from tapme.messaging.models import Conversation, ConversationRead, Message, QuickReply
+from tapme.messaging.infrastructure.queries import unread_messages
+from tapme.messaging.models import Conversation, Message, QuickReply
 from tapme.orders.models import OrderRecord
 from tapme.shared.domain import Conflict, InvalidInput, NotFound
 
@@ -38,29 +38,30 @@ class ChatFeatures:
         latest = incoming.order_by("-id").first()
         items = (
             incoming.filter(id__gt=after)
-            .select_related("conversation__customer")
+            .select_related("conversation__customer", "conversation__channel")
             .order_by("-id")[:10]
         )
-        marker = ConversationRead.objects.filter(
-            conversation_id=OuterRef("conversation_id"), user_id=scope.user_id
-        ).values("last_message_id")[:1]
-        unread = (
-            Message.objects.filter(conversation__in=chats, direction="in")
-            .annotate(read_marker=Coalesce(Subquery(marker), 0, output_field=BigIntegerField()))
-            .filter(id__gt=F("read_marker"))
-            .count()
-        )
+        unread = unread_messages(scope.user_id).filter(conversation__in=chats).count()
         return {
             "unread": unread,
+            "unread_by_channel": dict(
+                unread_messages(scope.user_id)
+                .filter(conversation__in=chats)
+                .order_by()
+                .values("conversation__channel__kind")
+                .annotate(total=Count("id"))
+                .values_list("conversation__channel__kind", "total")
+            ),
             "waiting": chats.filter(waiting_since__isnull=False).count(),
             "latest_inbound_id": str(latest.id) if latest else "0",
             "items": [
                 {
                     "id": str(m.id),
                     "chat_id": str(m.conversation_id),
+                    "channel_kind": m.conversation.channel.kind,
                     "name": m.conversation.customer.name
                     if m.conversation.customer
-                    else m.conversation.phone,
+                    else m.conversation.profile_name or m.conversation.phone,
                     "text": m.text[:100],
                 }
                 for m in items

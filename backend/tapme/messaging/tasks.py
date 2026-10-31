@@ -39,7 +39,7 @@ def process_messages():
         status="sending", sending_at__lt=timezone.now() - timedelta(minutes=2)
     ).update(
         status="unknown",
-        error="Отправка прервалась. Ожидаем подтверждения WhatsApp; автоматического повтора не будет.",
+        error="Отправка прервалась. Ожидаем подтверждения канала; автоматического повтора не будет.",
     )
     for message_id in (
         Message.objects.filter(status="queued").order_by("id").values_list("id", flat=True)[:100]
@@ -50,6 +50,7 @@ def process_messages():
             direction="in",
             kind__in=["image", "document", "video", "audio", "sticker"],
             media_key="",
+            conversation__channel__kind="whatsapp",
         )
         .filter(Q(payload__download_attempts__isnull=True) | Q(payload__download_attempts__lt=3))
         .order_by("id")
@@ -61,7 +62,7 @@ def process_messages():
     ).delete()
 
     for chat in (
-        Conversation.objects.filter(channel__status="active")
+        Conversation.objects.filter(channel__status="active", channel__kind="whatsapp")
         .exclude(provider_read_message_id=0)
         .exclude(provider_read_message_id=F("provider_read_sent_id"))
         .select_related("channel")[:100]

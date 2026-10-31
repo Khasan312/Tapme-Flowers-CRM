@@ -146,6 +146,18 @@ META_GRAPH_VERSION = os.getenv("META_GRAPH_VERSION", "")
 TAPME_SECRETS_KEY = os.getenv("TAPME_SECRETS_KEY", "")
 TAPME_META_MODE = os.getenv("TAPME_META_MODE", "live")
 
+# Off by default. Demo never sends data outside the local process.
+TAPME_AI_ENABLED = os.getenv("TAPME_AI_ENABLED", "false").lower() == "true"
+TAPME_AI_MODE = os.getenv("TAPME_AI_MODE", "mistral")
+TAPME_AI_MODEL = os.getenv("TAPME_AI_MODEL", "ministral-3b-2512")
+MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
+# Optional local trial: only this fake conversation may reach the external model.
+TAPME_AI_TEST_CHAT_ID = os.getenv("TAPME_AI_TEST_CHAT_ID", "").strip()
+CELERY_BEAT_SCHEDULE["extract-order-drafts"] = {
+    "task": "tapme.orders.tasks.extract_order_drafts",
+    "schedule": 5.0,
+}
+
 STATIC_ROOT = (
     Path("/data/static") if os.getenv("TAPME_MEDIA_ROOT") else BASE_DIR.parent / "staticfiles"
 )

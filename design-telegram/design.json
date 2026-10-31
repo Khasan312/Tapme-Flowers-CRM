@@ -1,0 +1,104 @@
+{
+  "reference": "https://web.telegram.org/k/",
+  "date": "2026-10-27",
+  "appearance": {
+    "theme": "dark",
+    "roundedPanels": true,
+    "accent": "#8774e1",
+    "bodyFontSize": 16
+  },
+  "measurements": {
+    "sidebarWidth": 360,
+    "conversationMaxWidth": 696,
+    "chatRowHeight": 72,
+    "avatarDiameter": 54,
+    "iconButtonDiameter": 40,
+    "searchHeight": 44,
+    "searchRadius": 22,
+    "chatHeaderHeight": 48,
+    "composerHeight": 48,
+    "panelRadius": 24,
+    "chatRowRadius": 16,
+    "bubbleRadius": 15,
+    "bubbleGroupCorner": 5,
+    "badgeHeight": 22,
+    "menuRadius": 16,
+    "menuBlur": 50
+  },
+  "spacing": {
+    "desktopOuter": 16,
+    "mobileOuter": 8,
+    "messageTextMargins": "4px 8px 5px"
+  },
+  "typography": {
+    "body": {
+      "fontFamily": "Roboto",
+      "size": 16,
+      "weight": 400,
+      "lineHeight": 21
+    },
+    "panelTitle": {
+      "size": 20,
+      "weight": 500,
+      "lineHeight": 26
+    },
+    "chatTitle": {
+      "size": 16,
+      "weight": 500,
+      "lineHeight": 21
+    },
+    "caption": {
+      "size": 12,
+      "weight": 400,
+      "lineHeight": 16
+    }
+  },
+  "motion": {
+    "curve": "cubic-bezier(.4, 0, .2, 1)",
+    "enterMs": 300,
+    "exitMs": 250,
+    "menuMs": 200
+  },
+  "responsive": {
+    "breakpointsFromPublicStylesheet": [
+      600,
+      925
+    ],
+    "observedWidths": [
+      390,
+      1440
+    ]
+  },
+  "wallpaper": {
+    "asset": "assets/pattern.svg",
+    "sizeFromPublicSource": "height = 500px + viewportHeight / 2.5; preserve SVG aspect ratio",
+    "source": "https://github.com/morethanwords/tweb/blob/master/src/components/chat/patternRenderer.ts#L156",
+    "implementation": "CSS mask; gradient reconstructed visually"
+  },
+  "scope": [
+    "Chat list",
+    "Conversation",
+    "Search",
+    "Menu",
+    "Settings",
+    "Keyboard shortcut reference",
+    "Chat info",
+    "Component specimens"
+  ],
+  "reconstructed": [
+    "SVG interface icons",
+    "Neutral avatars and sample content",
+    "Wallpaper gradient",
+    "Settings sample layouts"
+  ],
+  "privacy": "No account identifiers, conversations, photos, sessions, keys, or API access are included.",
+  "evidence": [
+    "source/measurements-desktop.json",
+    "source/measurements-mobile.json",
+    "source/assets.json"
+  ],
+  "caveats": [
+    "Source DOM rectangles can include transforms during a panel transition; canonical dimensions above use stable element sizes.",
+    "This is a visual reconstruction of the observed theme, not all Telegram screens."
+  ]
+}

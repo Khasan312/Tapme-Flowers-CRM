@@ -1,0 +1,124 @@
+/* Desktop channels belong to the app menu; mobile channels stay above the chat. */
+.crm .chat-channel-picker.is-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 2px 4px 10px 18px;
+  padding-left: 10px;
+  border-left: 1px solid var(--rail-line);
+}
+.crm .chat-channel-picker button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+  min-width: 0;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--rail-dim);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 140ms,
+    color 140ms;
+}
+.crm .chat-channel-picker button svg {
+  flex: none;
+}
+.crm .chat-channel-picker.is-sidebar button:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--rail-ink);
+}
+.crm .chat-channel-picker.is-sidebar button[aria-pressed="true"] {
+  background: #254a3c;
+  color: #d5f1df;
+}
+.crm
+  .chat-channel-picker.is-sidebar
+  button[data-channel="instagram"][aria-pressed="true"] {
+  background: #483652;
+  color: #f1e4fb;
+}
+.crm .chat-channel-picker.is-sidebar button[data-channel="whatsapp"] svg {
+  color: #8ccca4;
+}
+.crm .chat-channel-picker.is-sidebar button[data-channel="instagram"] svg {
+  color: #d5a2ed;
+}
+.crm .chat-channel-count {
+  margin-left: auto;
+  padding: 1px 6px;
+  min-width: 20px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.13);
+  color: inherit;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.crm .chat-channel-picker.is-mobile {
+  display: none;
+}
+.crm .page-content.chat-inbox-content {
+  max-width: none;
+  padding-inline: 12px;
+}
+.crm .chat-inbox-page {
+  min-width: 0;
+}
+@media (max-width: 700px) {
+  .crm .chat-channel-picker.is-sidebar {
+    display: none;
+  }
+  .crm .chat-channel-picker.is-mobile {
+    display: flex;
+    gap: 6px;
+    padding: 5px;
+    margin-bottom: 12px;
+    border: 1px solid #e0e5df;
+    border-radius: 13px;
+    background: #fff;
+  }
+  .crm .chat-channel-picker.is-mobile button {
+    flex: 1;
+    min-height: 42px;
+    justify-content: center;
+    color: #6b736e;
+    border-radius: 9px;
+    padding: 8px;
+    gap: 7px;
+  }
+  .crm .chat-channel-picker.is-mobile button[aria-pressed="true"] {
+    background: #e8f2eb;
+    color: #285c40;
+  }
+  .crm
+    .chat-channel-picker.is-mobile
+    button[data-channel="instagram"][aria-pressed="true"] {
+    background: #f1eafa;
+    color: #7841a5;
+  }
+  .crm .chat-channel-picker.is-mobile .chat-channel-count {
+    background: #edf0ec;
+    color: #506258;
+    margin-left: 0;
+  }
+  .crm .page-content.chat-inbox-content {
+    padding-inline: 8px;
+  }
+  .crm .chat-inbox-page .chat-workspace {
+    height: calc(100dvh - 355px);
+    min-height: 360px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .crm .chat-channel-picker button {
+    transition: none;
+  }
+}

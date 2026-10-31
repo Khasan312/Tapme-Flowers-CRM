@@ -17,3 +17,6 @@ import "@fontsource/golos-text/600.css";
 import "@fontsource/golos-text/700.css";
 import "@fontsource/ibm-plex-mono/400.css";
 import "@fontsource/ibm-plex-mono/500.css";
+import "./chat-layout.css";
+import "./chat-folders.css";
+import "./chat-mobile.css";

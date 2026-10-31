@@ -1,0 +1,126 @@
+.crm .chat-compose-field .chat-emoji-toggle {
+  width: 36px;
+  min-width: 36px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #7c8876;
+}
+.crm .chat-compose-field .chat-emoji-toggle:hover,
+.crm .chat-compose-field .chat-emoji-toggle[aria-expanded="true"] {
+  color: var(--accent);
+  background: #f0e9fa;
+}
+.crm .chat-compose-field .chat-emoji-toggle:disabled {
+  opacity: 0.45;
+  background: transparent;
+}
+.chat-emoji-panel {
+  position: fixed;
+  z-index: 250;
+  width: min(326px, calc(100vw - 16px));
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px;
+  border: 1px solid #e1e5de;
+  border-radius: 18px;
+  background: #fff;
+  color: #3b443f;
+  box-shadow: 0 12px 38px #14282026;
+  animation: chat-emoji-appear 140ms ease-out;
+}
+.chat-emoji-panel header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-left: 3px;
+  font-size: 14px;
+}
+.chat-emoji-panel header button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: #7a837c;
+}
+.chat-emoji-categories {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eff1ec;
+}
+.chat-emoji-categories button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  border: 0;
+  border-radius: 9px;
+  padding: 6px 2px;
+  color: #667068;
+  font-size: 10px;
+}
+.chat-emoji-categories button span {
+  font-size: 20px;
+  line-height: 26px;
+}
+.chat-emoji-categories button[aria-pressed="true"] {
+  color: #6b3fa0;
+  background: #f0e9fa;
+}
+.chat-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 3px;
+  padding-block: 10px;
+}
+.chat-emoji-grid button {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 43px;
+  padding: 3px;
+  border: 0;
+  border-radius: 10px;
+  font-family:
+    "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  font-size: 25px;
+  line-height: 1;
+}
+.chat-emoji-panel button:hover {
+  background: #f5f3f8;
+}
+.chat-emoji-panel button:focus-visible,
+.crm .chat-emoji-toggle:focus-visible {
+  outline: 2px solid #9672bd;
+  outline-offset: 1px;
+}
+.chat-emoji-panel p {
+  padding: 0 3px;
+  color: #7a837c;
+  font-size: 11px;
+  line-height: 1.5;
+}
+@keyframes chat-emoji-appear {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-emoji-panel {
+    animation: none;
+  }
+}

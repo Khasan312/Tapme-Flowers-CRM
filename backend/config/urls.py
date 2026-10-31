@@ -27,20 +27,32 @@ from tapme.messaging.api import (
     ChatAttachmentView,
     ChatDetailView,
     ChatFileView,
+    ChatFolderDetailView,
+    ChatFolderListView,
+    ChatFoldersView,
     ChatListView,
     ChatMessagesView,
     ChatPaymentView,
     ChatReadView,
     ChatRetryView,
     ChatSummaryView,
+    InstagramActionView,
+    InstagramChannelView,
     PaymentSettingsView,
     QuickReplyDetailView,
     QuickReplyView,
+    instagram_webhook,
     whatsapp_webhook,
 )
 from tapme.orders.api import OrderDetailView, OrderListView
 from tapme.orders.desk_api import DeskView, NoteDoneView, NotesView
-from tapme.orders.draft_api import DraftConvertView, DraftRestoreView, DraftView, ExtendPaymentView
+from tapme.orders.draft_api import (
+    DraftConvertView,
+    DraftExtractView,
+    DraftRestoreView,
+    DraftView,
+    ExtendPaymentView,
+)
 from tapme.orders.overview_api import OverviewView
 from tapme.orders.public_api import PublicView, ShareView
 from tapme.orders.workflow_api import (
@@ -63,6 +75,10 @@ from tapme.reminders.api import (
 )
 
 urlpatterns = [
+    path(
+        "api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/order-draft/extract/",
+        DraftExtractView.as_view(),
+    ),
     path(
         "api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/order-draft/",
         DraftView.as_view(),
@@ -87,6 +103,14 @@ urlpatterns = [
         "api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/messages/<int:message_id>/file/",
         ChatFileView.as_view(),
     ),
+    path("api/v1/webhooks/meta/instagram/<str:webhook_key>/", instagram_webhook),
+    path(
+        "api/v1/businesses/<uuid:business_id>/channels/instagram/", InstagramChannelView.as_view()
+    ),
+    path(
+        "api/v1/businesses/<uuid:business_id>/channels/instagram/<str:action>/",
+        InstagramActionView.as_view(),
+    ),
     path("api/v1/webhooks/meta/whatsapp/", whatsapp_webhook),
     path("api/v1/webhooks/meta/whatsapp/<str:webhook_key>/", ChannelWebhookView.as_view()),
     path(
@@ -108,6 +132,15 @@ urlpatterns = [
     ),
     path("api/v1/businesses/<uuid:business_id>/channels/whatsapp/", ChannelView.as_view()),
     path("api/v1/businesses/<uuid:business_id>/chats/", ChatListView.as_view()),
+    path("api/v1/businesses/<uuid:business_id>/chat-folders/", ChatFolderListView.as_view()),
+    path(
+        "api/v1/businesses/<uuid:business_id>/chat-folders/<uuid:folder_id>/",
+        ChatFolderDetailView.as_view(),
+    ),
+    path(
+        "api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/folders/",
+        ChatFoldersView.as_view(),
+    ),
     path("api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/", ChatDetailView.as_view()),
     path(
         "api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/messages/",

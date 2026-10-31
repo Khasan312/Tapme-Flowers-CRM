@@ -1,0 +1,387 @@
+.crm .chat-inbox-page .chat-workspace.has-folders {
+  grid-template-columns: 160px 280px minmax(0, 1fr) 250px;
+}
+.crm .chat-workspace.has-folders > .chat-welcome {
+  grid-column: 3 / -1;
+}
+.crm .chat-folder-rail {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--chat-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--chat-panel-radius);
+  padding: 12px 8px 8px;
+}
+.crm .chat-folder-rail > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px 10px 8px;
+  gap: 4px;
+}
+.crm .chat-folder-rail h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.crm .chat-folder-rail nav {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  overflow: auto;
+  min-height: 0;
+  scrollbar-width: thin;
+}
+.crm .chat-folder-row,
+.crm .chat-folder-new,
+.crm .chat-folder-manage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 8px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.crm .chat-folder-row svg,
+.crm .chat-folder-new svg,
+.crm .chat-folder-manage svg {
+  flex: none;
+}
+.crm .chat-folder-row > span {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+  line-height: 17px;
+}
+.crm .chat-folder-row small {
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.crm .chat-folder-row.active {
+  background: #f0e9f8;
+  color: var(--accent);
+  font-weight: 600;
+}
+.crm .chat-folder-row:hover,
+.crm .chat-folder-manage:hover {
+  background: #f5f3f7;
+  color: var(--accent);
+}
+.crm .chat-folder-row.active:hover {
+  background: #ebe0f5;
+}
+.crm .chat-folder-new {
+  border: 1px dashed var(--border);
+  margin-top: 8px;
+  color: var(--accent);
+}
+.crm .chat-folder-new:hover {
+  background: #f8f5fb;
+  border-color: var(--accent);
+}
+.crm .chat-folder-manage {
+  margin-top: auto;
+  flex-shrink: 0;
+  padding-top: 14px;
+}
+.crm .chat-folder-hint {
+  padding: 8px;
+  font-size: 11px;
+  line-height: 17px;
+  color: var(--muted);
+}
+.crm .chat-list-heading h1 {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crm .chat-folder-toolbar {
+  display: flex;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 12px 5px;
+  background: var(--chat-canvas);
+}
+.crm .chat-folder-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 10px;
+  min-height: 30px;
+  border: 1px solid #ddd6e5;
+  border-radius: 15px;
+  background: #ffffffb8;
+  color: var(--accent);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.crm .chat-folder-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crm .chat-folder-chip svg {
+  flex: none;
+}
+.crm .chat-folder-chip:hover {
+  background: #fff;
+  border-color: var(--accent);
+}
+dialog:has(.chat-folder-modal) {
+  width: min(508px, calc(100vw - 32px));
+}
+.chat-folder-modal {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.chat-folder-modal p {
+  line-height: 1.6;
+  margin: 0;
+}
+.chat-folder-modal .muted {
+  font-size: 12px;
+}
+.chat-folder-editor-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.chat-folder-editor-row > svg {
+  flex: none;
+  color: var(--accent);
+}
+.chat-folder-editor-row > span {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+  overflow-wrap: anywhere;
+}
+.chat-folder-editor-row small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.chat-folder-trash {
+  color: #b44747;
+}
+.chat-folder-delete-name {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 14px;
+  background: #f6f2f8;
+  overflow-wrap: anywhere;
+}
+.chat-folder-delete-name svg {
+  flex: none;
+  color: var(--accent);
+}
+.chat-folder-modal .btn.danger {
+  background: #b84242;
+  color: #fff;
+  border-color: #b84242;
+}
+.chat-folder-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 340px;
+  overflow: auto;
+}
+.chat-folder-modal .chat-folder-check {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  margin: 0;
+  text-align: left;
+}
+.chat-folder-check:has(input:checked) {
+  background: #f4edf9;
+  border-color: #d5c2e6;
+}
+.chat-folder-check input {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  accent-color: var(--accent);
+  margin: 0;
+}
+.chat-folder-check svg {
+  flex: none;
+  color: var(--accent);
+}
+.chat-folder-check span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.chat-folder-inline-create {
+  display: flex;
+  gap: 8px;
+}
+.chat-folder-inline-create input {
+  min-width: 0;
+  flex: 1;
+}
+.chat-folder-modal > .chat-folder-new {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--accent);
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  min-height: 44px;
+  padding: 10px;
+  font: inherit;
+  cursor: pointer;
+}
+.chat-folder-modal .form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.chat-folder-rail button:focus-visible,
+.chat-folder-chip:focus-visible,
+.chat-folder-check:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+@media (max-width: 1600px) and (min-width: 701px) {
+  .crm .chat-inbox-page .chat-workspace.has-folders {
+    grid-template-columns: 160px 260px minmax(0, 1fr);
+    position: relative;
+  }
+  .crm .chat-workspace.has-folders .chat-profile {
+    display: none;
+  }
+  .crm .chat-workspace.has-folders .chat-profile.show {
+    display: block;
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: min(340px, 100%);
+    z-index: 20;
+    box-shadow: -8px 0 30px #22332216;
+  }
+  .crm .chat-workspace.has-folders .chat-profile > header {
+    display: flex;
+  }
+}
+@media (max-width: 1050px) and (min-width: 701px) {
+  .crm .chat-inbox-page .chat-workspace.has-folders {
+    grid-template-columns: 148px 240px minmax(0, 1fr);
+    gap: 8px;
+  }
+  .crm .chat-folder-rail {
+    padding-inline: 5px;
+  }
+  .crm .chat-folder-row {
+    gap: 5px;
+    padding-inline: 6px;
+    font-size: 11px;
+  }
+}
+@media (max-width: 850px) and (min-width: 701px) {
+  .crm .chat-inbox-page .chat-workspace.has-folders {
+    grid-template-columns: 148px minmax(0, 1fr);
+  }
+  .crm .chat-workspace.has-folders.has-conversation .chat-list-panel {
+    display: none;
+  }
+  .crm .chat-workspace.has-folders:not(.has-conversation) .chat-welcome {
+    display: none;
+  }
+  .crm .chat-workspace.has-folders .chat-back {
+    display: flex;
+  }
+}
+@media (max-width: 700px) {
+  .crm .chat-inbox-page .chat-workspace.has-folders {
+    grid-template-columns: 112px minmax(0, 1fr);
+    gap: 0;
+    background: #fff;
+  }
+  .crm .chat-inbox-page .chat-workspace.has-folders.has-conversation {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .crm .chat-workspace.has-folders.has-conversation .chat-folder-rail {
+    display: none;
+  }
+  .crm .chat-folder-rail {
+    border: 0;
+    border-right: 1px solid var(--border);
+    border-radius: 0;
+    padding: 8px 4px;
+  }
+  .crm .chat-folder-rail > header {
+    padding-left: 6px;
+  }
+  .crm .chat-folder-rail h2 {
+    font-size: 13px;
+  }
+  .crm .chat-folder-row,
+  .crm .chat-folder-new,
+  .crm .chat-folder-manage {
+    gap: 5px;
+    padding-inline: 6px;
+    font-size: 11px;
+  }
+  .crm .chat-folder-row > svg {
+    width: 16px;
+  }
+  .crm .chat-folder-row {
+    position: relative;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 64px;
+    gap: 6px;
+    padding: 9px 6px;
+    text-align: center;
+  }
+  .crm .chat-folder-row > span {
+    flex: initial;
+    width: 100%;
+  }
+  .crm .chat-folder-row small {
+    position: absolute;
+    right: 9px;
+    top: 8px;
+  }
+  .crm .chat-folder-row small {
+    font-size: 9px;
+  }
+  .crm .chat-folder-toolbar {
+    padding-top: 3px;
+  }
+  .chat-folder-modal {
+    width: 100%;
+  }
+}

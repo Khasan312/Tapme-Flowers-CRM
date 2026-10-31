@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ClipboardList, Pencil, Plus, Trash2 } from "lucide-react";
+import { ClipboardList, Pencil, Plus, Trash2, Sparkles } from "lucide-react";
 import { ApiError, businessPath, errorText, price, request } from "./api";
 import { Modal, Notice } from "./components";
 import { useRemote } from "./hooks";
@@ -26,7 +26,36 @@ type Fields = {
   card_text: string;
   notes: string;
 };
+type FieldMeta = {
+  source?: string;
+  locked?: boolean;
+  needs_check?: boolean;
+  confidence?: number;
+  message_ids?: number[];
+};
+type Extraction = {
+  mode: "disabled" | "unconfigured" | "demo" | "mistral";
+  status: string;
+  error?: string;
+  changed_fields?: string[];
+};
+const fieldLabels: Record<string, string> = {
+  items: "Состав букета",
+  date: "Дата",
+  window: "Окно получения",
+  fulfillment: "Способ получения",
+  recipient_name: "Получатель",
+  recipient_phone: "Телефон получателя",
+  address: "Адрес",
+  address_details: "Детали адреса",
+  card_text: "Открытка",
+  notes: "Пожелания",
+  occasion: "Повод",
+  requested_time_text: "Точное время",
+};
 type Draft = {
+  field_meta?: Record<string, FieldMeta>;
+  extraction?: Extraction;
   id: string;
   version: number;
   status: "active" | "converted" | "abandoned";
@@ -63,6 +92,13 @@ export function OrderDraftCard({
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const draft = source.data?.draft;
+  useEffect(() => {
+    if (draft?.status !== "active") return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") setRevision((v) => v + 1);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [draft?.id, draft?.status]);
   async function abandon() {
     if (
       !draft ||
@@ -122,7 +158,13 @@ export function OrderDraftCard({
           <ClipboardList size={18} />
           Черновик заказа
         </h3>
-        <span className="draft-caption">Заполняет менеджер</span>
+        <span className="draft-caption">
+          {draft?.extraction?.mode === "demo"
+            ? "Демонстрационный разбор · без ИИ"
+            : draft?.extraction?.mode === "mistral"
+              ? "Автозаполнение из чата · проверяет менеджер"
+              : "Заполняет менеджер"}
+        </span>
         {(error || source.error) && <Notice>{error || source.error}</Notice>}
         {source.error && (
           <button className="btn" onClick={() => setRevision((v) => v + 1)}>
@@ -241,6 +283,7 @@ export function OrderDraftCard({
         <DraftEditor
           key={editing.id}
           draft={editing}
+          latest={draft || null}
           business={business}
           path={path}
           cacheKey={`tapme-order-draft:${userId}:${business.id}:${chatId}`}
@@ -266,6 +309,7 @@ export function OrderDraftCard({
 
 function DraftEditor({
   draft,
+  latest,
   business,
   path,
   cacheKey,
@@ -274,6 +318,7 @@ function DraftEditor({
   created,
 }: {
   draft: Draft;
+  latest: Draft | null;
   business: Business;
   path: string;
   cacheKey: string;
@@ -304,6 +349,9 @@ function DraftEditor({
   const [without, setWithout] = useState(false),
     [reason, setReason] = useState("");
   const [deadline, setDeadline] = useState("");
+  const [fieldMeta, setFieldMeta] = useState(draft.field_meta || {});
+  const [reviewedFields, setReviewedFields] = useState<string[]>([]);
+  const [extraction, setExtraction] = useState(draft.extraction);
   const points = useRemote<import("./types").Point[]>(
     businessPath(business.id, "points"),
   );
@@ -322,6 +370,52 @@ function DraftEditor({
     ),
   );
   useEffect(() => {
+    if (!latest || latest.id !== draft.id) return;
+    setExtraction(latest.extraction);
+    if (latest.version <= version) return;
+    if (dirty) {
+      setConflict(true);
+      setError(
+        "Черновик обновился. Ваши правки остались в форме; сохраните их отдельно или загрузите актуальный черновик.",
+      );
+      return;
+    }
+    setFields(latest.fields);
+    setVersion(latest.version);
+    setFieldMeta(latest.field_meta || {});
+    setReviewedFields([]);
+    setNames(
+      Object.fromEntries(
+        latest.fields.items.flatMap((item, i) =>
+          item.kind === "product"
+            ? [[item.product_id, latest.lines[i]?.name || "Позиция прайса"]]
+            : [],
+        ),
+      ),
+    );
+    setNotice("Черновик обновлён из чата. Проверьте отмеченные поля.");
+  }, [latest, version, dirty, draft.id]);
+  async function extract() {
+    if (busy || conflict) return;
+    setBusy(true);
+    setError("");
+    try {
+      const current = dirty ? await persist() : { version };
+      const result = await request<Result>(path + "extract/", {
+        method: "POST",
+        body: JSON.stringify({ draft_id: draft.id, version: current.version }),
+      });
+      setExtraction(result.draft?.extraction);
+      setNotice("Разбираем сообщения. Результат появится здесь автоматически.");
+      saved();
+    } catch (e) {
+      setError(errorText(e));
+      if (e instanceof ApiError && e.status === 409) setConflict(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+  useEffect(() => {
     try {
       if (dirty)
         sessionStorage.setItem(
@@ -335,6 +429,11 @@ function DraftEditor({
   }, [fields, version, dirty, cacheKey, draft.id]);
   function edit<K extends keyof Fields>(key: K, value: Fields[K]) {
     setFields((old) => ({ ...old, [key]: value }));
+    setFieldMeta((old) => ({
+      ...old,
+      [key]: { ...old[key], locked: true, needs_check: false },
+    }));
+    setReviewedFields((old) => [...new Set([...old, key])]);
     setDirty(true);
     setNotice("");
   }
@@ -362,11 +461,18 @@ function DraftEditor({
   async function persist() {
     const response = await request<Result>(path, {
       method: "PUT",
-      body: JSON.stringify({ draft_id: draft.id, version, fields }),
+      body: JSON.stringify({
+        draft_id: draft.id,
+        version,
+        fields,
+        reviewed_fields: reviewedFields,
+      }),
     });
     const result = response.draft!;
     setVersion(result.version);
     setFields(result.fields);
+    setFieldMeta(result.field_meta || {});
+    setReviewedFields([]);
     setDirty(false);
     setNotice("Черновик сохранён");
     saved();
@@ -425,6 +531,8 @@ function DraftEditor({
       }
       setFields(response.draft.fields);
       setVersion(response.draft.version);
+      setFieldMeta(response.draft.field_meta || {});
+      setReviewedFields([]);
       setDirty(false);
       setConflict(false);
       setError("");
@@ -449,6 +557,10 @@ function DraftEditor({
     }
   }
   const courier = fields.fulfillment === "courier";
+  const unchecked = Object.keys(fieldMeta).filter(
+    (key) => fieldMeta[key].needs_check,
+  );
+  const extracting = ["pending", "running"].includes(extraction?.status || "");
   return (
     <Modal title="Черновик заказа" close={close} busy={busy}>
       <form
@@ -462,6 +574,100 @@ function DraftEditor({
           Заполняйте по ходу переписки. Сохранённый черновик доступен менеджерам
           магазина и пока не является заказом.
         </p>
+        <section
+          className="draft-extraction"
+          aria-label="Автозаполнение черновика"
+        >
+          <div>
+            <Sparkles size={18} />
+            <strong>Заполнение из переписки</strong>
+          </div>
+          <p>
+            {extraction?.mode === "demo"
+              ? "Демонстрационный режим без ИИ: понимает название из прайса, даты, интервал и строки «Адрес:», «Получатель:», «Телефон получателя:», «Открытка:»."
+              : extraction?.mode === "mistral"
+                ? "Ministral предложит данные из сообщений. Кнопка «Обновить из чата» заново заполнит пустые поля. Введённые вручную значения сохранятся; результат нужно проверить."
+                : "Для разбора сообщений нужно подключить Mistral API. Пока заполняйте черновик вручную."}
+          </p>
+          <button
+            type="button"
+            className="btn"
+            disabled={
+              busy ||
+              conflict ||
+              extracting ||
+              !["demo", "mistral"].includes(extraction?.mode || "")
+            }
+            onClick={() => void extract()}
+          >
+            {extracting ? "Разбираем сообщения…" : "Обновить из чата"}
+          </button>
+          {extraction?.status === "failed" && (
+            <p role="alert">
+              Автозаполнение временно недоступно. Черновик сохранён, можно
+              заполнить вручную или повторить.
+            </p>
+          )}
+          {extraction?.status === "stale" && (
+            <p>
+              Данные изменились во время разбора. Устаревший результат не
+              применён.
+            </p>
+          )}
+          {extraction?.status === "applied" &&
+            !unchecked.length &&
+            !extraction.changed_fields?.length && (
+              <p>
+                Новых данных для заполнения не найдено. Уточните детали у
+                клиента или заполните поля вручную.
+              </p>
+            )}
+          {unchecked.length > 0 && (
+            <div className="draft-ai-review">
+              <strong>Проверьте заполнение</strong>
+              <ul>
+                {unchecked.map((key) => (
+                  <li key={key}>
+                    {fieldLabels[key] || key} <span>· уточнить</span>
+                  </li>
+                ))}
+              </ul>
+              <small>
+                Точное время — пожелание клиента; окно доставки подтвердите
+                отдельно.
+              </small>
+              <button
+                type="button"
+                className="btn"
+                disabled={busy || conflict}
+                onClick={() => {
+                  setReviewedFields((old) => [
+                    ...new Set([...old, ...unchecked]),
+                  ]);
+                  setFieldMeta((old) =>
+                    Object.fromEntries(
+                      Object.entries(old).map(([key, meta]) => [
+                        key,
+                        {
+                          ...meta,
+                          ...(meta.needs_check
+                            ? { needs_check: false, locked: true }
+                            : {}),
+                        },
+                      ]),
+                    ),
+                  );
+                  setDirty(true);
+                  setNotice(
+                    "Отметка проверки будет сохранена вместе с черновиком.",
+                  );
+                }}
+              >
+                Проверил заполнение
+              </button>
+            </div>
+          )}
+        </section>
         {error && <Notice>{error}</Notice>}
         {conflict && (
           <button
@@ -791,6 +997,7 @@ function DraftEditor({
               busy ||
               conflict ||
               !fields.items.length ||
+              unchecked.length > 0 ||
               (courier && without && !reason.trim())
             }
             onClick={() => void act(true)}

@@ -53,12 +53,28 @@ def automatic_reply(
 ) -> str | None:
     if not policy.get("enabled") or not reply_allowed(received_at, now):
         return None
-    if previous_inbound and received_at - previous_inbound < timedelta(hours=24):
-        return None
-    if last_reply and received_at - last_reply < timedelta(hours=12):
-        return None
-    local = now.astimezone(ZoneInfo(business_timezone)).strftime("%H:%M")
+    local = now.astimezone(ZoneInfo(business_timezone))
+    clock = local.strftime("%H:%M")
     start, end = policy.get("start", "09:00"), policy.get("end", "20:00")
-    opened = start <= local < end if start < end else local >= start or local < end
+    opened = start <= clock < end if start < end else clock >= start or clock < end
+    if opened:
+        if previous_inbound and received_at - previous_inbound < timedelta(hours=24):
+            return None
+        if last_reply and received_at - last_reply < timedelta(hours=12):
+            return None
+    else:
+        # One greeting per closure, including the part after midnight. A daytime
+        # greeting must not suppress the first after-hours reply that evening.
+        hour, minute = map(int, end.split(":"))
+        closed_since = local.replace(hour=hour, minute=minute, second=0, microsecond=0, fold=0)
+        if clock < end:
+            closed_since -= timedelta(days=1)
+        if previous_inbound and received_at < previous_inbound:
+            return None
+        # Delayed webhooks from before this closure do not start a new greeting.
+        if received_at.astimezone(local.tzinfo) < closed_since:
+            return None
+        if last_reply and last_reply.astimezone(local.tzinfo) >= closed_since:
+            return None
     text = str(policy.get("open_text" if opened else "closed_text", ""))
     return text.replace("{магазин}", business_name).strip()[:4096] or None

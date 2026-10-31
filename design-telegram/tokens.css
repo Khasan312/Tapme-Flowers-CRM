@@ -1,0 +1,54 @@
+/* Telegram Web K: values measured in the signed-in, dark, rounded UI on 2026-10-27.
+   Evidence: source/measurements-desktop.json and source/measurements-mobile.json. */
+:root {
+  color-scheme: dark;
+  --tg-background: #181818;
+  --tg-surface: #212121;
+  --tg-primary: #8774e1;
+  --tg-text: #ffffff;
+  --tg-secondary: #aaaaaa;
+  --tg-muted: #707579;
+  --tg-placeholder: #a2acb4;
+  --tg-border: #0f0f0f;
+  --tg-hover: #2b2b2b;
+  --tg-danger: #ff595a;
+  --tg-green: #5cc85e;
+  --tg-incoming: #212121;
+  --tg-outgoing: #8774e1;
+  --tg-service: rgba(119, 48, 144, .4);
+  --tg-menu: rgba(33, 33, 33, .75);
+  --tg-font: Roboto, -apple-system, "Segoe UI", sans-serif;
+  --tg-font-mono: "Roboto Mono", monospace;
+  --tg-text-size: 16px;
+  --tg-text-line: 21px;
+  --tg-title-size: 20px;
+  --tg-title-line: 26px;
+  --tg-caption-size: 12px;
+  --tg-caption-line: 16px;
+  --tg-regular: 400;
+  --tg-medium: 500;
+  --tg-panel-width: 360px;
+  --tg-content-width: 696px;
+  --tg-message-width: 480px;
+  --tg-page-space: 16px;
+  --tg-pattern-height: calc(500px + 40vh);
+  --tg-panel-radius: 24px;
+  --tg-row-radius: 16px;
+  --tg-bubble-radius: 15px;
+  --tg-bubble-join: 5px;
+  --tg-row-height: 72px;
+  --tg-avatar-size: 54px;
+  --tg-icon-button: 40px;
+  --tg-search-height: 44px;
+  --tg-chat-bar-height: 48px;
+  --tg-list-bar-height: 56px;
+  --tg-badge-height: 22px;
+  --tg-panel-shadow: 0 0 4px #0000003d;
+  --tg-bubble-shadow: 0 1px 2px rgba(16, 35, 47, .15);
+  --tg-menu-shadow: 0 0 10px #00000026;
+  --tg-composer-shadow: 0 1px 8px 1px #0000001f;
+  --tg-ease: cubic-bezier(.4, 0, .2, 1);
+  --tg-enter: .3s var(--tg-ease);
+  --tg-exit: .25s var(--tg-ease);
+  --tg-menu-motion: .2s var(--tg-ease);
+}
