@@ -61,6 +61,13 @@ test("каналы чатов: меню, история адресов и сох
     page.getByRole("button", { name: "Настройки", exact: true }),
   ).toBeInViewport();
   expect((await sidebar.boundingBox())!.height).toBeLessThan(130);
+  await expect(page.getByLabel("Сообщение в примере Instagram")).toHaveCount(0);
+  await page
+    .getByRole("button", {
+      name: "Диалог Instagram: Алина Садыкова",
+      exact: true,
+    })
+    .click();
   await expect(
     page.getByRole("log", { name: "Сообщения Instagram" }),
   ).toBeVisible();
@@ -135,17 +142,21 @@ test("каналы чатов: меню, история адресов и сох
     page.getByText("Интерактивный пример", { exact: true }),
   ).toBeVisible();
   await whatsapp.click();
-  await expect(page).toHaveURL(new RegExp(`chat=${seeded.chat_id}`));
+  await expect(page).not.toHaveURL(/chat=/);
+  await expect(input).toHaveCount(0);
+  await page.getByRole("button", { name: "Диалог: Алина Садыкова" }).click();
   await expect(input).toHaveValue("Вернусь к этому ответу после Instagram");
   await instagram.click();
   await page.getByRole("button", { name: "Заказы", exact: true }).click();
   await page.getByRole("button", { name: "Чаты", exact: true }).click();
   await expect(page).toHaveURL(/channel=instagram/);
   await whatsapp.click();
+  await expect(page).not.toHaveURL(/chat=/);
+  await page.getByRole("button", { name: "Диалог: Алина Садыкова" }).click();
   await expect(input).toHaveValue("Вернусь к этому ответу после Instagram");
 });
 
-test("каналы чатов: мобильные вкладки доступны внутри диалога", async ({
+test("каналы чатов: мобильный список и полноэкранный диалог", async ({
   page,
 }, info) => {
   const expectMainMenu = async () => {
@@ -187,7 +198,6 @@ test("каналы чатов: мобильные вкладки доступн�
     await expect(editor).toBeVisible();
     await editor.getByRole("button", { name: "Закрыть", exact: true }).click();
     await panel.getByRole("button", { name: closeName, exact: true }).click();
-    await expectMainMenu();
   };
   scenario("seed");
   await page.setViewportSize({ width: 390, height: 844 });
@@ -198,18 +208,34 @@ test("каналы чатов: мобильные вкладки доступн�
   await expect(tabs).toBeVisible();
   await page.getByRole("button", { name: "Диалог: Алина Садыкова" }).click();
   await page.getByLabel("Сообщение в WhatsApp").fill("Мобильный черновик");
-  await expectMainMenu();
+  await expect(
+    page.getByRole("navigation", { name: "Основные разделы" }),
+  ).toBeHidden();
   await expectDraftAccess(
     "Клиент в переписке",
     "Черновик заказа в чате",
     "Скрыть карточку клиента",
   );
+  await page
+    .getByRole("button", { name: "К списку диалогов", exact: true })
+    .click();
+  await expectMainMenu();
   await tabs.getByRole("button", { name: "Instagram", exact: true }).click();
+  await expect(page.getByLabel("Сообщение в примере Instagram")).toHaveCount(0);
+  await expectMainMenu();
+  await page
+    .getByRole("button", {
+      name: "Диалог Instagram: Алина Садыкова",
+      exact: true,
+    })
+    .click();
   await expect(
     page.getByRole("log", { name: "Сообщения Instagram" }),
   ).toBeVisible();
   await expect(page.getByLabel("Сообщение в примере Instagram")).toBeVisible();
-  await expectMainMenu();
+  await expect(
+    page.getByRole("navigation", { name: "Основные разделы" }),
+  ).toBeHidden();
   await expectDraftAccess(
     "Клиент в Instagram",
     "Черновик заказа в Instagram",
@@ -239,7 +265,9 @@ test("каналы чатов: мобильные вкладки доступн�
   });
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 });
-    await expectMainMenu();
+    await expect(
+      page.getByRole("navigation", { name: "Основные разделы" }),
+    ).toBeHidden();
     await expect(
       page
         .getByRole("group", { name: "Клиент и черновик", exact: true })
@@ -250,15 +278,23 @@ test("каналы чатов: мобильные вкладки доступн�
     ).toBeLessThanOrEqual(width);
     await expect(
       tabs.getByRole("button", { name: "WhatsApp", exact: true }),
-    ).toBeVisible();
+    ).toBeHidden();
   }
+  await page
+    .getByRole("button", { name: "К списку Instagram", exact: true })
+    .click();
+  await expectMainMenu();
   await tabs.getByRole("button", { name: "WhatsApp", exact: true }).click();
+  await expect(page).not.toHaveURL(/chat=/);
+  await page.getByRole("button", { name: "Диалог: Алина Садыкова" }).click();
   await expect(page.getByLabel("Сообщение в WhatsApp")).toHaveValue(
     "Мобильный черновик",
   );
   await expect(page.getByRole("log")).toContainText("Сообщение 65");
-  await expectMainMenu();
-  await expect(tabs).toBeVisible();
+  await expect(
+    page.getByRole("navigation", { name: "Основные разделы" }),
+  ).toBeHidden();
+  await expect(tabs).toBeHidden();
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth),
   ).toBeLessThanOrEqual(320);
@@ -285,8 +321,12 @@ test("каналы чатов: старые ссылки и несовмести
   await expect(page).not.toHaveURL(/chat=/);
   await expect(page.getByLabel("Сообщение в WhatsApp")).toHaveCount(0);
   await expect(
-    page.getByRole("log", { name: "Сообщения Instagram" }),
+    page.getByRole("button", {
+      name: "Диалог Instagram: Алина Садыкова",
+      exact: true,
+    }),
   ).toBeVisible();
+  await expect(page.getByLabel("Сообщение в примере Instagram")).toHaveCount(0);
   await expect(
     page.getByText("Интерактивный пример", { exact: true }),
   ).toBeVisible();
@@ -427,10 +467,20 @@ test("смайлики: мобильная панель, закрытие и л�
   }
   await toggle.click();
   await page
+    .getByRole("button", { name: "К списку диалогов", exact: true })
+    .click();
+  await expect(picker).toBeHidden();
+  await page
     .locator(".chat-channel-picker.is-mobile")
     .getByRole("button", { name: "Instagram", exact: true })
     .click();
   await expect(picker).toBeHidden();
+  await page
+    .getByRole("button", {
+      name: "Диалог Instagram: Алина Садыкова",
+      exact: true,
+    })
+    .click();
   await expect(
     page.getByRole("button", { name: "Добавить смайлик" }),
   ).toBeVisible();

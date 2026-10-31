@@ -73,7 +73,8 @@ export function useChatChannelNavigation(
       ...route,
       view: "chats",
       chatChannel: next,
-      chatId: saved[next],
+      // Menu entry opens the inbox; selecting a row or a direct link opens a chat.
+      chatId: null,
       orderId: null,
       customerId: null,
     };

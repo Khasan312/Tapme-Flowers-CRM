@@ -34,6 +34,10 @@ import { Modal } from "./components";
 import { Avatar } from "./ui";
 import { InstagramProfile } from "./instagram-profile";
 import { ChatMobileDetails, revealChatDetails } from "./chat-mobile-details";
+import {
+  observeChatThreadResize,
+  shouldSendChatOnEnter,
+} from "./chat-keyboard";
 import { newUuid } from "./uuid";
 import type { ChatMessage } from "./chat-types";
 import {
@@ -55,7 +59,7 @@ const categories: Record<Category, string> = {
 
 export function InstagramChats({ timezone }: { timezone: string }) {
   const [data, setData] = useState(createInstagramPreview);
-  const [chatId, setChatId] = useState<string | null>("alina");
+  const [chatId, setChatId] = useState<string | null>(null);
   const [folderId, setFolderId] = useState<string | null>(null);
   const [category, setCategory] = useState<Category>("all");
   const [search, setSearch] = useState("");
@@ -139,6 +143,18 @@ export function InstagramChats({ timezone }: { timezone: string }) {
     if (thread.current && nearBottom.current)
       thread.current.scrollTop = thread.current.scrollHeight;
   }, [chatId, chat?.messages.length, chat?.closed, draft, reply?.id, feedback]);
+  useLayoutEffect(() => {
+    const node = thread.current;
+    if (node)
+      return observeChatThreadResize(
+        node,
+        () => nearBottom.current,
+        () => {
+          nearBottom.current =
+            node.scrollHeight - node.scrollTop - node.clientHeight < 70;
+        },
+      );
+  }, [chatId]);
   function insertEmoji(emoji: string) {
     if (!chatId) return false;
     const start = input.current?.selectionStart ?? draft.length;
@@ -318,6 +334,7 @@ export function InstagramChats({ timezone }: { timezone: string }) {
                 <h2>{chat.name}</h2>
                 <p>
                   <Instagram size={12} /> @{chat.handle}
+                  <span className="chat-preview-mobile-label"> · пример</span>
                 </p>
               </div>
               <button
@@ -497,6 +514,7 @@ export function InstagramChats({ timezone }: { timezone: string }) {
                       aria-label="Сообщение в примере Instagram"
                       placeholder="Ответить в Instagram…"
                       rows={1}
+                      enterKeyHint="enter"
                       maxLength={2000}
                       value={draft}
                       onChange={(e) =>
@@ -507,9 +525,15 @@ export function InstagramChats({ timezone }: { timezone: string }) {
                       }
                       onKeyDown={(e) => {
                         if (
-                          e.key === "Enter" &&
-                          !e.shiftKey &&
-                          !e.nativeEvent.isComposing
+                          shouldSendChatOnEnter(
+                            {
+                              key: e.key,
+                              shiftKey: e.shiftKey,
+                              isComposing: e.nativeEvent.isComposing,
+                              repeat: e.repeat,
+                            },
+                            window.matchMedia("(max-width: 700px)").matches,
+                          )
                         ) {
                           e.preventDefault();
                           send();
@@ -520,6 +544,7 @@ export function InstagramChats({ timezone }: { timezone: string }) {
                       className="chat-send"
                       type="submit"
                       aria-label="Отправить в примере"
+                      onMouseDown={(e) => e.preventDefault()}
                       disabled={!draft.trim()}
                     >
                       <Send size={21} />

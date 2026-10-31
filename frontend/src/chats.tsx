@@ -36,6 +36,10 @@ import { newUuid } from "./uuid";
 import { useChatDraft } from "./chat-drafts";
 import { startChatPolling } from "./chat-polling";
 import { ChatMobileDetails, revealChatDetails } from "./chat-mobile-details";
+import {
+  observeChatThreadResize,
+  shouldSendChatOnEnter,
+} from "./chat-keyboard";
 import { ChatEmojiPicker } from "./chat-emoji";
 import { ChatAssignee } from "./chat-assignee";
 import {
@@ -593,6 +597,15 @@ function ConversationPane({
     if (bottom.current) setNewMessages(false);
     if (!wasBottom && bottom.current) pollNow.current();
   }, []);
+  useLayoutEffect(() => {
+    const node = scroll.current;
+    if (node)
+      return observeChatThreadResize(
+        node,
+        () => bottom.current,
+        syncScrollPosition,
+      );
+  }, [chatId, denied, syncScrollPosition]);
   const messageRef = useRef(messages);
   messageRef.current = messages;
   const preserveHeight = useRef<number | null>(null);
@@ -1281,6 +1294,7 @@ function ConversationPane({
               placeholder={`Ответить в ${channelName}…`}
               maxLength={isInstagram ? 1000 : file ? 1024 : 4096}
               rows={1}
+              enterKeyHint="enter"
               value={text}
               readOnly={busy}
               aria-busy={busy}
@@ -1289,9 +1303,15 @@ function ConversationPane({
               }}
               onKeyDown={(e) => {
                 if (
-                  e.key === "Enter" &&
-                  !e.shiftKey &&
-                  !e.nativeEvent.isComposing
+                  shouldSendChatOnEnter(
+                    {
+                      key: e.key,
+                      shiftKey: e.shiftKey,
+                      isComposing: e.nativeEvent.isComposing,
+                      repeat: e.repeat,
+                    },
+                    window.matchMedia("(max-width: 700px)").matches,
+                  )
                 ) {
                   e.preventDefault();
                   void send();
@@ -1302,6 +1322,7 @@ function ConversationPane({
               className="chat-send"
               type="submit"
               aria-label="Отправить сообщение"
+              onMouseDown={(e) => e.preventDefault()}
               disabled={
                 busy ||
                 !row?.can_reply ||

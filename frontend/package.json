@@ -10,6 +10,7 @@
     "test:e2e": "playwright test",
     "test:notifications": "node tests/chat-notification-sound.test.mjs",
     "test:chat-polling": "node tests/chat-polling.test.mjs",
+    "test:chat-keyboard": "node tests/chat-keyboard.test.mjs",
     "format:check": "prettier --check src tests *.ts *.json index.html"
   },
   "dependencies": {

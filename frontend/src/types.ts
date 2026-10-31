@@ -1,4 +1,9 @@
-export type User = { id: string; username: string };
+export type User = {
+  id: string;
+  username: string;
+  is_platform_admin?: boolean;
+  must_change_password?: boolean;
+};
 export type Business = {
   id: string;
   name: string;
