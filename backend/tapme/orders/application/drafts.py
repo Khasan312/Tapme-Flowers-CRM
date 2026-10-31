@@ -8,13 +8,22 @@ from tapme.orders.domain import Order
 
 
 class DraftRepository(Protocol):
+    def extract(
+        self, scope: Scope, chat_id: UUID, draft_id: UUID, version: int
+    ) -> dict[str, Any]: ...
     def abandon(
         self, scope: Scope, chat_id: UUID, draft_id: UUID, version: int
     ) -> dict[str, Any]: ...
     def read(self, scope: Scope, chat_id: UUID) -> dict[str, Any]: ...
     def start(self, scope: Scope, chat_id: UUID) -> dict[str, Any]: ...
     def save(
-        self, scope: Scope, chat_id: UUID, draft_id: UUID, version: int, fields: dict[str, Any]
+        self,
+        scope: Scope,
+        chat_id: UUID,
+        draft_id: UUID,
+        version: int,
+        fields: dict[str, Any],
+        reviewed_fields: list[str] | None = None,
     ) -> dict[str, Any]: ...
     def restore(
         self, scope: Scope, chat_id: UUID, draft_id: UUID, version: int
@@ -36,6 +45,10 @@ class DraftService:
     def __init__(self, access: MembershipReader, repository: DraftRepository):
         self.access, self.repository = access, repository
 
+    def extract(self, scope: Scope, chat_id: UUID, draft_id: UUID, version: int) -> dict[str, Any]:
+        authorize(self.access, scope, OFFICE_ROLES)
+        return self.repository.extract(scope, chat_id, draft_id, version)
+
     def abandon(self, scope: Scope, chat_id: UUID, draft_id: UUID, version: int) -> dict[str, Any]:
         authorize(self.access, scope, OFFICE_ROLES)
         return self.repository.abandon(scope, chat_id, draft_id, version)
@@ -49,10 +62,18 @@ class DraftService:
         return self.repository.start(scope, chat_id)
 
     def save(
-        self, scope: Scope, chat_id: UUID, draft_id: UUID, version: int, fields: dict[str, Any]
+        self,
+        scope: Scope,
+        chat_id: UUID,
+        draft_id: UUID,
+        version: int,
+        fields: dict[str, Any],
+        reviewed_fields: list[str] | None = None,
     ) -> dict[str, Any]:
         authorize(self.access, scope, OFFICE_ROLES)
-        return self.repository.save(scope, chat_id, draft_id, version, normalize_fields(fields))
+        return self.repository.save(
+            scope, chat_id, draft_id, version, normalize_fields(fields), reviewed_fields
+        )
 
     def restore(self, scope: Scope, chat_id: UUID, draft_id: UUID, version: int) -> dict[str, Any]:
         authorize(self.access, scope, OFFICE_ROLES)

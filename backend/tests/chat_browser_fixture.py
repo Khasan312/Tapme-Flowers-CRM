@@ -54,6 +54,7 @@ with transaction.atomic():
         for i in range(65):
             Message.objects.create(
                 conversation=chat,
+                external_id=f"wamid.e2e.{chat.id}.{i}",
                 direction="out" if i % 3 == 1 else "in",
                 status="read" if i % 3 == 1 else "received",
                 text=f"Сообщение {i + 1}. "

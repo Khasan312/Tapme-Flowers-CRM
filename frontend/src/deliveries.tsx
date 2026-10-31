@@ -5,7 +5,7 @@ import { DeliveryWindowHelp } from "./delivery-window-help";
 import { useRemote } from "./hooks";
 import { Status } from "./orders";
 import { Avatar, shopDay } from "./ui";
-import type { Business, Order, Page, ShopSettings, Staff } from "./types";
+import type { Business, Order, Page, Point, Staff } from "./types";
 export function DeliveryDesk({
   business,
   revision,
@@ -26,14 +26,18 @@ export function DeliveryDesk({
       revision + refresh,
     ),
     staff = useRemote<Staff[]>(businessPath(business.id, "staff"), revision),
-    shop = useRemote<ShopSettings>(
-      businessPath(business.id, "settings"),
-      revision,
-    );
+    points = useRemote<Point[]>(businessPath(business.id, "points"), revision);
   const orders = source.data?.results || [],
-    couriers = staff.data?.filter((s) => s.role === "courier") || [];
+    couriers =
+      staff.data?.filter(
+        (s) =>
+          s.role === "courier" &&
+          (business.point_id === "all" ||
+            !s.point_ids?.length ||
+            s.point_ids.includes(business.point_id || "")),
+      ) || [];
   const windowKey = (o: Order) =>
-    `${o.window_start.slice(0, 5)}–${o.window_end.slice(0, 5)}`;
+    `${o.point_id}|${o.window_start.slice(0, 5)}–${o.window_end.slice(0, 5)}`;
   async function assign(o: Order, id: string) {
     setBusy(true);
     setError("");
@@ -95,8 +99,8 @@ export function DeliveryDesk({
           }}
         />
       </div>
-      {(error || source.error || staff.error) && (
-        <Notice>{error || source.error || staff.error}</Notice>
+      {(error || source.error || staff.error || points.error) && (
+        <Notice>{error || source.error || staff.error || points.error}</Notice>
       )}
       <div className="g-main">
         <section className="card">
@@ -110,13 +114,25 @@ export function DeliveryDesk({
               .map((key) => (
                 <div key={key}>
                   <div className="card-hd window-group">
-                    <span className="mono b ink">{key}</span>
+                    <span className="mono b ink">
+                      {business.point_id === "all" && (
+                        <span className="point-badge">
+                          {
+                            points.data?.find((p) => p.id === key.split("|")[0])
+                              ?.short_name
+                          }
+                        </span>
+                      )}
+                      {key.split("|")[1]}
+                    </span>
                     <span className="small muted">
                       {orders.filter((o) => windowKey(o) === key).length}{" "}
                       доставок · вместимость{" "}
-                      {shop.data?.windows.find(
-                        (w) => `${w.start}–${w.end}` === key,
-                      )?.capacity ?? "—"}
+                      {points.data
+                        ?.find((p) => p.id === key.split("|")[0])
+                        ?.windows.find(
+                          (w) => `${w.start}–${w.end}` === key.split("|")[1],
+                        )?.capacity ?? "—"}
                     </span>
                   </div>
                   {orders
@@ -153,7 +169,12 @@ export function DeliveryDesk({
                             >
                               <option value="">Назначить</option>
                               {couriers
-                                .filter((c) => c.is_active)
+                                .filter(
+                                  (c) =>
+                                    c.is_active &&
+                                    (!c.point_ids?.length ||
+                                      c.point_ids.includes(o.point_id)),
+                                )
                                 .map((c) => (
                                   <option key={c.id} value={c.id}>
                                     {c.name}
@@ -212,6 +233,9 @@ export function DeliveryDesk({
                       </span>
                       <span>
                         <span className="t">{o.recipient_name}</span>
+                        {business.point_id === "all" && o.point_name && (
+                          <span className="point-badge">{o.point_name}</span>
+                        )}
                         <span className="s">{o.address}</span>
                       </span>
                       <Status value={o.status} />

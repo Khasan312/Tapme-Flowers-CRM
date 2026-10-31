@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Дизайн-система Telegram Web K — измерения и компоненты</title>
+  <link rel="stylesheet" href="fonts.css">
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="system.css">
+</head>
+<body class="system-page">
+  <main class="system-content">
+    <header class="system-header"><a href="index.html" class="system-brand"><span class="brand-dot"></span>Telegram Web K <span>/ разбор дизайна</span></a><a href="index.html" class="system-link">Открыть образец ↗</a></header>
+    <section class="system-intro"><div class="eyebrow">ИЗ ОТКРЫТОЙ ВКЛАДКИ · 27 ОКТЯБРЯ 2026</div><h1>Дизайн Telegram Web K</h1><p>Измеренная система тёмной темы: поверхности, типографика, размеры, компоненты и состояния. Скруглённые панели включены в исходной вкладке.</p><div class="source-links"><a href="tokens.css">CSS-токены ↗</a><a href="source/measurements-desktop.json">Измерения DOM ↗</a><a href="source/measurements-mobile.json">Мобильный экран ↗</a></div></section>
+
+    <section class="spec-section"><div class="section-heading"><h2>01 / Цвета</h2><span>Значения из computed styles</span></div><div class="swatches">
+      <div class="swatch"><div style="background:#181818"></div><strong>Фон</strong><code>#181818</code><span>--tg-background</span></div>
+      <div class="swatch"><div style="background:#212121"></div><strong>Поверхность</strong><code>#212121</code><span>--tg-surface</span></div>
+      <div class="swatch"><div style="background:#8774e1"></div><strong>Акцент</strong><code>#8774E1</code><span>--tg-primary</span></div>
+      <div class="swatch"><div style="background:#aaaaaa"></div><strong>Вторичный текст</strong><code>#AAAAAA</code><span>--tg-secondary</span></div>
+      <div class="swatch"><div style="background:#ffffff"></div><strong>Основной текст</strong><code>#FFFFFF</code><span>--tg-text</span></div>
+    </div><p class="spec-note">Исходящие сообщения используют акцент #8774E1. Входящие — поверхность #212121. Дата и кнопки под сообщениями используют полупрозрачный цвет rgba(119, 48, 144, 0.4), связанный с текущим фоном.</p></section>
+
+    <section class="spec-section"><div class="section-heading"><h2>02 / Типографика</h2><span>Оригинальные локальные файлы Roboto</span></div><div class="type-grid">
+      <div class="type-sample"><span class="type-label">Заголовок панели · 20 / 26 · 500</span><div class="type-title">Настройки</div></div>
+      <div class="type-sample"><span class="type-label">Название чата · 16 / 21 · 500</span><div class="type-chat-title">Дизайн-команда</div></div>
+      <div class="type-sample"><span class="type-label">Сообщение · 16 / 21 · 400</span><div class="type-message">Привет! Собрала основные экраны в одном месте.</div></div>
+      <div class="type-sample"><span class="type-label">Время · 12 / 16 · 400</span><div class="type-time">14:32 · вчера</div></div>
+    </div></section>
+
+    <section class="spec-section"><div class="section-heading"><h2>03 / Геометрия</h2><span>В CSS-пикселях</span></div><div class="geometry-grid"><div class="geometry-visual"><div class="geo-sidebar"><span>360</span><i></i><i></i><i></i><i></i></div><div class="geo-chat"><div>48</div><span>≤ 696</span><div>48</div></div><span class="geometry-caption">Внешний отступ 16 · радиус панелей 24</span></div><div class="dimension-table"><table><tbody>
+      <tr><th>Боковая панель</th><td>360 px</td></tr><tr><th>Колонка сообщений</th><td>до 696 px</td></tr><tr><th>Шапка / поле сообщения</th><td>48 px</td></tr><tr><th>Поиск</th><td>44 px · R22</td></tr><tr><th>Строка чата</th><td>72 px · R16</td></tr><tr><th>Аватар в списке</th><td>54 px</td></tr><tr><th>Кнопка с иконкой</th><td>40 × 40 px</td></tr><tr><th>Счётчик непрочитанных</th><td>22 px · R11</td></tr><tr><th>Сообщение</th><td>R15 · стык R5</td></tr><tr><th>Меню</th><td>R16 · blur 50 px</td></tr>
+    </tbody></table></div></div></section>
+
+    <section class="spec-section"><div class="section-heading"><h2>04 / Компоненты и состояния</h2><span>Те же CSS-токены, что и в образце</span></div><div class="component-grid">
+      <div class="component-sample"><span class="component-label">Строка чата / обычная и выбранная</span><div class="component-stage"><button class="chat-row"><span class="avatar gradient-pink">М</span><span class="chat-row-content"><span class="chat-row-top"><span class="chat-row-name">Мария</span><span class="chat-row-time">14:20</span></span><span class="chat-row-bottom"><span class="chat-row-preview">Отправила новые макеты</span><span class="unread-badge">2</span></span></span></button><button class="chat-row" aria-current="true"><span class="avatar gradient-purple">ДК</span><span class="chat-row-content"><span class="chat-row-top"><span class="chat-row-name">Дизайн-команда</span><span class="chat-row-time">14:32</span></span><span class="chat-row-bottom"><span class="chat-row-preview">Отлично, оставим этот вариант.</span><span class="unread-badge">4</span></span></span></button></div></div>
+      <div class="component-sample"><span class="component-label">Поиск / обычный и фокус</span><div class="component-stage search-stage"><div class="search-field"><span class="search-symbol">⌕</span><input placeholder="Поиск" aria-label="Образец поиска"></div><div class="search-field"><span class="search-symbol">⌕</span><input placeholder="Поиск" aria-label="Образец фокуса" class="force-focus"></div></div></div>
+      <div class="component-sample"><span class="component-label">Сообщения / входящее и исходящее</span><div class="component-stage bubble-stage"><div class="message-group incoming"><div class="bubble"><div class="sender">Мария</div><p class="message-copy">Привет! Как тебе новый вариант?</p><span class="message-time">14:24</span></div></div><div class="message-group outgoing"><div class="bubble"><p class="message-copy">Да, выглядит отлично.</p><span class="message-time">14:26 ✓✓</span></div></div></div></div>
+      <div class="component-sample"><span class="component-label">Настройки / переключатели и сочетания</span><div class="component-stage"><div class="settings-row"><span class="row-label">Уведомления</span><button class="switch is-on" role="switch" aria-label="Уведомления" aria-checked="true"></button></div><div class="settings-row"><span class="row-label">Звук сообщения</span><button class="switch" role="switch" aria-label="Звук сообщения" aria-checked="false"></button></div><div class="settings-row"><span class="row-label">Новая строка</span><kbd>Shift + Enter</kbd></div></div></div>
+    </div></section>
+
+    <section class="spec-section"><div class="section-heading"><h2>05 / Адаптивность и движение</h2><span>Проверено при 1440 и 390 px</span></div><div class="rules-grid"><article><h3>Широкий экран</h3><p>Список чатов занимает 360 px. Переписка располагается по центру оставшегося пространства с максимальной шириной 696 px. Внешние отступы — 16 px.</p></article><article><h3>Узкий экран</h3><p>Список и переписка сменяют друг друга. На 390 px шапка и поле ввода сохраняют высоту 48 px, отступ от краёв уменьшается до 8 px.</p></article><article><h3>Переходы</h3><p>Основная кривая — cubic-bezier(.4, 0, .2, 1). Появление — 300 мс, исчезновение — 250 мс, меню — 200 мс. Учтён reduced motion.</p></article></div></section>
+
+    <footer class="system-footer"><p>Источник: <a href="https://web.telegram.org/k/">Telegram Web K</a> и <a href="https://github.com/morethanwords/tweb">публичный репозиторий</a>. Файлы шрифтов и SVG-узора сохранены из ресурсов открытой страницы; ссылки перечислены в <a href="source/assets.json">манифесте</a>. Исходные CSS сохранены в source/.</p><p>Основной экран, меню и настройки воссозданы в отдельном образце. Иконки восстановлены как SVG; данные вымышлены. Полное совпадение всех экранов и состояний Telegram не заявляется. К аккаунту и API Telegram образец не подключён.</p><a class="system-link" href="index.html">Посмотреть интерфейс ↗</a></footer>
+  </main>
+  <script>document.querySelectorAll('button[role="switch"]').forEach(button=>button.addEventListener('click',()=>{const checked=button.getAttribute('aria-checked')!=='true';button.setAttribute('aria-checked',String(checked));button.classList.toggle('is-on',checked);}));</script>
+</body>
+</html>

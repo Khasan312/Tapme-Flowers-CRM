@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 
 from config import composition
 from config.api import validated
-from tapme.businesses.application.contracts import Scope
+from tapme.businesses.point_scope import request_scope
 from tapme.orders.api import OrderOutput
 from tapme.orders.workflow_api import VersionInput
 
@@ -16,6 +16,9 @@ class DraftVersion(VersionInput):
 
 class DraftInput(DraftVersion):
     fields = serializers.DictField()
+    reviewed_fields = serializers.ListField(
+        child=serializers.CharField(max_length=40), required=False, max_length=20
+    )
 
 
 class ConvertInput(DraftVersion):
@@ -33,7 +36,7 @@ class DraftView(APIView):
     def delete(self, request, business_id, chat_id):
         return Response(
             composition.drafts().abandon(
-                Scope(request.user.id, business_id),
+                request_scope(request, business_id),
                 chat_id,
                 **validated(DraftVersion, request.data),
             )
@@ -41,17 +44,17 @@ class DraftView(APIView):
 
     @extend_schema(responses=DraftOutput)
     def get(self, request, business_id, chat_id):
-        return Response(composition.drafts().read(Scope(request.user.id, business_id), chat_id))
+        return Response(composition.drafts().read(request_scope(request, business_id), chat_id))
 
     @extend_schema(request=None, responses=DraftOutput)
     def post(self, request, business_id, chat_id):
-        return Response(composition.drafts().start(Scope(request.user.id, business_id), chat_id))
+        return Response(composition.drafts().start(request_scope(request, business_id), chat_id))
 
     @extend_schema(request=DraftInput, responses=DraftOutput)
     def put(self, request, business_id, chat_id):
         return Response(
             composition.drafts().save(
-                Scope(request.user.id, business_id), chat_id, **validated(DraftInput, request.data)
+                request_scope(request, business_id), chat_id, **validated(DraftInput, request.data)
             )
         )
 
@@ -61,7 +64,7 @@ class DraftRestoreView(APIView):
     def post(self, request, business_id, chat_id):
         return Response(
             composition.drafts().restore(
-                Scope(request.user.id, business_id),
+                request_scope(request, business_id),
                 chat_id,
                 **validated(DraftVersion, request.data),
             )
@@ -72,7 +75,7 @@ class DraftConvertView(APIView):
     @extend_schema(request=ConvertInput, responses=OrderOutput)
     def post(self, request, business_id, chat_id):
         order = composition.drafts().convert(
-            Scope(request.user.id, business_id), chat_id, **validated(ConvertInput, request.data)
+            request_scope(request, business_id), chat_id, **validated(ConvertInput, request.data)
         )
         return Response(OrderOutput(order).data)
 
@@ -81,6 +84,18 @@ class ExtendPaymentView(APIView):
     @extend_schema(request=VersionInput, responses=OrderOutput)
     def post(self, request, business_id, order_id):
         order = composition.drafts().extend(
-            Scope(request.user.id, business_id), order_id, **validated(VersionInput, request.data)
+            request_scope(request, business_id), order_id, **validated(VersionInput, request.data)
         )
         return Response(OrderOutput(order).data)
+
+
+class DraftExtractView(APIView):
+    @extend_schema(request=DraftVersion, responses=DraftOutput)
+    def post(self, request, business_id, chat_id):
+        return Response(
+            composition.drafts().extract(
+                request_scope(request, business_id),
+                chat_id,
+                **validated(DraftVersion, request.data),
+            )
+        )

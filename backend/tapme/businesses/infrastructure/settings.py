@@ -13,8 +13,10 @@ from tapme.shared.domain import Conflict, InvalidInput, NotFound
 
 
 class DjangoBusinessSettingsRepository:
-    def get(self, business_id):
-        shop = Shop.objects.select_related("business").get(business_id=business_id)
+    def get(self, business_id, point_ids=None):
+        shop = Shop.objects.select_related("business").get(business_id=business_id, is_primary=True)
+        if point_ids is not None and shop.id not in point_ids:
+            raise NotFound("Основная точка недоступна. Выберите свою точку в настройках филиалов.")
         return ShopSettings(
             shop.business.name,
             shop.address,
@@ -31,7 +33,8 @@ class DjangoBusinessSettingsRepository:
 
     def save(self, business_id, settings):
         with transaction.atomic():
-            shop = Shop.objects.select_for_update().get(business_id=business_id)
+            Business.objects.select_for_update().get(id=business_id)
+            shop = Shop.objects.select_for_update().get(business_id=business_id, is_primary=True)
             if shop.version != settings.version:
                 raise Conflict(
                     "Настройки уже изменены в другой вкладке. Ваши изменения не сохранены. "
@@ -40,7 +43,7 @@ class DjangoBusinessSettingsRepository:
             Business.objects.filter(id=business_id).update(
                 name=settings.name, timezone=settings.timezone
             )
-            Shop.objects.filter(business_id=business_id).update(
+            Shop.objects.filter(business_id=business_id, is_primary=True).update(
                 name=settings.name,
                 address=settings.address,
                 phone=settings.phone,
@@ -63,6 +66,7 @@ class DjangoBusinessSettingsRepository:
                 role=r.role,
                 is_active=r.is_active and r.user.is_active,
                 phone=r.phone,
+                point_ids=list(r.points.values_list("id", flat=True)),
             )
             for r in Membership.objects.filter(business_id=business_id)
             .select_related("user")
@@ -80,9 +84,11 @@ class DjangoBusinessSettingsRepository:
             with transaction.atomic():
                 user.set_password(password)
                 user.save()
-                Membership.objects.create(
+                member = Membership.objects.create(
                     business_id=business_id, user=user, role=role, phone=phone
                 )
+                if role in {"florist", "courier"}:
+                    member.points.add(Shop.objects.get(business_id=business_id, is_primary=True))
         except IntegrityError:
             raise Conflict("Этот логин уже занят.") from None
         return dict(

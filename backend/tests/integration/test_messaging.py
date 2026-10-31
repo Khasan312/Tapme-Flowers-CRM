@@ -222,6 +222,159 @@ def queued(setup, chat):
     )
 
 
+def test_quoted_reply_delivery_idempotency_and_old_page_preview(setup, chat, base):
+    original = Message.objects.create(
+        conversation=chat,
+        direction="in",
+        status="received",
+        external_id="wamid.original",
+        text="Нужен белый букет",
+    )
+    url = base + f"/chats/{chat.id}/messages/"
+    data = {"request_id": str(uuid4()), "text": "Да, приготовим", "reply_to_id": original.id}
+    response = setup["client"].post(url, data, format="json")
+    assert response.status_code == 200
+    result = response.json()
+    assert result["context_id"] == original.external_id
+    assert result["reply_to"]["id"] == str(original.id)
+    assert setup["client"].post(url, data, format="json").json()["id"] == result["id"]
+    assert (
+        setup["client"].post(url, {**data, "reply_to_id": None}, format="json").status_code == 409
+    )
+    gateway = Gateway()
+    deliver(result["id"], gateway)
+    deliver(result["id"], gateway)
+    assert len(gateway.calls) == 1
+    assert gateway.calls[0]["context"] == {"message_id": "wamid.original"}
+    # The original can be outside the latest message page; its quote still renders.
+    page = setup["client"].get(url, {"limit": 1}).json()
+    assert len(page["results"]) == 1
+    assert page["results"][0]["reply_to"]["text"] == "Нужен белый букет"
+    # Replying to our own confirmed message also uses its provider ID.
+    own_reply = setup["client"].post(
+        url,
+        {"request_id": str(uuid4()), "text": "Уточнение", "reply_to_id": result["id"]},
+        format="json",
+    )
+    assert own_reply.status_code == 200
+    assert own_reply.json()["context_id"] == "wamid.out"
+
+
+@pytest.mark.parametrize(
+    "source",
+    ["another_chat", "another_business", "system", "queued", "missing_provider_id", "missing"],
+)
+def test_quoted_reply_rejects_inaccessible_or_unsent_source(setup, chat, base, source):
+    other_channel = ChannelAccount.objects.create(
+        business=setup["other_business"], phone_number_id="999999999"
+    )
+    other_chat = Conversation.objects.create(
+        channel=chat.channel if source == "another_chat" else other_channel, phone="+996555111222"
+    )
+    original = Message.objects.create(
+        conversation=other_chat if source in {"another_chat", "another_business"} else chat,
+        direction="system" if source == "system" else "out" if source == "queued" else "in",
+        status="queued" if source == "queued" else "received",
+        external_id=None if source == "missing_provider_id" else "wamid.source",
+        text="Приватный текст",
+    )
+    if source == "missing":
+        source_id = original.id
+        original.delete()
+    else:
+        source_id = original.id
+    response = setup["client"].post(
+        base + f"/chats/{chat.id}/messages/",
+        {"text": "Ответ", "request_id": str(uuid4()), "reply_to_id": source_id},
+        format="json",
+    )
+    assert response.status_code == 400
+    assert "Приватный текст" not in str(response.json())
+    assert not chat.messages.filter(text="Ответ").exists()
+
+
+def test_reply_preview_is_scoped_and_reply_preserves_permissions(setup, chat, base):
+    secret_chat = Conversation.objects.create(channel=chat.channel, phone="+996555111222")
+    Message.objects.create(
+        conversation=secret_chat, direction="in", external_id="wamid.secret", text="Чужая цитата"
+    )
+    row = Message.objects.create(
+        conversation=chat,
+        direction="in",
+        status="received",
+        external_id="wamid.reply",
+        context_id="wamid.secret",
+        text="Привет",
+    )
+    url = base + f"/chats/{chat.id}/messages/"
+    assert setup["client"].get(url).json()["results"][0]["reply_to"] is None
+    data = {"request_id": str(uuid4()), "text": "Ответ", "reply_to_id": row.id}
+    setup["client"].force_login(setup["florist"])
+    assert setup["client"].post(url, data, format="json").status_code == 403
+    setup["client"].force_login(setup["owner"])
+    chat.last_inbound_at = timezone.now() - timedelta(days=2)
+    chat.save(update_fields=["last_inbound_at"])
+    assert setup["client"].post(url, data, format="json").status_code == 400
+
+
+def test_attachment_reply_and_retry_keep_context(setup, chat, base, settings, tmp_path):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    from tapme.messaging.infrastructure.storage import DjangoAttachmentStorage
+
+    settings.STORAGES = {
+        **settings.STORAGES,
+        "photos": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+            "OPTIONS": {"location": tmp_path},
+        },
+    }
+    original = Message.objects.create(
+        conversation=chat,
+        direction="in",
+        status="received",
+        external_id="wamid.photo-question",
+        text="Покажите состав",
+    )
+    key = str(uuid4())
+
+    def send(reply_id):
+        return setup["client"].post(
+            base + f"/chats/{chat.id}/attachments/",
+            {
+                "file": SimpleUploadedFile(
+                    "bouquet.pdf", b"%PDF-1.4\n%%EOF", content_type="application/pdf"
+                ),
+                "request_id": key,
+                "text": "Состав",
+                "reply_to_id": reply_id,
+            },
+            format="multipart",
+        )
+
+    response = send(original.id)
+    assert response.status_code == 200
+    result = response.json()
+    assert send(original.id).json()["id"] == result["id"]
+    assert send(original.id + 999).status_code == 409
+    assert len([path for path in tmp_path.rglob("*") if path.is_file()]) == 1
+
+    class FilesGateway(Gateway):
+        def upload(self, *args):
+            return "media-id"
+
+    storage = DjangoAttachmentStorage()
+    deliver(result["id"], FilesGateway(DeliveryRejected("Отказ")), storage)
+    assert (
+        setup["client"].post(base + f"/chats/{chat.id}/messages/{result['id']}/retry/").status_code
+        == 200
+    )
+    gateway = FilesGateway()
+    deliver(result["id"], gateway, storage)
+    assert gateway.calls[0]["context"] == {"message_id": original.external_id}
+    assert gateway.calls[0]["document"]["caption"] == "Состав"
+
+
 def test_outbox_delivers_once_and_delivery_receipts_never_regress(setup, chat):
     row = queued(setup, chat)
     gateway = Gateway()

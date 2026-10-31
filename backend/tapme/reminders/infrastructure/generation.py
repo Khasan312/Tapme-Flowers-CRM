@@ -1,8 +1,9 @@
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from django.db.models import Prefetch
+from django.db.models import OuterRef, Prefetch, Subquery
 
+from tapme.businesses.models import Shop
 from tapme.customers.models import CustomerRecord
 from tapme.feedback.models import FeedbackRecord
 from tapme.orders.models import OrderRecord
@@ -11,12 +12,21 @@ from tapme.reminders.infrastructure.scenarios import event_scenario
 from tapme.reminders.models import ReminderRecord, ReminderScenario
 
 
-def generate_scenarios(settings, business, now):
+def generate_scenarios(settings, business, now, point_ids=None):
     """Generate under the settings lock; only the latest missed step is recovered."""
     if not settings.enabled:
         return 0
     zone = ZoneInfo(business.timezone)
     today = now.astimezone(zone).date()
+    primary_id = (
+        Shop.objects.filter(business=business, is_primary=True).values_list("id", flat=True).first()
+    )
+    latest_point = (
+        OrderRecord.objects.filter(business=business, customer_id=OuterRef("pk"))
+        .exclude(status="cancelled")
+        .order_by("-created_at", "-id")
+        .values("point_id")[:1]
+    )
     scenarios = list(
         ReminderScenario.objects.filter(business=business, archived=False).prefetch_related("steps")
     )
@@ -35,6 +45,7 @@ def generate_scenarios(settings, business, now):
     )
     customers = (
         CustomerRecord.objects.filter(business=business, consent=True)
+        .annotate(reminder_point_id=Subquery(latest_point))
         .exclude(id__in=complaints)
         .order_by("id")
         .prefetch_related(
@@ -53,7 +64,18 @@ def generate_scenarios(settings, business, now):
     }
     count = 0
 
-    def add(customer, scenario, step, occurrence, due, target, event, person, legacy_key=None):
+    def add(
+        customer,
+        scenario,
+        step,
+        occurrence,
+        due,
+        target,
+        event,
+        person,
+        legacy_key=None,
+        point_id=None,
+    ):
         nonlocal count
         if occurrence in suppressed:
             return
@@ -70,6 +92,7 @@ def generate_scenarios(settings, business, now):
             business=business,
             key=key,
             defaults=dict(
+                point_id=point_id or customer.reminder_point_id or primary_id,
                 customer=customer,
                 scenario=scenario,
                 step=step,
@@ -82,7 +105,8 @@ def generate_scenarios(settings, business, now):
                 created_at=now,
             ),
         )
-        count += int(created)
+        assigned_point = point_id or customer.reminder_point_id or primary_id
+        count += int(created and (point_ids is None or assigned_point in point_ids))
         if scenario.kind == "holiday":
             created_today[scenario.id] += int(created)
 
@@ -171,6 +195,7 @@ def generate_scenarios(settings, business, now):
                             delivered,
                             scenario.name,
                             order.recipient_name,
+                            point_id=order.point_id,
                         )
             elif scenario.kind == "holiday":
                 target = event_day(today, scenario.holiday_month, scenario.holiday_day)

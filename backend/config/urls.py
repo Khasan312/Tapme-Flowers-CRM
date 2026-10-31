@@ -6,6 +6,12 @@ from rest_framework.permissions import IsAuthenticated
 from config.health import health
 from tapme.accounts.api import CsrfView, LoginView, LogoutView, MeView, PasswordView
 from tapme.businesses.api import BusinessListView
+from tapme.businesses.points_api import (
+    PointArchiveView,
+    PointDetailView,
+    PointsView,
+    StaffPointsView,
+)
 from tapme.businesses.settings_api import ResetStaffView, SettingsView, StaffDetailView, StaffView
 from tapme.catalog.api import ProductDetailView, ProductListView, ProductPhotoView
 from tapme.customers.api import CustomerListView
@@ -21,20 +27,32 @@ from tapme.messaging.api import (
     ChatAttachmentView,
     ChatDetailView,
     ChatFileView,
+    ChatFolderDetailView,
+    ChatFolderListView,
+    ChatFoldersView,
     ChatListView,
     ChatMessagesView,
     ChatPaymentView,
     ChatReadView,
     ChatRetryView,
     ChatSummaryView,
+    InstagramActionView,
+    InstagramChannelView,
     PaymentSettingsView,
     QuickReplyDetailView,
     QuickReplyView,
+    instagram_webhook,
     whatsapp_webhook,
 )
 from tapme.orders.api import OrderDetailView, OrderListView
 from tapme.orders.desk_api import DeskView, NoteDoneView, NotesView
-from tapme.orders.draft_api import DraftConvertView, DraftRestoreView, DraftView, ExtendPaymentView
+from tapme.orders.draft_api import (
+    DraftConvertView,
+    DraftExtractView,
+    DraftRestoreView,
+    DraftView,
+    ExtendPaymentView,
+)
 from tapme.orders.overview_api import OverviewView
 from tapme.orders.public_api import PublicView, ShareView
 from tapme.orders.workflow_api import (
@@ -47,6 +65,7 @@ from tapme.orders.workflow_api import (
     TaskListView,
     TransitionView,
 )
+from tapme.platform_ops.api import CompanyListView, EventListView, OwnerResetView
 from tapme.reminders.api import (
     ConfigurationView,
     ReminderActionView,
@@ -57,6 +76,10 @@ from tapme.reminders.api import (
 )
 
 urlpatterns = [
+    path(
+        "api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/order-draft/extract/",
+        DraftExtractView.as_view(),
+    ),
     path(
         "api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/order-draft/",
         DraftView.as_view(),
@@ -81,6 +104,14 @@ urlpatterns = [
         "api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/messages/<int:message_id>/file/",
         ChatFileView.as_view(),
     ),
+    path("api/v1/webhooks/meta/instagram/<str:webhook_key>/", instagram_webhook),
+    path(
+        "api/v1/businesses/<uuid:business_id>/channels/instagram/", InstagramChannelView.as_view()
+    ),
+    path(
+        "api/v1/businesses/<uuid:business_id>/channels/instagram/<str:action>/",
+        InstagramActionView.as_view(),
+    ),
     path("api/v1/webhooks/meta/whatsapp/", whatsapp_webhook),
     path("api/v1/webhooks/meta/whatsapp/<str:webhook_key>/", ChannelWebhookView.as_view()),
     path(
@@ -102,6 +133,15 @@ urlpatterns = [
     ),
     path("api/v1/businesses/<uuid:business_id>/channels/whatsapp/", ChannelView.as_view()),
     path("api/v1/businesses/<uuid:business_id>/chats/", ChatListView.as_view()),
+    path("api/v1/businesses/<uuid:business_id>/chat-folders/", ChatFolderListView.as_view()),
+    path(
+        "api/v1/businesses/<uuid:business_id>/chat-folders/<uuid:folder_id>/",
+        ChatFolderDetailView.as_view(),
+    ),
+    path(
+        "api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/folders/",
+        ChatFoldersView.as_view(),
+    ),
     path("api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/", ChatDetailView.as_view()),
     path(
         "api/v1/businesses/<uuid:business_id>/chats/<uuid:chat_id>/messages/",
@@ -169,6 +209,15 @@ urlpatterns += [
     path(
         "api/v1/businesses/<uuid:business_id>/orders/<uuid:order_id>/photos/<uuid:photo_id>/",
         PhotoFileView.as_view(),
+    ),
+]
+
+urlpatterns += [
+    path("api/v1/platform/businesses/", CompanyListView.as_view()),
+    path("api/v1/platform/events/", EventListView.as_view()),
+    path(
+        "api/v1/platform/businesses/<uuid:business_id>/owners/<uuid:owner_id>/reset-password/",
+        OwnerResetView.as_view(),
     ),
 ]
 
@@ -262,4 +311,18 @@ urlpatterns += [
         "api/v1/businesses/<uuid:business_id>/customers/<uuid:customer_id>/activity/",
         ActivityView.as_view(),
     )
+]
+
+
+urlpatterns += [
+    path("api/v1/businesses/<uuid:business_id>/points/", PointsView.as_view()),
+    path("api/v1/businesses/<uuid:business_id>/points/<uuid:point_id>/", PointDetailView.as_view()),
+    path(
+        "api/v1/businesses/<uuid:business_id>/points/<uuid:point_id>/archive/",
+        PointArchiveView.as_view(),
+    ),
+    path(
+        "api/v1/businesses/<uuid:business_id>/staff/<uuid:user_id>/points/",
+        StaffPointsView.as_view(),
+    ),
 ]

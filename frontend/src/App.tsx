@@ -1,4 +1,10 @@
-import { useEffect, useState, type FormEvent } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useState,
+  type FormEvent,
+} from "react";
 import {
   ClipboardList,
   Users,
@@ -14,7 +20,7 @@ import {
 import { ApiError, businessPath, errorText, request } from "./api";
 import { Notice } from "./components";
 import { CustomerForm, OrderForm } from "./forms";
-import type { Business, Customer, Order, User, Reminder } from "./types";
+import type { Business, Customer, Order, User, Reminder, Point } from "./types";
 
 import { OrderPanel, TaskBoard } from "./orders";
 import { Settings, type SettingsTab } from "./settings";
@@ -25,14 +31,22 @@ import type { ShopSettings } from "./types";
 import { CustomerTransfer } from "./customers";
 import { Reminders } from "./reminders";
 import { Chats } from "./chats";
+import { ChatChannelPicker } from "./chat-channels";
+import { InstagramInbox } from "./instagram-inbox";
+import { useChatChannelNavigation } from "./chat-channel-navigation";
+import type { ChatChannel } from "./chat-types";
 import { useChatNotifications, ChatNotificationControls } from "./chat-extras";
 import { clearChatDrafts } from "./chat-drafts";
 import { PublicOrderPage } from "./public";
 import { PasswordPanel } from "./account";
+import { FirstPasswordPage, SignInPage, platformUrl } from "./auth";
+import PlatformApp from "./platform";
 import { CustomerDirectory } from "./customer-directory";
 import { CustomerPage } from "./customer-page";
 import { DeliveryDesk } from "./deliveries";
+import { PointSwitcher } from "./point-switcher";
 import { OrderDesk } from "./order-desk";
+import { startChatViewport } from "./chat-keyboard";
 import {
   accessibleRoute,
   homeRoute,
@@ -65,6 +79,20 @@ const roles: Record<string, string> = {
 };
 
 function Workspace() {
+  const measureTopbar = useCallback((node: HTMLElement | null) => {
+    if (!node) return;
+    const update = () =>
+      node
+        .closest<HTMLElement>(".app-shell")
+        ?.style.setProperty(
+          "--workspace-header-height",
+          `${node.getBoundingClientRect().height}px`,
+        );
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
   const [newOrderCustomer, setNewOrderCustomer] = useState<Customer | null>(
     null,
   );
@@ -84,10 +112,13 @@ function Workspace() {
     view,
     settingsTab,
     businessId,
+    pointId,
     customerId: customerDetail,
     orderId,
     chatId,
+    chatChannel,
   } = route;
+  const chatDestination = useChatChannelNavigation(user?.id || "", route);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
   const [settingsRevision, setSettingsRevision] = useState(0);
@@ -96,8 +127,48 @@ function Workspace() {
   const [importOpen, setImportOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const business = businesses.find((b) => b.id === businessId);
+  const selectedBusiness = businesses.find((b) => b.id === businessId);
+  const business = selectedBusiness
+    ? { ...selectedBusiness, point_id: pointId }
+    : undefined;
+  const points = useRemote<Point[]>(
+    user && businessId ? businessPath(businessId, "points") : null,
+    settingsRevision,
+  );
+  const [pointContextReady, setPointContextReady] = useState("");
+  useEffect(() => {
+    if (!user || !businessId) setPointContextReady("");
+    else if (points.data || points.error) setPointContextReady(businessId);
+  }, [user, businessId, points.data, points.error]);
+  useEffect(() => {
+    if (!user || !businessId || !points.data) return;
+    const active = points.data.filter((p) => p.active);
+    const key = `tapme.point.${user.id}.${businessId}`;
+    let stored = "";
+    try {
+      stored = localStorage.getItem(key) || "";
+    } catch {
+      /* private storage */
+    }
+    const wanted = pointId || stored;
+    const valid = wanted === "all" || active.some((p) => p.id === wanted);
+    const next =
+      active.length === 1 && points.data.length === 1
+        ? active[0].id
+        : valid
+          ? wanted
+          : "all";
+    if (next !== pointId) go({ ...route, pointId: next }, "replace");
+    try {
+      localStorage.setItem(key, next);
+    } catch {
+      /* private storage */
+    }
+  }, [user, businessId, pointId, points.data, go, route]);
   const office = business && ["owner", "manager"].includes(business.role);
+  useEffect(() => {
+    if (office && view === "chats") return startChatViewport(window, document);
+  }, [office, view]);
   useEffect(() => {
     if (user && !starting) go(route, "replace");
   }, [user, starting, route, go]);
@@ -112,7 +183,9 @@ function Workspace() {
     setNotice("");
   }, [requestedRoute]);
   const shop = useRemote<ShopSettings>(
-    office && businessId ? businessPath(businessId, "settings") : null,
+    office && businessId && pointId && pointId !== "all"
+      ? businessPath(businessId, `points/${pointId}`)
+      : null,
     settingsRevision,
   );
   const overview = useRemote<{
@@ -123,9 +196,9 @@ function Workspace() {
   }>(
     office && business
       ? businessPath(business.id, "overview") +
-          `?day=${shopDay(business.timezone)}`
+          `?day=${shopDay(business.timezone)}&point=${pointId || "all"}`
       : null,
-    revision,
+    revision + settingsRevision,
   );
   const chatNotifications = useChatNotifications(
     office ? businessId : null,
@@ -163,7 +236,13 @@ function Workspace() {
     (async () => {
       try {
         const current = await request<User>("/auth/me/");
-        const choices = await request<Business[]>("/businesses/");
+        if (current.is_platform_admin) {
+          location.replace(platformUrl());
+          return;
+        }
+        const choices = current.must_change_password
+          ? []
+          : await request<Business[]>("/businesses/");
         if (live) {
           setUser(current);
           setBusinesses(choices);
@@ -198,7 +277,13 @@ function Workspace() {
           password: data.get("password"),
         }),
       });
-      const choices = await request<Business[]>("/businesses/");
+      if (result.user.is_platform_admin) {
+        location.assign(platformUrl());
+        return;
+      }
+      const choices = result.user.must_change_password
+        ? []
+        : await request<Business[]>("/businesses/");
       setUser(result.user);
       setBusinesses(choices);
       setRevision((r) => r + 1);
@@ -235,9 +320,15 @@ function Workspace() {
       : settingsTab,
   ) {
     setMenuOpen(false);
+    window.scrollTo(0, 0);
+    if (next === "chats") {
+      go(chatDestination());
+      return;
+    }
     const destination = {
       ...route,
       view: next,
+      orderSection: "orders" as const,
       settingsTab: tab,
       customerId: null,
       orderId: null,
@@ -252,6 +343,9 @@ function Workspace() {
   function openCustomer(id: string) {
     go({ ...route, view: "customers", customerId: id, orderId: null });
   }
+  function selectChatChannel(channel: ChatChannel) {
+    go(chatDestination(channel));
+  }
   async function openChat(customerId: string) {
     if (!business) return;
     try {
@@ -265,6 +359,7 @@ function Workspace() {
       go({
         ...route,
         view: "chats",
+        chatChannel: "whatsapp",
         chatId: chat.id,
         customerId: null,
         orderId: null,
@@ -291,67 +386,20 @@ function Workspace() {
       </div>
     );
   if (!user)
+    return <SignInPage onSubmit={signIn} error={error} busy={loginBusy} />;
+  if (user.must_change_password)
     return (
-      <main className="login-page">
-        <section className="login-story">
-          <div className="brand">
-            <span className="brand-mark">
-              <Flower2 />
-            </span>
-            <span>
-              tapme<small>Flowers</small>
-            </span>
-          </div>
-          <div>
-            <span className="eyebrow">КАЖДЫЙ БУКЕТ — ВАЖЕН</span>
-            <h1>
-              Больше внимания
-              <br />
-              цветам и людям.
-            </h1>
-            <p>
-              Заказы, клиенты и команда вашего магазина
-              <br />в одном рабочем пространстве.
-            </p>
-          </div>
-          <span className="login-foot">Tapme Flowers · Бишкек</span>
-        </section>
-        <section className="login-panel">
-          <form className="login-card" onSubmit={signIn}>
-            <span className="eyebrow">ВАШ МАГАЗИН</span>
-            <h2>С возвращением</h2>
-            <p className="muted">Войдите, чтобы начать рабочий день.</p>
-            {error && <Notice>{error}</Notice>}
-            <label>
-              Логин
-              <input
-                name="username"
-                required
-                autoComplete="username"
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-              />
-            </label>
-            <label>
-              Пароль
-              <input
-                name="password"
-                type="password"
-                required
-                autoComplete="current-password"
-              />
-            </label>
-            <button className="primary" disabled={loginBusy}>
-              {loginBusy ? "Входим…" : "Войти в CRM"}
-              <ArrowUpRight size={18} />
-            </button>
-            <p className="login-hint">
-              Доступ сотрудникам выдаёт владелец магазина.
-            </p>
-          </form>
-        </section>
-      </main>
+      <FirstPasswordPage
+        signedOut={() => void signOut()}
+        changed={() => location.reload()}
+      />
+    );
+
+  if (business && pointContextReady !== business.id)
+    return (
+      <div className="loading-screen">
+        <p>Загружаем точки магазина…</p>
+      </div>
     );
 
   return (
@@ -371,7 +419,7 @@ function Workspace() {
           </span>
         </button>
 
-        <nav className="nav">
+        <nav className="nav" aria-label="Основные разделы">
           {(office
             ? ([
                 "orders",
@@ -385,43 +433,85 @@ function Workspace() {
           ).map((key) => {
             const Icon = icons[key];
             return (
-              <button
-                className="nav-item"
-                key={key}
-                aria-current={view === key ? "page" : undefined}
-                onClick={() => navigate(key)}
-                title={labels[key]}
-                aria-label={office ? labels[key] : "Мои задания"}
-              >
-                <Icon size={16} />
-                {office ? labels[key] : "Мои задания"}
-                {office && Boolean(navCounts[key]) && (
-                  <span className="cnt" aria-hidden="true">
-                    {navCounts[key]}
+              <Fragment key={key}>
+                <button
+                  className="nav-item"
+                  aria-current={view === key ? "page" : undefined}
+                  onClick={() => navigate(key)}
+                  title={labels[key]}
+                  aria-label={office ? labels[key] : "Мои задания"}
+                >
+                  <Icon size={16} />
+                  <span className="nav-label-full">
+                    {office ? labels[key] : "Мои задания"}
                   </span>
+                  {office && key === "reminders" && (
+                    <span className="nav-label-short" aria-hidden="true">
+                      Напом.
+                    </span>
+                  )}
+                  {office && Boolean(navCounts[key]) && (
+                    <span className="cnt" aria-hidden="true">
+                      {navCounts[key]}
+                    </span>
+                  )}
+                </button>
+                {key === "chats" && office && (
+                  <ChatChannelPicker
+                    placement="sidebar"
+                    value={view === "chats" ? chatChannel : null}
+                    unread={
+                      chatNotifications.unread -
+                      chatNotifications.instagramUnread
+                    }
+                    instagramUnread={chatNotifications.instagramUnread}
+                    select={selectChatChannel}
+                  />
                 )}
-              </button>
+              </Fragment>
             );
           })}
         </nav>
         <div className="rail-foot">
-          <Avatar name={business?.name || "Магазин"} />
+          {!(points.data && points.data.length > 1) && (
+            <Avatar name={business?.name || "Магазин"} />
+          )}
           <div className="shop-switch">
-            <button
-              className="plain-button shop-n"
-              onClick={() => {
-                if (office) {
-                  navigate("settings", "shop");
+            {points.data && points.data.length > 1 ? (
+              <PointSwitcher
+                key={businessId}
+                businessName={business?.name || "Магазин"}
+                points={points.data}
+                value={pointId || "all"}
+                onChange={(id) =>
+                  go({
+                    ...route,
+                    pointId: id,
+                    orderId: null,
+                    customerId: null,
+                    chatId: null,
+                  })
                 }
-              }}
-            >
-              {business?.name || "Магазин"}
-            </button>
-            <div className="shop-c">
-              {[shop.data?.city, shop.data?.address]
-                .filter(Boolean)
-                .join(" · ") || "Контакты магазина"}
-            </div>
+              />
+            ) : (
+              <>
+                <button
+                  className="plain-button shop-n"
+                  onClick={() => {
+                    if (office) {
+                      navigate("settings", "shop");
+                    }
+                  }}
+                >
+                  {business?.name || "Магазин"}
+                </button>
+                <div className="shop-c">
+                  {[shop.data?.city, shop.data?.address]
+                    .filter(Boolean)
+                    .join(" · ") || "Контакты магазина"}
+                </div>
+              </>
+            )}
             {businesses.length > 1 && (
               <select
                 aria-label="Магазин"
@@ -432,6 +522,8 @@ function Workspace() {
                       {
                         ...route,
                         businessId: e.target.value,
+                        chatChannel: "whatsapp",
+                        pointId: "",
                         customerId: null,
                         orderId: null,
                         chatId: null,
@@ -452,9 +544,16 @@ function Workspace() {
         </div>
       </aside>
       <main className="workspace">
-        <header className="topbar">
+        <header className="topbar" ref={measureTopbar}>
           <div className="topbar-title">
             <h1>{office ? labels[view] : "Мои задания"}</h1>
+            {points.data && points.data.length > 1 && (
+              <span className="point-badge">
+                {pointId === "all"
+                  ? "Все точки"
+                  : points.data.find((p) => p.id === pointId)?.short_name}
+              </span>
+            )}
             {view === "orders" && (
               <div className="sub">
                 {new Intl.DateTimeFormat("ru-RU", {
@@ -468,7 +567,7 @@ function Workspace() {
           </div>
           {office && business && (
             <GlobalSearch
-              key={business.id}
+              key={business.id + pointId}
               business={business}
               openCustomer={openCustomer}
               openOrder={openOrder}
@@ -477,10 +576,11 @@ function Workspace() {
           {office && (
             <ChatNotificationControls
               state={chatNotifications}
-              open={(id) =>
+              open={(id, channel) =>
                 go({
                   ...route,
                   view: "chats",
+                  chatChannel: channel,
                   chatId: id,
                   customerId: null,
                   orderId: null,
@@ -559,7 +659,10 @@ function Workspace() {
             )}
           </div>
         </header>
-        <div className="page-content">
+        <div
+          className={`page-content${office && view === "chats" ? " chat-inbox-content" : ""}`}
+          key={businessId + pointId}
+        >
           {view === "settings" && settingsTab !== "reminders" && (
             <div className="page-hd">
               <h1>Настройки</h1>
@@ -599,27 +702,65 @@ function Workspace() {
               />
             )
           ) : office && view === "chats" ? (
-            <Chats
-              userId={user.id}
-              key={business.id}
-              business={business}
-              chatId={chatId}
-              select={(id) => go({ ...route, chatId: id })}
-              settings={() => navigate("settings", "channels")}
-              openCustomer={openCustomer}
-              openOrder={(id) => go({ ...route, orderId: id })}
-              newOrder={(c) => {
-                setNewOrderCustomer(c);
-                setNewOrderReminder(null);
-                setForm("orders");
-              }}
-            />
+            <div className="chat-inbox-page" data-channel={chatChannel}>
+              <ChatChannelPicker
+                placement="mobile"
+                value={chatChannel}
+                unread={
+                  chatNotifications.unread - chatNotifications.instagramUnread
+                }
+                instagramUnread={chatNotifications.instagramUnread}
+                select={selectChatChannel}
+              />
+              {chatChannel === "instagram" ? (
+                <InstagramInbox
+                  userId={user.id}
+                  activityRevision={chatNotifications.activityRevision}
+                  workspaceRevision={revision}
+                  key={business.id}
+                  business={business}
+                  chatId={chatId}
+                  select={(id) => go({ ...route, chatId: id })}
+                  settings={() => navigate("settings", "channels")}
+                  openCustomer={openCustomer}
+                  openOrder={(id) => go({ ...route, orderId: id })}
+                  newOrder={(c) => {
+                    setNewOrderCustomer(c);
+                    setNewOrderReminder(null);
+                    setForm("orders");
+                  }}
+                />
+              ) : (
+                <Chats
+                  userId={user.id}
+                  activityRevision={chatNotifications.activityRevision}
+                  workspaceRevision={revision}
+                  key={business.id}
+                  business={business}
+                  chatId={chatId}
+                  select={(id) => go({ ...route, chatId: id })}
+                  settings={() => navigate("settings", "channels")}
+                  openCustomer={openCustomer}
+                  openOrder={(id) => go({ ...route, orderId: id })}
+                  newOrder={(c) => {
+                    setNewOrderCustomer(c);
+                    setNewOrderReminder(null);
+                    setForm("orders");
+                  }}
+                />
+              )}
+            </div>
           ) : office && view === "orders" ? (
             <OrderDesk
               key={business.id}
               business={business}
               revision={revision}
               openOrder={openOrder}
+              section={route.orderSection}
+              chooseSection={(orderSection) => {
+                go({ ...route, orderSection, orderId: null });
+                window.scrollTo(0, 0);
+              }}
             />
           ) : office && view === "deliveries" ? (
             <DeliveryDesk
@@ -627,6 +768,11 @@ function Workspace() {
               revision={revision}
               openOrder={openOrder}
             />
+          ) : !office && points.data?.filter((p) => p.active).length === 0 ? (
+            <div className="card empty">
+              Владелец ещё не назначил вам точку. Обратитесь к владельцу
+              магазина.
+            </div>
           ) : !office ? (
             <TaskBoard
               key={business.id + business.role}
@@ -719,6 +865,11 @@ function Workspace() {
 }
 
 export default function App() {
+  if (
+    location.pathname === platformUrl() ||
+    location.pathname === platformUrl().replace(/\/$/, "")
+  )
+    return <PlatformApp />;
   const match = location.pathname.match(/^\/track\/([^/]+)\/?$/);
   return match ? <PublicOrderPage token={match[1]} /> : <Workspace />;
 }

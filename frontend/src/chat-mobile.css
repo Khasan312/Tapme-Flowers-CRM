@@ -1,0 +1,113 @@
+.crm .chat-mobile-details {
+  display: none;
+  flex: none;
+  gap: 6px;
+  padding: 4px 9px 8px;
+}
+
+@media (max-width: 700px) and (max-height: 700px) {
+  .crm:has(.chat-inbox-page) .rail .brand {
+    display: none;
+  }
+  .crm:has(.chat-inbox-page) > .rail {
+    padding-block: 6px;
+  }
+}
+
+.crm .chat-mobile-details > button {
+  flex: 1;
+  min-width: 0;
+  min-height: 34px;
+  padding: 7px 6px;
+  gap: 6px;
+  border: 1px solid #e0d7e9;
+  border-radius: 10px;
+  background: #faf7fd;
+  color: #77548d;
+  font-size: 10px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.crm .chat-mobile-details > button svg {
+  flex: none;
+}
+
+@media (max-width: 1180px) {
+  .crm .chat-mobile-details {
+    display: flex;
+  }
+}
+
+@media (max-width: 700px) {
+  /* Keep app navigation and channel tabs in the same place for both inboxes. */
+  .crm.app-shell:has(.chat-inbox-page) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .crm:has(.chat-inbox-page) > .rail {
+    display: block;
+  }
+  .crm:has(.chat-inbox-page) > .workspace {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .crm:has(.chat-inbox-page) > .workspace > .topbar {
+    display: none;
+  }
+  .crm .page-content.chat-inbox-content {
+    width: 100%;
+    max-width: none;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    padding: 8px;
+  }
+  .crm .chat-inbox-page,
+  .crm .ig-preview {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+  .crm .chat-channel-picker.is-mobile {
+    flex: none;
+    margin-bottom: 8px;
+  }
+  .crm .ig-preview-notice {
+    flex: none;
+  }
+  .crm .chat-inbox-page :is(.chat-workspace, .ig-workspace) {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+    position: relative;
+  }
+  .crm .chat-workspace .chat-profile.show,
+  .crm .ig-workspace .ig-profile.is-open {
+    width: min(340px, 100%);
+    max-height: 100%;
+    overscroll-behavior: contain;
+  }
+  .crm .chat-profile.show > header {
+    position: sticky;
+    top: -14px;
+    z-index: 2;
+    padding: 8px 0;
+    background: #fcfdf9;
+  }
+  .crm .chat-profile .order-draft-card,
+  .crm .ig-profile .ig-draft-card {
+    scroll-margin-top: 52px;
+  }
+}

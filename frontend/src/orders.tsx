@@ -478,6 +478,7 @@ export function OrderPanel({
               <div>
                 <small>Получатель</small>
                 <h3>{o.recipient_name}</h3>
+                {o.point_name && <p className="muted">Точка: {o.point_name}</p>}
                 <p>{o.recipient_phone || "Телефон не указан"}</p>
               </div>
             </div>
@@ -639,7 +640,10 @@ export function OrderPanel({
                       {staff.data
                         ?.filter(
                           (s) =>
-                            (s.role === "florist" && s.is_active) ||
+                            (s.role === "florist" &&
+                              s.is_active &&
+                              (!s.point_ids?.length ||
+                                s.point_ids.includes(o.point_id))) ||
                             s.id === o.florist_id,
                         )
                         .map((s) => (
@@ -681,7 +685,10 @@ export function OrderPanel({
                       {staff.data
                         ?.filter(
                           (s) =>
-                            (s.role === "courier" && s.is_active) ||
+                            (s.role === "courier" &&
+                              s.is_active &&
+                              (!s.point_ids?.length ||
+                                s.point_ids.includes(o.point_id))) ||
                             s.id === o.courier_id,
                         )
                         .map((s) => (
@@ -1036,6 +1043,9 @@ export function TaskBoard({
             <article className="m-card stack" key={o.id}>
               <div className="section-heading">
                 <strong>№{o.number}</strong>
+                {business.point_id === "all" && o.point_name && (
+                  <span className="point-badge">{o.point_name}</span>
+                )}
                 <Status value={o.status} />
               </div>
               <h3 className="mb">

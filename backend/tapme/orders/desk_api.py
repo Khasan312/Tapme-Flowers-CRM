@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 
 from config import composition
 from config.api import ListQuery, StrictSerializer, validated
-from tapme.businesses.application.contracts import Scope
+from tapme.businesses.point_scope import request_scope, scoped_query
 from tapme.orders.api import OrderOutput
 
 
@@ -58,10 +58,10 @@ class DeskOutput(serializers.Serializer):
 class DeskView(APIView):
     @extend_schema(parameters=[DeskQuery], responses=DeskOutput)
     def get(self, request, business_id):
-        data = validated(DeskQuery, request.query_params)
+        data = validated(DeskQuery, scoped_query(request))
         data["day"] = str(data.get("day", ""))
         result = composition.order_desk().read(
-            Scope(request.user.id, business_id), now=timezone.now(), **data
+            request_scope(request, business_id), now=timezone.now(), **data
         )
         return Response(DeskOutput(result).data)
 
@@ -77,13 +77,13 @@ class NoteOutput(NoteInput):
 class NotesView(APIView):
     @extend_schema(responses=NoteOutput(many=True))
     def get(self, request, business_id):
-        return Response(composition.order_desk().notes(Scope(request.user.id, business_id)))
+        return Response(composition.order_desk().notes(request_scope(request, business_id)))
 
     @extend_schema(request=NoteInput, responses={201: NoteOutput})
     def post(self, request, business_id):
         return Response(
             composition.order_desk().add_note(
-                Scope(request.user.id, business_id), **validated(NoteInput, request.data)
+                request_scope(request, business_id), **validated(NoteInput, request.data)
             ),
             status=201,
         )
@@ -92,5 +92,5 @@ class NotesView(APIView):
 class NoteDoneView(APIView):
     @extend_schema(request=None, responses={204: None})
     def post(self, request, business_id, note_id):
-        composition.order_desk().complete_note(Scope(request.user.id, business_id), note_id)
+        composition.order_desk().complete_note(request_scope(request, business_id), note_id)
         return Response(status=204)

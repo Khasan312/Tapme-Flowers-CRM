@@ -1,0 +1,212 @@
+.crm .nav-label-short,
+.crm .desk-mobile-sections,
+.crm .desk-filter-toggle {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .crm.app-shell {
+    --mobile-nav-height: 64px;
+    box-sizing: border-box;
+    padding-bottom: calc(
+      var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px)
+    );
+  }
+
+  .crm.app-shell > .rail {
+    position: static;
+    display: block;
+    height: auto;
+    padding: 8px 14px;
+    overflow: visible;
+    border-right: 0;
+  }
+
+  .crm.app-shell > .rail .brand {
+    gap: 8px;
+    padding: 0;
+    min-height: 34px;
+  }
+
+  .crm.app-shell > .rail .brand-mark {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+  }
+
+  .crm.app-shell > .rail .brand-name {
+    font-size: 15px;
+  }
+
+  .crm.app-shell > .rail .brand-sub {
+    display: none;
+  }
+
+  .crm.app-shell > .rail > .nav {
+    position: fixed;
+    z-index: 60;
+    inset: auto 0 0;
+    display: grid;
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 2px;
+    width: 100%;
+    height: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom, 0px));
+    padding: 5px max(4px, env(safe-area-inset-right, 0px))
+      calc(5px + env(safe-area-inset-bottom, 0px))
+      max(4px, env(safe-area-inset-left, 0px));
+    background: var(--rail);
+    border-top: 1px solid var(--rail-line);
+  }
+
+  .crm.app-shell > .rail > .nav .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-width: 0;
+    min-height: 48px;
+    padding: 5px 1px;
+    border-radius: 9px;
+    font-size: 10px;
+    line-height: 13px;
+    white-space: nowrap;
+  }
+
+  .crm.app-shell > .rail > .nav .nav-item svg {
+    width: 20px;
+    height: 20px;
+    flex: none;
+  }
+
+  .crm.app-shell > .rail > .nav .chat-channel-picker.is-sidebar {
+    display: none;
+  }
+
+  .crm .desk-mobile-sections {
+    position: sticky;
+    top: calc(var(--workspace-header-height, 112px) + 8px);
+    z-index: 8;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    margin-bottom: 18px;
+    background: var(--surface);
+    box-shadow:
+      0 -8px 0 var(--bg),
+      0 8px 0 var(--bg);
+  }
+
+  .crm .desk-mobile-sections > button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+  }
+
+  .crm .desk-task-count {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 5px;
+    background: var(--surface-2);
+    color: var(--ink-2);
+  }
+
+  .crm .desk-mobile-sections .is-on .desk-task-count {
+    background: rgba(255, 255, 255, 0.16);
+    color: inherit;
+  }
+
+  .crm .order-desk .desktop-task-toggle {
+    display: none;
+  }
+
+  .crm .order-desk .thd {
+    gap: 14px;
+  }
+
+  .crm .order-desk .thd > .spacer {
+    display: none;
+  }
+
+  .crm .order-desk .thd > .seg {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0;
+  }
+
+  .crm .order-desk .thd > .seg > button {
+    min-width: 0;
+    min-height: 36px;
+    padding: 0 3px;
+    font-size: 11px;
+  }
+
+  .crm .desk-filter-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 44px;
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    text-align: left;
+  }
+
+  .crm .desk-filter-toggle > svg {
+    flex: none;
+  }
+
+  .crm .desk-filter-summary {
+    margin-left: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .crm .filters-open .desk-filter-toggle > svg:last-child {
+    transform: rotate(180deg);
+  }
+
+  .crm .order-desk:not(.filters-open) .order-scopes,
+  .crm .order-desk:not(.filters-open) .wall-filters {
+    display: none;
+  }
+
+  .crm .order-desk .today-grid,
+  .crm .order-desk .today-grid.solo {
+    display: block;
+  }
+
+  .crm .order-desk .tpanel,
+  .crm .order-desk.is-tasks .order-main,
+  .crm .order-desk.is-tasks .thd,
+  .crm .order-desk.is-tasks .desk-filter-toggle,
+  .crm .order-desk.is-tasks .order-scopes {
+    display: none;
+  }
+
+  .crm .order-desk.is-tasks .tpanel {
+    display: block;
+  }
+
+  .crm .order-desk .tpanel .task {
+    scroll-margin-bottom: calc(var(--mobile-nav-height) + 16px);
+  }
+}
+
+@media (max-width: 360px) {
+  .crm .nav-item[aria-label="Напоминания"] .nav-label-full {
+    display: none;
+  }
+  .crm .nav-item .nav-label-short {
+    display: inline;
+  }
+}

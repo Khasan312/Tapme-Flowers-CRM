@@ -40,6 +40,8 @@ class ConversationOutput(serializers.Serializer):
     customer_id = serializers.UUIDField(allow_null=True)
     name = serializers.CharField()
     phone = serializers.CharField()
+    channel_kind = serializers.CharField()
+    external_user_id = serializers.CharField()
     channel_phone = serializers.CharField()
     provider_mode = serializers.CharField()
     preview = serializers.CharField()
@@ -57,6 +59,20 @@ class ConversationOutput(serializers.Serializer):
     can_reply = serializers.BooleanField()
     reply_reason = serializers.CharField()
     tags = serializers.ListField(child=serializers.CharField())
+    folder_ids = serializers.ListField(child=serializers.UUIDField())
+
+
+class ChatFolderOutput(serializers.Serializer):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    version = serializers.IntegerField()
+    count = serializers.IntegerField()
+    total = serializers.IntegerField()
+
+
+class ChatFolderListOutput(serializers.Serializer):
+    results = ChatFolderOutput(many=True)
+    all_count = serializers.IntegerField()
 
 
 class ConversationDetailOutput(ConversationOutput):
@@ -69,6 +85,15 @@ class ConversationListOutput(serializers.Serializer):
     count = serializers.IntegerField()
     stats = serializers.DictField(child=serializers.IntegerField())
     results = ConversationOutput(many=True)
+
+
+class ReplyMessageOutput(serializers.Serializer):
+    id = serializers.CharField()
+    text = serializers.CharField()
+    direction = serializers.CharField()
+    sender = serializers.CharField()
+    kind = serializers.CharField()
+    media_name = serializers.CharField()
 
 
 class ChatMessageOutput(serializers.Serializer):
@@ -88,11 +113,15 @@ class ChatMessageOutput(serializers.Serializer):
     automated = serializers.BooleanField()
     context_id = serializers.CharField()
     external_id = serializers.CharField(allow_null=True)
+    reply_to = ReplyMessageOutput(allow_null=True)
 
 
 class MessageListOutput(serializers.Serializer):
     results = ChatMessageOutput(many=True)
     has_more = serializers.BooleanField()
+    cursor = serializers.CharField(required=False)
+    conversation_cursor = serializers.CharField(required=False)
+    unchanged = serializers.BooleanField(required=False)
 
 
 class QuickReplyOutput(serializers.Serializer):
@@ -104,6 +133,7 @@ class QuickReplyOutput(serializers.Serializer):
 
 
 class SummaryOutput(serializers.Serializer):
+    unread_by_channel = serializers.DictField(child=serializers.IntegerField())
     waiting = serializers.IntegerField()
     unread = serializers.IntegerField()
     latest_inbound_id = serializers.CharField()
@@ -112,3 +142,21 @@ class SummaryOutput(serializers.Serializer):
 
 class OkOutput(serializers.Serializer):
     ok = serializers.BooleanField()
+
+
+class InstagramChannelOutput(serializers.Serializer):
+    configured = serializers.BooleanField()
+    server_mode = serializers.CharField()
+    provider_mode = serializers.CharField()
+    simulator = serializers.BooleanField()
+    status = serializers.CharField()
+    version = serializers.IntegerField()
+    ig_user_id = serializers.CharField()
+    ig_username = serializers.CharField()
+    display_name = serializers.CharField()
+    display_phone = serializers.CharField()
+    connection_error = serializers.CharField()
+    last_webhook_at = serializers.DateTimeField(allow_null=True)
+    checks = serializers.DictField(child=serializers.BooleanField())
+    webhook_path = serializers.CharField(required=False, help_text="Owner only")
+    verify_token = serializers.CharField(required=False, help_text="Owner only")

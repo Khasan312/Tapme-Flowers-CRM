@@ -49,7 +49,7 @@ class MemoryUow:
         self.orders = orders
         self.delivery = self
 
-    def lock(self, business_id, day, start, end, exclude_id=None):
+    def lock(self, business_id, day, start, end, exclude_id=None, point_id=None):
         return DeliverySlot(Decimal("0.00"), 6, 0, False, True)
 
     def __enter__(self):
@@ -68,6 +68,9 @@ def scenario():
     product = Product(uuid4(), scope.business_id, "Букет", Decimal("100.10"))
 
     class Access:
+        def order_point(self, scope, point_id):
+            return point_id
+
         def role_for(self, requested):
             return Role.OWNER if requested == scope else None
 

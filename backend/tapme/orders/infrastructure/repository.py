@@ -93,8 +93,20 @@ class DjangoOrderRepository:
             raise NotFound("Заказ не найден.")
         return to_domain(row)
 
-    def list(self, business_id, day, limit, offset, search="", status="", customer_id=None):
+    def list(
+        self,
+        business_id,
+        day,
+        limit,
+        offset,
+        search="",
+        status="",
+        customer_id=None,
+        point_ids=None,
+    ):
         query = OrderRecord.objects.filter(business_id=business_id)
+        if point_ids is not None:
+            query = query.filter(point_id__in=point_ids)
         if day:
             query = query.filter(delivery_date=day)
         if status:
@@ -171,13 +183,20 @@ class DjangoOrderRepository:
         )
 
     def tasks(self, scope, role, day, limit, offset):
-        query = OrderRecord.objects.filter(business_id=scope.business_id).exclude(status="pending")
+        from tapme.businesses.infrastructure.access import DjangoMembershipReader
+
+        point_ids = DjangoMembershipReader().point_ids(scope)
+        query = OrderRecord.objects.filter(
+            business_id=scope.business_id, point_id__in=point_ids
+        ).exclude(status="pending")
         if role == Role.FLORIST:
             query = query.filter(Q(florist_id=scope.user_id) | Q(florist_id=None, status="new"))
         elif role == Role.COURIER:
             query = query.filter(courier_id=scope.user_id)
         else:
             query = query.filter(fulfillment="courier")
+        if point_ids is not None:
+            query = query.filter(point_id__in=point_ids)
         if day:
             query = query.filter(delivery_date=day)
         query = query.order_by("delivery_date", "window_start", "number").prefetch_related(

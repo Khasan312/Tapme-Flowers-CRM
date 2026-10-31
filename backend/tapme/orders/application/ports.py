@@ -4,8 +4,13 @@ from typing import Protocol
 from uuid import UUID
 
 from tapme.orders.application.delivery import DeliverySlots
+from tapme.orders.application.extraction import ExtractionContext, ExtractionResult
 from tapme.orders.domain import Order
 from tapme.shared.domain import Page
+
+
+class ChatExtractor(Protocol):
+    def extract(self, context: ExtractionContext) -> ExtractionResult: ...
 
 
 class OrderRepository(Protocol):
@@ -23,6 +28,7 @@ class OrderRepository(Protocol):
         search: str = "",
         status: str = "",
         customer_id: UUID | None = None,
+        point_ids: tuple[UUID, ...] | None = None,
     ) -> Page[Order]: ...
 
 

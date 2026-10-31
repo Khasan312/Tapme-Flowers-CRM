@@ -23,6 +23,16 @@ def test_malformed_drafts_are_rejected(fields):
         normalize_fields(fields)
 
 
+@pytest.mark.parametrize("value", ["", "+", " + ", "+ ( ) -", "+996", "+996 ( ) -"])
+def test_phone_without_subscriber_digits_is_empty(value):
+    assert normalize_fields({"recipient_phone": value})["recipient_phone"] == ""
+
+
+@pytest.mark.parametrize("value", ["+996700", "+7", "+996700123456"])
+def test_partial_or_complete_recipient_phone_is_preserved(value):
+    assert normalize_fields({"recipient_phone": value})["recipient_phone"] == value
+
+
 def test_payment_deadline_timezone_and_assembly_boundary():
     now = datetime(2026, 10, 18, 16, 0, tzinfo=UTC)  # 22:00 in Bishkek.
     receiving = datetime(2026, 10, 19, 1, 30, tzinfo=ZoneInfo("Asia/Bishkek"))

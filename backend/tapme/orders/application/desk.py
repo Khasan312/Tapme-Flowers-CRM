@@ -9,7 +9,7 @@ from tapme.shared.domain import page_bounds, text
 class OrderDeskReader(Protocol):
     def read(
         self,
-        business_id: UUID,
+        actor: Scope,
         scope: str,
         day: str,
         search: str,
@@ -18,7 +18,7 @@ class OrderDeskReader(Protocol):
         offset: int,
         now: datetime,
     ) -> dict[str, object]: ...
-    def notes(self, business_id: UUID) -> list[dict[str, object]]: ...
+    def notes(self, actor: Scope) -> list[dict[str, object]]: ...
     def add_note(self, scope: Scope, content: str) -> dict[str, object]: ...
     def complete_note(self, scope: Scope, note_id: UUID) -> None: ...
 
@@ -40,11 +40,11 @@ class OrderDeskService:
     ) -> dict[str, object]:
         authorize(self.access, actor, OFFICE_ROLES)
         page_bounds(limit, offset)
-        return self.reader.read(actor.business_id, scope, day, search, status, limit, offset, now)
+        return self.reader.read(actor, scope, day, search, status, limit, offset, now)
 
     def notes(self, actor: Scope) -> list[dict[str, object]]:
         authorize(self.access, actor, OFFICE_ROLES)
-        return self.reader.notes(actor.business_id)
+        return self.reader.notes(actor)
 
     def add_note(self, actor: Scope, content: str) -> dict[str, object]:
         authorize(self.access, actor, OFFICE_ROLES)

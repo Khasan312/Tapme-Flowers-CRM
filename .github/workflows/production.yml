@@ -108,6 +108,7 @@ jobs:
         run: |
           npm ci
           npm run format:check
+          npm run test:chat-keyboard
           npm run build
 
   images:

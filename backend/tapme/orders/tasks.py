@@ -11,6 +11,22 @@ from tapme.orders.models import OfficeTask, OrderDraft, OrderEvent, OrderRecord
 
 
 @shared_task
+def extract_order_drafts():
+    from django.conf import settings
+
+    from tapme.orders.infrastructure.extraction import process_draft
+
+    if not settings.TAPME_AI_ENABLED:
+        return
+    for draft_id in (
+        OrderDraft.objects.filter(status="active", extraction_actor__isnull=False)
+        .values_list("id", flat=True)
+        .iterator(chunk_size=100)
+    ):
+        process_draft(draft_id)
+
+
+@shared_task
 def maintain_order_drafts():
     from dataclasses import replace
 

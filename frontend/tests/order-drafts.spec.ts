@@ -54,7 +54,11 @@ async function login(page: Page) {
   await expect(page.getByRole("log")).toContainText("Сообщение 65");
 }
 async function editor(page: Page, mobile = false) {
-  if (mobile) await page.locator(".chat-mobile-draft").click();
+  if (mobile)
+    await page
+      .getByRole("group", { name: "Клиент и черновик", exact: true })
+      .getByRole("button", { name: "Черновик заказа", exact: true })
+      .click();
   await page
     .getByRole("button", { name: "Создать черновик", exact: true })
     .click();
@@ -95,7 +99,11 @@ for (const mobile of [false, true])
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(mobile ? 390 : 1440);
     await page.reload();
-    if (mobile) await page.locator(".chat-mobile-draft").click();
+    if (mobile)
+      await page
+        .getByRole("group", { name: "Клиент и черновик", exact: true })
+        .getByRole("button", { name: "Черновик заказа", exact: true })
+        .click();
     await page
       .getByRole("button", { name: "Открыть черновик", exact: true })
       .click();

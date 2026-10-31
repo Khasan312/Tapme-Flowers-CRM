@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 from config import composition
 from config.api import StrictSerializer, validated
 from tapme.businesses.application.contracts import Scope
+from tapme.businesses.point_scope import request_scope
 from tapme.customers.api import CustomerInput
 from tapme.customers.domain import Customer, ImportantDate, Recipient
 
@@ -87,5 +88,5 @@ class ActivityView(APIView):
     @extend_schema(responses=ActivityOutput)
     def get(self, request, business_id, customer_id):
         return Response(
-            composition.customer_activity().get(Scope(request.user.id, business_id), customer_id)
+            composition.customer_activity().get(request_scope(request, business_id), customer_id)
         )

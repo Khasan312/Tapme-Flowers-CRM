@@ -122,7 +122,9 @@ def test_scenario_offsets_and_specific_templates_control_generation(setup):
         replace(config, scenarios=(replace(birthday, steps=(kept,)), *config.scenarios[1:])),
     )
     assert repo.generate(setup["business"].id, NOW) == 0  # stable migrated step, already queued
-    assert repo.prepare(setup["business"].id, old.id, NOW)["message"].endswith("18.10.2026")
+    assert repo.prepare(Scope(setup["owner"].id, setup["business"].id), old.id, NOW)[
+        "message"
+    ].endswith("18.10.2026")
     config = repo.configuration(setup["business"].id)
     repo.save_configuration(
         setup["business"].id,
@@ -131,7 +133,7 @@ def test_scenario_offsets_and_specific_templates_control_generation(setup):
         ),
     )
     with pytest.raises(InvalidInput, match="выключен"):
-        repo.prepare(setup["business"].id, old.id, NOW)
+        repo.prepare(Scope(setup["owner"].id, setup["business"].id), old.id, NOW)
     assert repo.generate(setup["business"].id, NOW + timedelta(days=1)) == 0
 
 
@@ -187,9 +189,9 @@ def test_snooze_counts_and_skip_suppresses_event_year(setup):
     repo, row, _ = prepare(setup)
     scope = Scope(setup["owner"].id, setup["business"].id)
     repo.act(scope, row.id, "tomorrow", NOW)
-    result = repo.list(scope.business_id, "wait", 50, 0, NOW)
+    result = repo.list(scope, "wait", 50, 0, NOW)
     assert result["count"] == 0 and result["stats"].get("wait", 0) == 0
-    result = repo.list(scope.business_id, "wait", 50, 0, NOW + timedelta(days=1))
+    result = repo.list(scope, "wait", 50, 0, NOW + timedelta(days=1))
     assert result["count"] == 1 and result["results"][0]["event_date"] == date(2026, 10, 18)
     repo.act(scope, row.id, "skipped", NOW + timedelta(days=1))
     config = repo.configuration(scope.business_id)
@@ -276,12 +278,12 @@ def test_link_order_requires_same_customer_and_new_order_revenue_is_unique(setup
     order.created_at = NOW + timedelta(minutes=5)
     order.save()
     repo.act(scope, row.id, "ordered", NOW + timedelta(minutes=10), order.id)
-    result = repo.list(scope.business_id, "ordered", 50, 0, NOW)
+    result = repo.list(scope, "ordered", 50, 0, NOW)
     assert result["summary"]["ordered_week"] == 1
     assert result["summary"]["revenue_week"] == str(order.total)
     order.status = "cancelled"
     order.save()
-    assert repo.list(scope.business_id, "ordered", 50, 0, NOW)["summary"]["ordered_week"] == 0
+    assert repo.list(scope, "ordered", 50, 0, NOW)["summary"]["ordered_week"] == 0
 
 
 @pytest.mark.django_db(transaction=True)

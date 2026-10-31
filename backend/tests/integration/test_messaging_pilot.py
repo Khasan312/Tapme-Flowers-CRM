@@ -2,7 +2,7 @@ import hashlib
 import hmac
 import io
 import json
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -135,6 +135,64 @@ def test_auto_reply_preserves_waiting_and_never_assigns(pilot):
     chat.refresh_from_db()
     assert chat.waiting_since
     assert client.get(base + "/chats/summary/?after=0").data["items"]
+
+
+def test_closed_reply_is_separate_from_daytime_and_persisted_across_midnight(pilot, monkeypatch):
+    setup, client, base, channel = pilot
+    client.force_authenticate(setup["owner"])
+    setup["business"].timezone = "Asia/Bishkek"
+    setup["business"].save(update_fields=["timezone"])
+    channel.autoreply = {
+        "enabled": True,
+        "start": "09:00",
+        "end": "20:00",
+        "open_text": "Открыто",
+        "closed_text": "Закрыто",
+    }
+    channel.save(update_fields=["autoreply"])
+    for instant, expected in [
+        (datetime(2026, 10, 28, 13, 50, tzinfo=UTC), ["Открыто"]),
+        (datetime(2026, 10, 28, 14, 0, tzinfo=UTC), ["Открыто", "Закрыто"]),
+        (datetime(2026, 10, 28, 19, 27, tzinfo=UTC), ["Открыто", "Закрыто"]),
+        (datetime(2026, 10, 29, 2, 59, tzinfo=UTC), ["Открыто", "Закрыто"]),
+        (datetime(2026, 10, 29, 14, 0, tzinfo=UTC), ["Открыто", "Закрыто", "Закрыто"]),
+    ]:
+        monkeypatch.setattr(timezone, "now", lambda: instant)
+        chat = incoming(client, base)
+        assert (
+            list(chat.messages.filter(automated=True).order_by("id").values_list("text", flat=True))
+            == expected
+        )
+        assert chat.waiting_since and not chat.assigned_to_id
+        assert chat.mode == "human"
+    # Retried delivery of the same webhook must not create another reply.
+    for event in WebhookEvent.objects.all():
+        process_event(event.digest)
+    assert chat.messages.filter(automated=True).count() == 3
+
+
+def test_enabling_closed_reply_in_existing_chat_does_not_need_day_of_silence(pilot, monkeypatch):
+    setup, client, base, channel = pilot
+    setup["business"].timezone = "Asia/Bishkek"
+    setup["business"].save(update_fields=["timezone"])
+    channel.autoreply = {
+        "enabled": False,
+        "start": "09:00",
+        "end": "20:00",
+        "open_text": "Открыто",
+        "closed_text": "Закрыто",
+    }
+    channel.save(update_fields=["autoreply"])
+    monkeypatch.setattr(timezone, "now", lambda: datetime(2026, 10, 28, 16, 32, tzinfo=UTC))
+    chat = incoming(client, base)
+    assert not chat.messages.filter(automated=True).exists()
+    channel.autoreply["enabled"] = True
+    channel.save(update_fields=["autoreply"])
+    monkeypatch.setattr(timezone, "now", lambda: datetime(2026, 10, 28, 19, 27, tzinfo=UTC))
+    chat = incoming(client, base)
+    assert chat.messages.get(automated=True).text == "Закрыто"
+    incoming(client, base, text="Ещё вопрос")
+    assert chat.messages.filter(automated=True).count() == 1
 
 
 def test_reconnect_resets_checks_when_account_changes(pilot, monkeypatch):
@@ -335,18 +393,22 @@ def test_settings_version_and_role_guards(pilot):
         assert client.get(base + "/" + path).status_code == 403
 
 
-def test_autoreply_cooldown_closed_hours_and_late_messages(pilot):
-    _, client, base, channel = pilot
+def test_autoreply_daytime_cooldown(pilot, monkeypatch):
+    setup, client, base, channel = pilot
+    setup["business"].timezone = "Asia/Bishkek"
+    setup["business"].save(update_fields=["timezone"])
+    monkeypatch.setattr(timezone, "now", lambda: datetime(2026, 10, 29, 9, 0, tzinfo=UTC))
+    client.force_login(setup["owner"])
     channel.autoreply = {
         "enabled": True,
-        "start": "23:00",
-        "end": "23:01",
-        "open_text": "Открыто",
+        "start": "09:00",
+        "end": "20:00",
+        "open_text": "Открыто: {магазин}",
         "closed_text": "Закрыто: {магазин}",
     }
     channel.save()
     chat = incoming(client, base)
-    assert chat.messages.get(automated=True).text.startswith("Закрыто:")
+    assert chat.messages.get(automated=True).text == "Открыто: Первый магазин"
     chat.last_inbound_at = timezone.now() - timedelta(hours=25)
     chat.autoreplied_at = timezone.now() - timedelta(hours=11)
     chat.save()

@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 
 from config import composition
 from config.api import StrictSerializer, validated
-from tapme.businesses.application.contracts import Scope
+from tapme.businesses.point_scope import request_scope
 
 
 class FeedbackInput(StrictSerializer):
@@ -28,13 +28,15 @@ class ResolveInput(StrictSerializer):
 class FeedbackView(APIView):
     @extend_schema(responses=FeedbackOutput(many=True))
     def get(self, request, business_id, order_id):
-        rows = composition.feedback().list(Scope(request.user.id, business_id), order_id)
+        composition.orders().get(request_scope(request, business_id), order_id)
+        rows = composition.feedback().list(request_scope(request, business_id), order_id)
         return Response(FeedbackOutput(rows, many=True).data)
 
     @extend_schema(request=FeedbackInput, responses={201: FeedbackOutput})
     def post(self, request, business_id, order_id):
+        composition.orders().get(request_scope(request, business_id), order_id)
         row = composition.feedback().create(
-            Scope(request.user.id, business_id), order_id, **validated(FeedbackInput, request.data)
+            request_scope(request, business_id), order_id, **validated(FeedbackInput, request.data)
         )
         return Response(FeedbackOutput(row).data, status=201)
 
@@ -43,7 +45,7 @@ class ResolveView(APIView):
     @extend_schema(request=ResolveInput, responses={204: None})
     def post(self, request, business_id, feedback_id):
         composition.feedback().resolve(
-            Scope(request.user.id, business_id),
+            request_scope(request, business_id),
             feedback_id,
             **validated(ResolveInput, request.data),
         )

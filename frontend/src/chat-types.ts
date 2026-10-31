@@ -1,3 +1,5 @@
+export type ChatChannel = "whatsapp" | "instagram";
+
 export type Channel = {
   configured: boolean;
   version: number;
@@ -19,7 +21,26 @@ export type Channel = {
   last_webhook_at: string | null;
   webhook_path: string;
 };
+export type InstagramChannel = Pick<
+  Channel,
+  | "configured"
+  | "version"
+  | "provider_mode"
+  | "server_mode"
+  | "simulator"
+  | "connection_error"
+  | "checks"
+  | "status"
+  | "display_name"
+  | "display_phone"
+  | "last_webhook_at"
+  | "webhook_path"
+  | "verify_token"
+> & { ig_user_id: string; ig_username: string };
+
 export type Conversation = {
+  channel_kind: ChatChannel;
+  external_user_id: string;
   id: string;
   customer_id: string | null;
   name: string;
@@ -39,6 +60,7 @@ export type Conversation = {
   can_reply: boolean;
   reply_reason: string;
   tags: string[];
+  folder_ids: string[];
   new_customer: boolean;
   origin: string;
 };
@@ -66,6 +88,14 @@ export type ChatDetail = Conversation & {
     }[];
   };
 };
+export type ChatReply = {
+  id: string;
+  text: string;
+  direction: "in" | "out" | "system";
+  sender: string;
+  kind: string;
+  media_name: string;
+};
 export type ChatMessage = {
   id: string;
   request_id: string;
@@ -86,11 +116,20 @@ export type ChatMessage = {
   automated: boolean;
   context_id: string;
   external_id: string | null;
+  reply_to: ChatReply | null;
   happened_at: string;
   created_at: string;
   media_url: string | null;
   media_type: string;
   media_name: string;
+};
+
+export type ChatMessagePage = {
+  results: ChatMessage[];
+  has_more: boolean;
+  cursor?: string;
+  conversation_cursor?: string;
+  unchanged?: boolean;
 };
 
 export type AutoReply = {
@@ -112,3 +151,12 @@ export type QuickReply = {
   text: string;
   version: number;
 };
+
+export type ChatFolder = {
+  id: string;
+  name: string;
+  version: number;
+  count: number;
+  total: number;
+};
+export type ChatFoldersData = { results: ChatFolder[]; all_count: number };
