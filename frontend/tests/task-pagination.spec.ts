@@ -38,7 +38,7 @@ async function post(page: Page, path: string, data: object) {
   return response.json();
 }
 async function prepare(page: Page, role: "florist" | "courier", count: number) {
-  await page.goto("/");
+  await page.goto("/login");
   await submitLogin(page, account.username, account.password);
   const staff = await post(page, "staff", {
     username: `${account.username}_${role}`,
@@ -94,7 +94,7 @@ test("флорист: страницы, размер, дата и исчезно
     viewport: { width: 1440, height: 1000 },
   });
   const worker = workerPage;
-  await worker.goto("/");
+  await worker.goto("/login");
   await submitLogin(worker, staff.username, account.password);
   const top = worker.getByRole("navigation", {
     name: "Страницы заданий сверху",
@@ -190,7 +190,7 @@ test("курьер: страницы содержат только назнач�
     viewport: { width: 390, height: 844 },
   });
   const worker = workerPage;
-  await worker.goto("/");
+  await worker.goto("/login");
   await submitLogin(worker, staff.username, account.password);
   const top = worker.getByRole("navigation", {
     name: "Страницы заданий сверху",

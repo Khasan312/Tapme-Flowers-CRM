@@ -2,8 +2,11 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { ArrowUpRight, Flower2 } from "lucide-react";
 import { errorText, request } from "./api";
 import { Notice } from "./components";
+import { LoginBloom, LoginHangingBloom } from "./login-bloom";
+import { LoginStoryCopy } from "./login-story-copy";
+import { siteUrl } from "./marketing/routes";
 
-export const crmUrl = () => import.meta.env.BASE_URL;
+export const crmUrl = () => siteUrl("login");
 export const platformUrl = () => `${import.meta.env.BASE_URL}platform/`;
 
 function AuthLayout({
@@ -16,6 +19,12 @@ function AuthLayout({
   return (
     <main className="login-page">
       <section className="login-story">
+        {!platform && (
+          <>
+            <LoginHangingBloom />
+            <LoginBloom />
+          </>
+        )}
         <div className="brand">
           <span className="brand-mark">
             <Flower2 />
@@ -24,36 +33,19 @@ function AuthLayout({
             tapme<small>Flowers</small>
           </span>
         </div>
-        <div>
-          <span className="eyebrow">
-            {platform ? "УПРАВЛЕНИЕ ПЛАТФОРМОЙ" : "КАЖДЫЙ БУКЕТ — ВАЖЕН"}
-          </span>
-          <h1>
-            {platform ? (
-              <>
-                Магазины под вашим
-                <br />
-                управлением.
-              </>
-            ) : (
-              <>
-                Больше внимания
-                <br />
-                цветам и людям.
-              </>
-            )}
-          </h1>
-          <p>
-            {platform ? (
-              "Подключайте магазины и выдавайте первый доступ их владельцам."
-            ) : (
-              <>
-                Заказы, клиенты и команда вашего магазина
-                <br />в одном рабочем пространстве.
-              </>
-            )}
-          </p>
-        </div>
+        {platform ? (
+          <div>
+            <span className="eyebrow">УПРАВЛЕНИЕ ПЛАТФОРМОЙ</span>
+            <h1>
+              Магазины под вашим
+              <br />
+              управлением.
+            </h1>
+            <p>Подключайте магазины и выдавайте первый доступ их владельцам.</p>
+          </div>
+        ) : (
+          <LoginStoryCopy />
+        )}
         <span className="login-foot">Tapme Flowers · Бишкек</span>
       </section>
       <section className="login-panel">{children}</section>
@@ -75,6 +67,11 @@ export function SignInPage({
   return (
     <AuthLayout platform={platform}>
       <form className="login-card" onSubmit={onSubmit}>
+        {!platform && (
+          <a className="login-site-link" href={siteUrl()}>
+            На главную Tapme Flowers
+          </a>
+        )}
         <span className="eyebrow">
           {platform ? "КОМАНДА TAPME" : "ВАШ МАГАЗИН"}
         </span>
@@ -114,6 +111,11 @@ export function SignInPage({
             ? "Доступ только для администраторов TapMe."
             : "Доступ сотрудникам выдаёт владелец магазина."}
         </p>
+        {!platform && (
+          <a className="login-site-link" href={siteUrl("privacy")}>
+            Политика конфиденциальности
+          </a>
+        )}
       </form>
     </AuthLayout>
   );

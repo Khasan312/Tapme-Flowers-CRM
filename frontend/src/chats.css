@@ -595,6 +595,45 @@
   background: #cbd6c8;
   cursor: default;
 }
+.crm .chat-inbox-page[data-channel="whatsapp"] .chat-composer {
+  padding: 8px;
+  border: 1px solid #e5e9df;
+  border-radius: 16px;
+  background: #fff;
+}
+.crm .chat-inbox-page[data-channel="whatsapp"] .chat-compose-tools {
+  margin-bottom: 6px;
+}
+.crm .chat-inbox-page[data-channel="whatsapp"] .chat-compose-field {
+  gap: 4px;
+  padding: 5px 6px;
+  border-color: #d8dfd2;
+  border-radius: 23px;
+}
+.crm
+  .chat-inbox-page[data-channel="whatsapp"]
+  .chat-compose-field:focus-within {
+  border-color: #ad98c6;
+}
+.crm .chat-inbox-page[data-channel="whatsapp"] .chat-compose-field textarea {
+  min-height: 40px;
+  max-height: 144px;
+  padding: 10px 4px;
+  line-height: 20px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.crm
+  .chat-inbox-page[data-channel="whatsapp"]
+  .chat-compose-field
+  textarea:placeholder-shown {
+  max-height: 40px;
+}
+@media (max-width: 700px) {
+  .crm .chat-inbox-page[data-channel="whatsapp"] .chat-compose-field textarea {
+    padding-block: 8px;
+  }
+}
 .crm .chat-compose-hint {
   display: block;
   font-size: 10px;

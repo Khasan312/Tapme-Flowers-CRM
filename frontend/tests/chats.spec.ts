@@ -25,7 +25,7 @@ test.afterEach(async ({ page }) => {
   execFileSync(python, [fixture, "delete"], { input: JSON.stringify(account) });
 });
 async function login(page: Page) {
-  await page.goto("/");
+  await page.goto("/login");
   await submitLogin(page, account.username, account.password);
   await expect(page.locator(".app-shell")).toBeVisible();
 }
@@ -156,7 +156,7 @@ test("каналы чатов: меню, история адресов и сох
   await expect(input).toHaveValue("Вернусь к этому ответу после Instagram");
 });
 
-test("каналы чатов: мобильный список и полноэкранный диалог", async ({
+test("мобильный чат: полноэкранный диалог и прямой доступ к черновику", async ({
   page,
 }, info) => {
   const expectMainMenu = async () => {
@@ -211,15 +211,33 @@ test("каналы чатов: мобильный список и полноэк
   await expect(
     page.getByRole("navigation", { name: "Основные разделы" }),
   ).toBeHidden();
-  await expectDraftAccess(
-    "Клиент в переписке",
-    "Черновик заказа в чате",
-    "Скрыть карточку клиента",
-  );
+  await expect(tabs).toBeHidden();
+  await page
+    .getByRole("button", { name: "Оформить заказ", exact: true })
+    .click();
+  const draft = page.getByRole("dialog", {
+    name: "Черновик заказа",
+    exact: true,
+  });
+  await expect(
+    draft.getByRole("button", { name: "Сохранить черновик" }),
+  ).toBeInViewport();
+  await draft.getByRole("button", { name: "Закрыть", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Действия с сообщением", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Быстрые ответы", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("button", { name: "Быстрые ответы", exact: true }),
+  ).toBeHidden();
   await page
     .getByRole("button", { name: "К списку диалогов", exact: true })
     .click();
   await expectMainMenu();
+  await expect(tabs).toBeVisible();
   await tabs.getByRole("button", { name: "Instagram", exact: true }).click();
   await expect(page.getByLabel("Сообщение в примере Instagram")).toHaveCount(0);
   await expectMainMenu();

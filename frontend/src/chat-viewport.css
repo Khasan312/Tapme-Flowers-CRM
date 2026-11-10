@@ -111,6 +111,7 @@
     .crm
     :is(
       .chat-folder-toolbar,
+      .chat-workflow-actions,
       .ig-folder-toolbar,
       .ig-dialog-actions,
       .chat-mobile-details

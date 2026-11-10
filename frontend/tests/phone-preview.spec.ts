@@ -33,7 +33,7 @@ test("телефон: импорт CSV и создание шаблона без
       configurable: true,
     }),
   );
-  await page.goto("/");
+  await page.goto("/login");
   await submitLogin(page, account.username, account.password);
   await page.getByRole("button", { name: "Клиенты", exact: true }).click();
   await page.getByRole("button", { name: "Импорт", exact: true }).click();
@@ -88,7 +88,7 @@ test("вход помещается на телефоне без боковой 
     [1440, 1000],
   ]) {
     await page.setViewportSize({ width, height });
-    await page.goto("/");
+    await page.goto("/login");
     const button = page.getByRole("button", {
       name: "Войти в CRM",
       exact: true,
@@ -121,7 +121,7 @@ test("вход помещается на телефоне без боковой 
 test("VCF: поиск и выбор контакта на телефоне, остальные не импортируются", async ({
   page,
 }, info) => {
-  await page.goto("/");
+  await page.goto("/login");
   await submitLogin(page, account.username, account.password);
   await page.getByRole("button", { name: "Клиенты", exact: true }).click();
   await page.getByRole("button", { name: "Импорт", exact: true }).click();
@@ -295,7 +295,7 @@ test("импорт: видимая загрузка, повтор после о�
   page,
 }) => {
   await page.setViewportSize({ width: 320, height: 568 });
-  await page.goto("/");
+  await page.goto("/login");
   await submitLogin(page, account.username, account.password);
   await page.getByRole("button", { name: "Клиенты", exact: true }).click();
   await page.getByRole("button", { name: "Импорт", exact: true }).click();

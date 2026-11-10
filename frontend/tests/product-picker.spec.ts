@@ -11,7 +11,7 @@ test.beforeEach(async ({ page }) => {
   account = JSON.parse(
     execFileSync(python, [fixture, "create"], { encoding: "utf8" }),
   );
-  await page.goto("/");
+  await page.goto("/login");
   await submitLogin(page, account.username, account.password);
 });
 test.afterEach(async ({ page }) => {

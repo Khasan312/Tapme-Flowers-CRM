@@ -7,12 +7,14 @@ export function Modal({
   children,
   busy = false,
   drawer = false,
+  className,
 }: {
   title: string;
   close: () => void;
   children: ReactNode;
   busy?: boolean;
   drawer?: boolean;
+  className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -22,7 +24,7 @@ export function Modal({
     <dialog
       ref={ref}
       aria-label={title}
-      className={drawer ? "order-drawer" : undefined}
+      className={drawer ? `order-drawer ${className || ""}`.trim() : className}
       onCancel={(event) => {
         event.preventDefault();
         if (!busy) close();

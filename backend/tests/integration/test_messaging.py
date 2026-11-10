@@ -8,16 +8,12 @@ import pytest
 from cryptography.fernet import Fernet
 from django.db import transaction
 from django.utils import timezone
+from rest_framework.test import APIClient
 
 from tapme.customers.models import CustomerRecord
 from tapme.messaging.domain import DeliveryRejected, DeliveryUnknown
 from tapme.messaging.infrastructure.meta import MetaGateway, encrypt
-from tapme.messaging.infrastructure.processing import (
-    deliver,
-    delivery_status,
-    process_event,
-    receive,
-)
+from tapme.messaging.infrastructure.processing import deliver, delivery_status, process_event
 from tapme.messaging.models import ChannelAccount, Conversation, Message, WebhookEvent
 
 
@@ -83,7 +79,13 @@ def payload(channel, phone="996555123456", mid="wamid.in", text="Здравст�
 def accept(data):
     body = json.dumps(data).encode()
     signature = "sha256=" + hmac.new(b"test-app-secret", body, hashlib.sha256).hexdigest()
-    assert receive(body, signature)
+    response = APIClient().post(
+        "/api/v1/webhooks/meta/whatsapp/",
+        body,
+        content_type="application/json",
+        HTTP_X_HUB_SIGNATURE_256=signature,
+    )
+    assert response.status_code == 200
     event = WebhookEvent.objects.get(digest=hashlib.sha256(body).hexdigest())
     process_event(event.digest)
     return event

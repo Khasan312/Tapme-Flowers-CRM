@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { ClipboardList, Pencil, Plus, Trash2, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ClipboardList, Pencil, Plus, Trash2, Sparkles, X } from "lucide-react";
 import { ApiError, businessPath, errorText, price, request } from "./api";
 import { Modal, Notice } from "./components";
 import { useRemote } from "./hooks";
@@ -70,7 +70,8 @@ type Draft = {
 };
 type Result = { draft: Draft | null };
 
-export function OrderDraftCard({
+export function useChatOrderDraft({
+  enabled,
   business,
   chatId,
   userId,
@@ -78,6 +79,7 @@ export function OrderDraftCard({
   openOrder,
   changed,
 }: {
+  enabled: boolean;
   business: Business;
   chatId: string;
   userId: string;
@@ -87,11 +89,34 @@ export function OrderDraftCard({
 }) {
   const path = businessPath(business.id, `chats/${chatId}/order-draft`);
   const [revision, setRevision] = useState(0);
-  const source = useRemote<Result>(path, revision);
+  const source = useRemote<Result>(enabled ? path : null, revision);
   const [editing, setEditing] = useState<Draft | null>(null);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const draft = source.data?.draft;
+  const trigger = useRef<HTMLElement | null>(null);
+  const ready =
+    canEdit && enabled && !busy && source.data !== null && !source.error;
+  function closeEditor() {
+    setEditing(null);
+    setRevision((v) => v + 1);
+    requestAnimationFrame(() =>
+      trigger.current?.focus({ preventScroll: true }),
+    );
+  }
+  function editDraft() {
+    if (!draft || !ready) return;
+    trigger.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    setEditing(draft);
+  }
+  function open() {
+    if (!ready || editing) return;
+    if (draft?.status === "active") editDraft();
+    else void start(draft?.status === "abandoned");
+  }
   useEffect(() => {
     if (draft?.status !== "active") return;
     const timer = window.setInterval(() => {
@@ -129,6 +154,11 @@ export function OrderDraftCard({
     }
   }
   async function start(restore = false) {
+    if (!ready) return;
+    trigger.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     setBusy(true);
     setError("");
     try {
@@ -148,162 +178,187 @@ export function OrderDraftCard({
       setBusy(false);
     }
   }
+  return {
+    draft,
+    ready,
+    editing: Boolean(editing),
+    error,
+    loadError: source.error,
+    busy,
+    canEdit,
+    open,
+    start,
+    editDraft,
+    abandon,
+    reload: () => setRevision((v) => v + 1),
+    editor: editing ? (
+      <DraftEditor
+        key={editing.id}
+        draft={editing}
+        latest={draft || null}
+        business={business}
+        path={path}
+        cacheKey={`tapme-order-draft:${userId}:${business.id}:${chatId}`}
+        close={closeEditor}
+        saved={() => {
+          setRevision((v) => v + 1);
+          changed();
+        }}
+        created={(order) => {
+          setEditing(null);
+          setRevision((v) => v + 1);
+          changed();
+          openOrder(order.id);
+        }}
+      />
+    ) : null,
+  };
+}
+
+export function OrderDraftCard({
+  controller,
+  openOrder,
+}: {
+  controller: ReturnType<typeof useChatOrderDraft>;
+  openOrder: (id: string) => void;
+}) {
+  const {
+    draft,
+    ready,
+    error,
+    loadError,
+    busy,
+    canEdit,
+    start,
+    editDraft,
+    abandon,
+    reload,
+  } = controller;
   return (
-    <>
-      <section
-        className="chat-profile-card order-draft-card"
-        aria-label="Черновик заказа в чате"
-      >
-        <h3>
-          <ClipboardList size={18} />
-          Черновик заказа
-        </h3>
-        <span className="draft-caption">
-          {draft?.extraction?.mode === "demo"
-            ? "Демонстрационный разбор · без ИИ"
-            : draft?.extraction?.mode === "mistral"
-              ? "Автозаполнение из чата · проверяет менеджер"
-              : "Заполняет менеджер"}
-        </span>
-        {(error || source.error) && <Notice>{error || source.error}</Notice>}
-        {source.error && (
-          <button className="btn" onClick={() => setRevision((v) => v + 1)}>
-            Повторить загрузку черновика
-          </button>
-        )}
-        {draft?.status === "active" ? (
-          <>
-            <div className="draft-summary">
-              {draft.lines.map((line, i) => (
-                <div key={i}>
-                  <span>
-                    {line.name} × {line.quantity}
-                  </span>
-                  <b>{price(line.total)}</b>
-                </div>
-              ))}
-              {!draft.lines.length && (
-                <p>Добавьте букет из прайса или укажите бюджет.</p>
-              )}
-              <p>
-                {draft.fields.fulfillment === "courier"
-                  ? "Доставка"
-                  : "Самовывоз"}
-                {draft.fields.date && ` · ${shortDate(draft.fields.date)}`}{" "}
-                {draft.fields.window.start &&
-                  `· ${draft.fields.window.start}–${draft.fields.window.end}`}
-              </p>
-              <p>{draft.fields.recipient_name || "Получатель ещё не указан"}</p>
-              <div className="draft-total">
-                <span>Итого</span>
-                <strong>{price(draft.total)}</strong>
-              </div>
-            </div>
-            {draft.missing.length > 0 && (
-              <p className="draft-missing">
-                Уточнить: {draft.missing.join(", ").toLowerCase()}
-              </p>
-            )}
-            <button
-              className="btn primary"
-              disabled={!canEdit || busy}
-              onClick={() => setEditing(draft)}
-            >
-              <Pencil size={15} />
-              Открыть черновик
-            </button>
-            <button
-              className="btn"
-              disabled={busy}
-              onClick={() => void abandon()}
-            >
-              Отложить черновик
-            </button>
-          </>
-        ) : draft?.status === "converted" ? (
-          <>
-            <p>Из этого черновика уже создан заказ.</p>
-            {draft.order_id && (
-              <button
-                className="btn"
-                onClick={() => openOrder(draft.order_id!)}
-              >
-                Открыть созданный заказ
-              </button>
-            )}
-            <button
-              className="btn"
-              disabled={!canEdit || busy}
-              onClick={() => void start()}
-            >
-              Новый черновик
-            </button>
-          </>
-        ) : draft?.status === "abandoned" ? (
-          <>
-            <p>Черновик отложен. Его можно восстановить или начать новый.</p>
-            <button
-              className="btn"
-              disabled={!canEdit || busy}
-              onClick={() => void start(true)}
-            >
-              Восстановить черновик
-            </button>
-            <button
-              className="btn"
-              disabled={!canEdit || busy}
-              onClick={() => void start()}
-            >
-              Новый черновик
-            </button>
-          </>
-        ) : (
-          <>
-            <p>
-              Сохраняйте состав, время и пожелания по ходу переписки. Заказ
-              появится после подтверждения формы.
-            </p>
-            <button
-              className="btn primary"
-              disabled={!canEdit || busy || source.loading || !!source.error}
-              onClick={() => void start()}
-            >
-              <Plus size={16} />
-              Создать черновик
-            </button>
-          </>
-        )}
-        {!canEdit && (
-          <p>
-            Откройте диалог и выберите клиента, чтобы работать с черновиком.
-          </p>
-        )}
-      </section>
-      {editing && (
-        <DraftEditor
-          key={editing.id}
-          draft={editing}
-          latest={draft || null}
-          business={business}
-          path={path}
-          cacheKey={`tapme-order-draft:${userId}:${business.id}:${chatId}`}
-          close={() => {
-            setEditing(null);
-            setRevision((v) => v + 1);
-          }}
-          saved={() => {
-            setRevision((v) => v + 1);
-            changed();
-          }}
-          created={(order) => {
-            setEditing(null);
-            setRevision((v) => v + 1);
-            changed();
-            openOrder(order.id);
-          }}
-        />
+    <section
+      className="chat-profile-card order-draft-card"
+      aria-label="Черновик заказа в чате"
+    >
+      <h3>
+        <ClipboardList size={18} />
+        Черновик заказа
+      </h3>
+      <span className="draft-caption">
+        {draft?.extraction?.mode === "demo"
+          ? "Демонстрационный разбор · без ИИ"
+          : draft?.extraction?.mode === "mistral"
+            ? "Автозаполнение из чата · проверяет менеджер"
+            : "Заполняет менеджер"}
+      </span>
+      {(error || loadError) && <Notice>{error || loadError}</Notice>}
+      {loadError && (
+        <button className="btn" onClick={() => reload()}>
+          Повторить загрузку черновика
+        </button>
       )}
-    </>
+      {draft?.status === "active" ? (
+        <>
+          <div className="draft-summary">
+            {draft.lines.map((line, i) => (
+              <div key={i}>
+                <span>
+                  {line.name} × {line.quantity}
+                </span>
+                <b>{price(line.total)}</b>
+              </div>
+            ))}
+            {!draft.lines.length && (
+              <p>Добавьте букет из прайса или укажите бюджет.</p>
+            )}
+            <p>
+              {draft.fields.fulfillment === "courier"
+                ? "Доставка"
+                : "Самовывоз"}
+              {draft.fields.date && ` · ${shortDate(draft.fields.date)}`}{" "}
+              {draft.fields.window.start &&
+                `· ${draft.fields.window.start}–${draft.fields.window.end}`}
+            </p>
+            <p>{draft.fields.recipient_name || "Получатель ещё не указан"}</p>
+            <div className="draft-total">
+              <span>Итого</span>
+              <strong>{price(draft.total)}</strong>
+            </div>
+          </div>
+          {draft.missing.length > 0 && (
+            <p className="draft-missing">
+              Уточнить: {draft.missing.join(", ").toLowerCase()}
+            </p>
+          )}
+          <button
+            className="btn primary"
+            disabled={!canEdit || busy}
+            onClick={editDraft}
+          >
+            <Pencil size={15} />
+            Открыть черновик
+          </button>
+          <button
+            className="btn"
+            disabled={busy}
+            onClick={() => void abandon()}
+          >
+            Отложить черновик
+          </button>
+        </>
+      ) : draft?.status === "converted" ? (
+        <>
+          <p>Из этого черновика уже создан заказ.</p>
+          {draft.order_id && (
+            <button className="btn" onClick={() => openOrder(draft.order_id!)}>
+              Открыть созданный заказ
+            </button>
+          )}
+          <button
+            className="btn"
+            disabled={!canEdit || busy}
+            onClick={() => void start()}
+          >
+            Новый черновик
+          </button>
+        </>
+      ) : draft?.status === "abandoned" ? (
+        <>
+          <p>Черновик отложен. Его можно восстановить или начать новый.</p>
+          <button
+            className="btn"
+            disabled={!canEdit || busy}
+            onClick={() => void start(true)}
+          >
+            Восстановить черновик
+          </button>
+          <button
+            className="btn"
+            disabled={!canEdit || busy}
+            onClick={() => void start()}
+          >
+            Новый черновик
+          </button>
+        </>
+      ) : (
+        <>
+          <p>
+            Сохраняйте состав, время и пожелания по ходу переписки. Заказ
+            появится после подтверждения формы.
+          </p>
+          <button
+            className="btn primary"
+            disabled={!ready}
+            onClick={() => void start()}
+          >
+            <Plus size={16} />
+            Создать черновик
+          </button>
+        </>
+      )}
+      {!canEdit && (
+        <p>Откройте диалог и выберите клиента, чтобы работать с черновиком.</p>
+      )}
+    </section>
   );
 }
 
@@ -338,6 +393,21 @@ function DraftEditor({
   });
   const [fields, setFields] = useState<Fields>(initial.fields);
   const [version, setVersion] = useState(initial.version);
+  const [savedTotal, setSavedTotal] = useState(draft.total);
+  const [inline, setInline] = useState(
+    () => window.matchMedia("(min-width: 1100px)").matches,
+  );
+  const inlineClose = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1100px)");
+    const sync = () => setInline(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+  useEffect(() => {
+    if (inline) inlineClose.current?.focus({ preventScroll: true });
+  }, [inline]);
   const [dirty, setDirty] = useState(initial.fields !== draft.fields);
   const [error, setError] = useState(""),
     [notice, setNotice] = useState("");
@@ -380,6 +450,7 @@ function DraftEditor({
       );
       return;
     }
+    setSavedTotal(latest.total);
     setFields(latest.fields);
     setVersion(latest.version);
     setFieldMeta(latest.field_meta || {});
@@ -469,6 +540,7 @@ function DraftEditor({
       }),
     });
     const result = response.draft!;
+    setSavedTotal(result.total);
     setVersion(result.version);
     setFields(result.fields);
     setFieldMeta(result.field_meta || {});
@@ -529,6 +601,7 @@ function DraftEditor({
         close();
         return;
       }
+      setSavedTotal(response.draft.total);
       setFields(response.draft.fields);
       setVersion(response.draft.version);
       setFieldMeta(response.draft.field_meta || {});
@@ -561,21 +634,19 @@ function DraftEditor({
     (key) => fieldMeta[key].needs_check,
   );
   const extracting = ["pending", "running"].includes(extraction?.status || "");
-  return (
-    <Modal title="Черновик заказа" close={close} busy={busy}>
-      <form
-        className="draft-editor"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void act(false);
-        }}
-      >
-        <p className="draft-intro">
-          Заполняйте по ходу переписки. Сохранённый черновик доступен менеджерам
-          магазина и пока не является заказом.
-        </p>
+  const canExtract =
+    extraction?.mode === "demo" || extraction?.mode === "mistral";
+  const form = (
+    <form
+      className="draft-editor"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void act(false);
+      }}
+    >
+      <div className="draft-scroll">
         <section
-          className="draft-extraction"
+          className={`draft-extraction${canExtract ? "" : " is-unavailable"}`}
           aria-label="Автозаполнение черновика"
         >
           <div>
@@ -586,22 +657,19 @@ function DraftEditor({
             {extraction?.mode === "demo"
               ? "Демонстрационный режим без ИИ: понимает название из прайса, даты, интервал и строки «Адрес:», «Получатель:», «Телефон получателя:», «Открытка:»."
               : extraction?.mode === "mistral"
-                ? "Ministral предложит данные из сообщений. Кнопка «Обновить из чата» заново заполнит пустые поля. Введённые вручную значения сохранятся; результат нужно проверить."
-                : "Для разбора сообщений нужно подключить Mistral API. Пока заполняйте черновик вручную."}
+                ? "Заполнит пустые поля по сообщениям. Проверьте результат перед созданием заказа."
+                : "Автозаполнение недоступно. Заполните черновик вручную."}
           </p>
-          <button
-            type="button"
-            className="btn"
-            disabled={
-              busy ||
-              conflict ||
-              extracting ||
-              !["demo", "mistral"].includes(extraction?.mode || "")
-            }
-            onClick={() => void extract()}
-          >
-            {extracting ? "Разбираем сообщения…" : "Обновить из чата"}
-          </button>
+          {canExtract && (
+            <button
+              type="button"
+              className="btn"
+              disabled={busy || conflict || extracting}
+              onClick={() => void extract()}
+            >
+              {extracting ? "Разбираем сообщения…" : "Обновить из чата"}
+            </button>
+          )}
           {extraction?.status === "failed" && (
             <p role="alert">
               Автозаполнение временно недоступно. Черновик сохранён, можно
@@ -668,22 +736,6 @@ function DraftEditor({
             </div>
           )}
         </section>
-        {error && <Notice>{error}</Notice>}
-        {conflict && (
-          <button
-            type="button"
-            className="btn"
-            disabled={busy}
-            onClick={() => void refresh()}
-          >
-            Загрузить актуальный черновик
-          </button>
-        )}
-        {notice && (
-          <p role="status" className="draft-saved">
-            {notice}
-          </p>
-        )}
         <fieldset disabled={busy || conflict}>
           <legend>Состав заказа</legend>
           <div className="draft-picker">
@@ -790,10 +842,7 @@ function DraftEditor({
               </button>
             </details>
           )}
-          <p className="draft-caption">
-            Цены из прайса и доставка пересчитываются сервером при сохранении и
-            создании заказа.
-          </p>
+          <p className="draft-caption">Сумма уточняется при сохранении.</p>
         </fieldset>
         <fieldset disabled={busy || conflict}>
           <legend>Получение</legend>
@@ -815,6 +864,24 @@ function DraftEditor({
               </select>
             </label>
           )}
+          <div className="form-grid">
+            <label>
+              Имя получателя
+              <input
+                maxLength={150}
+                value={fields.recipient_name}
+                onChange={(e) => edit("recipient_name", e.target.value)}
+              />
+            </label>
+            <label>
+              Телефон получателя
+              <input
+                type="tel"
+                value={fields.recipient_phone || "+996"}
+                onChange={(e) => edit("recipient_phone", e.target.value)}
+              />
+            </label>
+          </div>
           <div className="form-grid">
             <label>
               Способ получения
@@ -888,24 +955,6 @@ function DraftEditor({
               </label>
             </div>
           )}
-          <div className="form-grid">
-            <label>
-              Имя получателя
-              <input
-                maxLength={150}
-                value={fields.recipient_name}
-                onChange={(e) => edit("recipient_name", e.target.value)}
-              />
-            </label>
-            <label>
-              Телефон получателя
-              <input
-                type="tel"
-                value={fields.recipient_phone || "+996"}
-                onChange={(e) => edit("recipient_phone", e.target.value)}
-              />
-            </label>
-          </div>
         </fieldset>
         <fieldset disabled={busy || conflict}>
           <legend>Пожелания</legend>
@@ -981,12 +1030,33 @@ function DraftEditor({
             </p>
           )}
         </fieldset>
+      </div>
+      <div className="draft-footer">
+        {error || notice || conflict ? (
+          <div className="draft-feedback">
+            {error && <Notice>{error}</Notice>}
+            {conflict && (
+              <button
+                type="button"
+                className="btn"
+                disabled={busy}
+                onClick={() => void refresh()}
+              >
+                Загрузить актуальный черновик
+              </button>
+            )}
+            {notice && (
+              <p role="status" className="draft-saved">
+                {notice}
+              </p>
+            )}
+          </div>
+        ) : null}
         <div className="draft-actions">
-          <span>
-            {dirty
-              ? "Есть несохранённые правки"
-              : `Сохранённая версия ${version}`}
-          </span>
+          <div className="draft-footer-summary">
+            <span>{dirty ? "Сохранённая сумма" : "Итого"}</span>
+            <strong>{price(savedTotal)}</strong>
+          </div>
           <button className="btn" disabled={busy || conflict}>
             Сохранить черновик
           </button>
@@ -1009,7 +1079,44 @@ function DraftEditor({
                 : "Создать заказ"}
           </button>
         </div>
-      </form>
+      </div>
+    </form>
+  );
+  return inline ? (
+    <dialog
+      open
+      className="draft-editor-panel"
+      aria-label="Черновик заказа"
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && !e.defaultPrevented && !busy) {
+          e.preventDefault();
+          close();
+        }
+      }}
+    >
+      <header className="modal-header">
+        <h2>Черновик заказа</h2>
+        <button
+          ref={inlineClose}
+          type="button"
+          className="icon-button"
+          aria-label="Закрыть"
+          disabled={busy}
+          onClick={close}
+        >
+          <X size={20} />
+        </button>
+      </header>
+      {form}
+    </dialog>
+  ) : (
+    <Modal
+      title="Черновик заказа"
+      close={close}
+      busy={busy}
+      className="draft-editor-modal"
+    >
+      {form}
     </Modal>
   );
 }

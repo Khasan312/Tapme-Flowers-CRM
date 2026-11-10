@@ -9,7 +9,7 @@
         X-Frame-Options DENY
         Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
     }
-    @api path /api/* /health/ /admin/*
+    @api path /api/* /health/
     handle @api {
         reverse_proxy {$API_UPSTREAM} {
             # Preserve HTTPS across the second, private proxy hop.

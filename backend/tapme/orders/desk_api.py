@@ -32,6 +32,7 @@ class DeskQuery(ListQuery):
             "",
             "courier",
             "build",
+            "late",
             "delivery",
             "pickup",
             "new",
@@ -46,10 +47,19 @@ class DeskQuery(ListQuery):
     )
 
 
+class WindowLoadOutput(serializers.Serializer):
+    point_id = serializers.UUIDField()
+    window_start = serializers.TimeField(format="%H:%M")
+    window_end = serializers.TimeField(format="%H:%M")
+    occupied = serializers.IntegerField()
+
+
 class DeskOutput(serializers.Serializer):
     count = serializers.IntegerField()
     results = OrderOutput(many=True)
     summary = serializers.DictField()
+    urgent_counts = serializers.DictField(child=serializers.IntegerField())
+    window_load = WindowLoadOutput(many=True)
     scopes = serializers.DictField(child=serializers.IntegerField())
     tasks = serializers.ListField(child=serializers.DictField())
     calendar = serializers.ListField(child=serializers.DictField())

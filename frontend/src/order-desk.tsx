@@ -24,6 +24,7 @@ type Desk = {
     late: number;
     total: string;
   };
+  urgent_counts?: Record<"build" | "late", number>;
   scopes: Record<string, number>;
   tasks: {
     id: string;
@@ -53,6 +54,7 @@ const modes: Record<string, string> = {
 const statuses: Record<string, string> = {
   "": "Все",
   build: "Собрать",
+  late: "Опаздывают",
   delivery: "Везём",
   pickup: "Самовывоз",
   done: "Вручено",
@@ -160,6 +162,7 @@ export function OrderDesk({
     orders = source?.results || [];
   const taskPanelOpen = tasksOpen || section === "tasks";
   const totals = source?.summary;
+  const urgent = source?.urgent_counts || totals;
   const team = (id: string | null) =>
     staff.data?.find((s) => s.id === id)?.name || "";
   async function openById(id: string) {
@@ -270,50 +273,70 @@ export function OrderDesk({
             [totals?.orders, "заказов", ""],
             [totals?.done, "вручено", "ok"],
             [totals?.route, "в пути", ""],
-            [totals?.build, "ждут сборки", "warn"],
-            [totals?.late, "опаздывают", totals?.late ? "crit" : ""],
+            [urgent?.build, "Ждут сборки", "warn", "build"],
+            [urgent?.late, "Опаздывают", urgent?.late ? "crit" : "", "late"],
             [
               totals ? price(totals.total).replace(" сом", "") : undefined,
               "сом",
               "",
             ],
-          ].map(([value, label, tone]) => (
-            <div key={String(label)}>
-              <b className={String(tone)}>{value ?? "—"}</b>
-              {label}
-            </div>
-          ))}
-        </div>
-        <span className="spacer" />
-        <div className="seg" aria-label="Вид заказов">
-          {Object.entries(modes).map(([key, label]) => (
-            <button
-              key={key}
-              className={mode === key ? "is-on" : ""}
-              onClick={() => {
-                setMode(key);
-                if (key === "calendar") chooseScope("all");
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <button
-          className={`btn sm desktop-task-toggle${taskPanelOpen ? "" : " ghost"}`}
-          aria-expanded={taskPanelOpen}
-          onClick={() => {
-            setTasksOpen(!taskPanelOpen);
-            if (section === "tasks") chooseSection("orders");
-          }}
-        >
-          Задачи
-          {Boolean((source?.tasks.length || 0) + (notes.data?.length || 0)) && (
-            <span className="tag crit">
-              {(source?.tasks.length || 0) + (notes.data?.length || 0)}
-            </span>
+          ].map(([value, label, tone, key]) =>
+            key === "build" || key === "late" ? (
+              <button
+                key={key}
+                type="button"
+                className={`order-urgent-filter ${tone || "neutral"}`}
+                aria-pressed={filter === key}
+                onClick={() => {
+                  setFilter(filter === key ? "" : key);
+                  setOffset(0);
+                  if (mode === "calendar") setMode("wall");
+                }}
+              >
+                <b className={String(tone)}>{value ?? "—"}</b>
+                {label}
+              </button>
+            ) : (
+              <div key={String(label)}>
+                <b className={String(tone)}>{value ?? "—"}</b>
+                {label}
+              </div>
+            ),
           )}
-        </button>
+        </div>
+        <div className="order-desk-actions">
+          <div className="seg" aria-label="Вид заказов">
+            {Object.entries(modes).map(([key, label]) => (
+              <button
+                key={key}
+                className={mode === key ? "is-on" : ""}
+                onClick={() => {
+                  setMode(key);
+                  if (key === "calendar") chooseScope("all");
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <button
+            className={`btn sm desktop-task-toggle${taskPanelOpen ? "" : " ghost"}`}
+            aria-expanded={taskPanelOpen}
+            onClick={() => {
+              setTasksOpen(!taskPanelOpen);
+              if (section === "tasks") chooseSection("orders");
+            }}
+          >
+            Задачи
+            {Boolean(
+              (source?.tasks.length || 0) + (notes.data?.length || 0),
+            ) && (
+              <span className="tag crit">
+                {(source?.tasks.length || 0) + (notes.data?.length || 0)}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
       <button
         className="btn desk-filter-toggle"

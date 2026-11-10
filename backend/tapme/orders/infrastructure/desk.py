@@ -56,26 +56,30 @@ class DjangoOrderDesk:
         if search:
             # Reuse the business-scoped search predicate, with no client-side truncation.
             query = query.filter(id__in=DjangoOrderRepository().search_ids(business_id, search))
+        build = Q(status__in=["new", "work"])
+        late = ~Q(status__in=["pending", "done", "cancelled"]) & (
+            Q(delivery_date__lt=today)
+            | Q(delivery_date=today, window_end__lt=local.time().replace(tzinfo=None))
+        )
+        unfiltered = query
         if status:
             if status == "courier":
                 query = query.filter(fulfillment="courier")
             elif status == "build":
-                query = query.filter(status__in=["new", "work"])
+                query = query.filter(build)
+            elif status == "late":
+                query = query.filter(late)
             elif status == "delivery":
                 query = query.filter(status__in=["ready", "route"])
             elif status == "pickup":
                 query = query.filter(fulfillment="pickup")
             else:
                 query = query.filter(status=status)
-        late = ~Q(status__in=["pending", "done", "cancelled"]) & (
-            Q(delivery_date__lt=today)
-            | Q(delivery_date=today, window_end__lt=local.time().replace(tzinfo=None))
-        )
         summary = {
             "orders": query.count(),
             "done": query.filter(status="done").count(),
             "route": query.filter(status="route").count(),
-            "build": query.filter(status__in=["new", "work"]).count(),
+            "build": query.filter(build).count(),
             "late": query.filter(late).count(),
             "total": str(
                 query.exclude(status__in=["pending", "cancelled"]).aggregate(value=Sum("total"))[
@@ -84,6 +88,21 @@ class DjangoOrderDesk:
                 or Decimal("0.00")
             ),
         }
+        urgent_counts = (
+            unfiltered.aggregate(build=Count("id", filter=build), late=Count("id", filter=late))
+            if status and status != "courier"
+            else {key: summary[key] for key in ("build", "late")}
+        )
+        window_load = []
+        if status == "courier" and scope == "date" and day:
+            window_load = list(
+                all_orders.filter(delivery_date=day)
+                .exclude(status="cancelled")
+                .exclude(fulfillment="pickup", point__pickup_unlimited=True)
+                .values("point_id", "window_start", "window_end")
+                .annotate(occupied=Count("id"))
+                .order_by("point_id", "window_start", "window_end")
+            )
         tasks = []
         for order in (
             all_orders.exclude(status__in=["done", "cancelled"])
@@ -146,6 +165,8 @@ class DjangoOrderDesk:
                 ).prefetch_related("lines", "payments")[offset : offset + limit]
             ),
             summary=summary,
+            urgent_counts=urgent_counts,
+            window_load=window_load,
             scopes=counts,
             tasks=tasks,
             calendar=calendar,

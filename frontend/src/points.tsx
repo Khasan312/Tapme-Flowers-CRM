@@ -4,6 +4,7 @@ import { businessPath, errorText, request } from "./api";
 import { useRemote } from "./hooks";
 import { Notice, SettingsConflict } from "./components";
 import { PhoneInput } from "./phone-input";
+import { OpeningHours } from "./opening-hours";
 import type { Business, Point, ShopSettings, Staff } from "./types";
 import "./points.css";
 
@@ -246,17 +247,7 @@ export function PointsSettings({
                   />
                 </label>
               </div>
-              <label>
-                Адрес точки
-                <input
-                  maxLength={500}
-                  value={draft.address}
-                  onChange={(e) =>
-                    setDraft({ ...draft, address: e.target.value })
-                  }
-                />
-              </label>
-              <div className="point-fields">
+              <div className="point-fields point-address-fields">
                 <label>
                   Город
                   <input
@@ -268,15 +259,24 @@ export function PointsSettings({
                   />
                 </label>
                 <label>
-                  Часы работы
+                  Адрес точки
                   <input
-                    value={draft.opening_hours}
-                    maxLength={150}
+                    maxLength={500}
+                    value={draft.address}
                     onChange={(e) =>
-                      setDraft({ ...draft, opening_hours: e.target.value })
+                      setDraft({ ...draft, address: e.target.value })
                     }
                   />
                 </label>
+              </div>
+              <OpeningHours
+                key={selected}
+                value={draft.opening_hours}
+                onChange={(opening_hours) =>
+                  setDraft({ ...draft, opening_hours })
+                }
+              />
+              <div className="point-fields">
                 <label>
                   Телефон точки
                   <PhoneInput
