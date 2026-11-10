@@ -322,8 +322,20 @@ export function OrderForm({
   const [windowEnd, setWindowEnd] = useState(
     initial?.window_end.slice(0, 5) || "12:00",
   );
+  const points = useRemote<import("./types").Point[]>(
+    businessPath(business.id, "points"),
+  );
+  const [pointId, setPointId] = useState(
+    initial?.point_id ||
+      (business.point_id === "all" ? "" : business.point_id) ||
+      "",
+  );
+  useEffect(() => {
+    const active = points.data?.filter((p) => p.active);
+    if (!pointId && active?.length === 1) setPointId(active[0].id);
+  }, [points.data, pointId]);
   const settings = useRemote<ShopSettings>(
-    businessPath(business.id, "settings"),
+    pointId ? businessPath(business.id, `points/${pointId}`) : null,
   );
   const profile = useRemote<CustomerProfile>(
     customer ? businessPath(business.id, `customers/${customer.id}`) : null,
@@ -446,6 +458,7 @@ export function OrderForm({
         key: newUuid(),
         body: JSON.stringify({
           ...(initial ? { version: initial.version } : {}),
+          point_id: pointId || null,
           customer_id: customer.id,
           items: lines.map((line) => ({
             product_id: line.product.id,
@@ -511,6 +524,27 @@ export function OrderForm({
             <Notice>{settings.error || profile.error}</Notice>
           )}
           <fieldset disabled={busy || uncertain} className="stack">
+            {points.data && points.data.length > 1 && (
+              <label>
+                Точка
+                <select
+                  aria-label="Точка заказа"
+                  required
+                  disabled={Boolean(initial)}
+                  value={pointId}
+                  onChange={(e) => setPointId(e.target.value)}
+                >
+                  <option value="">Выберите точку</option>
+                  {points.data
+                    .filter((p) => p.active || p.id === initial?.point_id)
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.short_name} · {p.address}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            )}
             <div>
               <h3>Клиент</h3>
               <p className="muted">

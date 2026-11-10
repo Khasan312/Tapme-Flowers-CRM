@@ -19,7 +19,7 @@ test.afterEach(async ({ page }) => {
     });
 });
 async function login(page: Page) {
-  await page.goto("/");
+  await page.goto("/login");
   await submitLogin(page, account.username, account.password);
   await expect(page.locator(".app-shell")).toBeVisible();
 }

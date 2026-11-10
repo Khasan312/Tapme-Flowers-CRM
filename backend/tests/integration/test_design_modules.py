@@ -49,6 +49,47 @@ def test_desk_search_paid_scope_and_role_boundary(setup, base, payload):
         assert c.get(url).status_code == 403
 
 
+def test_desk_urgent_counts_and_window_load_apply_before_pagination(setup, base, payload):
+    client = setup["client"]
+    day = "2000-01-01"
+    other_day = "2099-12-31"
+    shop = Shop.objects.get(business=setup["business"])
+    shop.pickup_unlimited = True
+    shop.save(update_fields=["pickup_unlimited"])
+    for date, status, method in (
+        (day, "new", "courier"),
+        (day, "ready", "courier"),
+        (day, "cancelled", "courier"),
+        (day, "new", "pickup"),
+        (other_day, "new", "courier"),
+    ):
+        order = create(setup, base, {**payload, "delivery_date": date, "fulfillment": method})
+        assert order.status_code == 201, order.data
+        OrderRecord.objects.filter(id=order.data["id"]).update(status=status)
+
+    url = base + "/orders/desk/"
+    late = client.get(url, {"scope": "all", "status": "late", "limit": 1})
+    assert late.status_code == 200, late.data
+    assert late.data["count"] == 3
+    assert len(late.data["results"]) == 1
+    assert late.data["urgent_counts"] == {"build": 3, "late": 3}
+    build = client.get(url, {"scope": "all", "status": "build"}).data
+    assert {row["status"] for row in build["results"]} == {"new"}
+    assert build["urgent_counts"] == late.data["urgent_counts"]
+
+    delivery = client.get(url, {"scope": "date", "day": day, "status": "courier", "limit": 1})
+    assert delivery.status_code == 200, delivery.data
+    assert len(delivery.data["results"]) == 1
+    assert delivery.data["window_load"] == [
+        {
+            "point_id": str(shop.id),
+            "window_start": "10:00",
+            "window_end": "12:00",
+            "occupied": 2,
+        }
+    ]
+
+
 def test_manual_tasks_are_scoped_and_complete_once(setup, base):
     c = setup["client"]
     task = c.post(base + "/office-tasks/", {"content": "Позвонить поставщику"}, format="json")

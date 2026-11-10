@@ -28,6 +28,7 @@
 | [10-roadmap.md](10-roadmap.md) | Фазы, задачи с зависимостями, критерии выхода, план пилота | `T-`, `S-` |
 | [11-open-questions-and-risks.md](11-open-questions-and-risks.md) | Открытые вопросы с ответственными, риски и меры | `Q-`, `R-` |
 | [12-chats-monday.md](12-chats-monday.md) | **Пилот:** чаты WhatsApp к понедельнику 19.10 — рамки, ручное подключение, план на выходные, проверка | `CM-`, `M-` |
+| [13-auto-order-and-bot.md](13-auto-order-and-bot.md) | Автозаказ из переписки (шаг 1) и бот-приёмщик: ИИ понимает, бот спрашивает готовыми текстами (шаг 2) | `FR-AO`, `FR-AB`, `AO-`, `AB-` |
 | [../runbooks/meta-whatsapp-manual-connect.md](../runbooks/meta-whatsapp-manual-connect.md) | Инструкция подключения номера у Meta (для встречи) | — |
 
 Макеты (HTML + PNG, генераторы в Python). Для переноса дизайна в код используйте

@@ -276,8 +276,13 @@ def test_missed_reminder_recovered_once_with_accurate_message(setup):
             shop=setup["business"].name,
         ),
     )
-    assert repo.prepare(settings.business_id, row.id, now)["message"] == expected
-    listed = repo.list(settings.business_id, "wait", 50, 0, now)["results"][0]
+    assert (
+        repo.prepare(Scope(setup["owner"].id, settings.business_id), row.id, now)["message"]
+        == expected
+    )
+    listed = repo.list(Scope(setup["owner"].id, settings.business_id), "wait", 50, 0, now)[
+        "results"
+    ][0]
     assert listed["preview"] == expected and listed["recovered"]
     scope = Scope(setup["owner"].id, settings.business_id)
     repo.act(scope, row.id, "sent", now)
@@ -343,7 +348,7 @@ def test_disabled_reminders_and_consent_do_not_send_catchup(setup):
     assert repo.generate(settings.business_id, now) == 1
     row = ReminderRecord.objects.get()
     with pytest.raises(InvalidInput):
-        repo.prepare(settings.business_id, row.id, now.replace(hour=17))
+        repo.prepare(Scope(setup["owner"].id, settings.business_id), row.id, now.replace(hour=17))
     repo.act(Scope(setup["owner"].id, settings.business_id), row.id, "skipped", now)
     assert repo.generate(settings.business_id, now + timedelta(days=3)) == 0
 

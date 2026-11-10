@@ -18,6 +18,14 @@ def create(setup, base, payload, key=None, client=None):
     )
 
 
+def test_public_api_rejects_oversized_accept_before_negotiation():
+    client = APIClient()
+    path = "/api/v1/auth/csrf/"
+    assert client.get(path, HTTP_ACCEPT="application/json").status_code == 200
+    oversized = 'text/plain; test="' + ";" * 7800 + '"'
+    assert client.get(path, HTTP_ACCEPT=oversized).status_code == 431
+
+
 def test_real_login_csrf_logout(setup, base):
     client = APIClient(enforce_csrf_checks=True)
     creds = {"username": "owner", "password": "test-owner-password"}
@@ -45,6 +53,31 @@ def test_real_login_csrf_logout(setup, base):
     )
     assert client.post("/api/v1/auth/logout/", HTTP_X_CSRFTOKEN=csrf).status_code == 204
     assert client.get(base + "/orders/").status_code == 403
+
+
+@pytest.mark.parametrize("trust_proxy", [False, True])
+def test_login_rate_limit_uses_only_trusted_client_address(setup, settings, trust_proxy):
+    settings.TRUST_PROXY = trust_proxy
+    client = APIClient(enforce_csrf_checks=True)
+    csrf = client.get("/api/v1/auth/csrf/").json()["csrf_token"]
+    path = "/api/v1/auth/login/"
+    credentials = {"username": "owner", "password": "incorrect"}
+
+    def attempt(ip, forwarded):
+        return client.post(
+            path,
+            credentials,
+            format="json",
+            REMOTE_ADDR="192.0.2.1",
+            HTTP_X_TAPME_CLIENT_IP=ip,
+            HTTP_X_FORWARDED_FOR=forwarded,
+            HTTP_X_CSRFTOKEN=csrf,
+        ).status_code
+
+    for number in range(10):
+        assert attempt("198.51.100.1", f"203.0.113.{number}") == 400
+    assert attempt("198.51.100.1", "203.0.113.100") == 429
+    assert attempt("198.51.100.2", "203.0.113.100") == (400 if trust_proxy else 429)
 
 
 @pytest.mark.parametrize("resource", ["orders", "customers", "products"])

@@ -399,3 +399,72 @@ def test_concurrent_conversion_only_one_order(setup, draft_setup):
     with ThreadPoolExecutor(max_workers=2) as pool:
         result = list(pool.map(lambda _: submit(), range(2)))
     assert result[0] == result[1] and OrderRecord.objects.count() == 1
+
+
+def test_draft_keeps_explicit_point_and_its_delivery_price(setup, draft_setup, base):
+    client, url, _ = draft_setup
+    second = client.post(
+        base + "/points/",
+        {
+            "name": "Чуй",
+            "short_name": "Чуй",
+            "windows": [{"start": "10:00", "end": "12:00", "capacity": 3, "price": "750.00"}],
+        },
+        format="json",
+    ).data
+    draft = save_complete(setup, draft_setup)
+    assert "Выберите доступную точку заказа" in draft["missing"]
+    updated = client.put(
+        url,
+        {
+            "draft_id": draft["id"],
+            "version": draft["version"],
+            "fields": {**draft["fields"], "point_id": second["id"]},
+        },
+        format="json",
+    )
+    assert updated.status_code == 200
+    draft = updated.data["draft"]
+    assert draft["delivery_fee"] == "750.00"
+    # Switching the global view does not move a previously saved draft.
+    other = client.get(url, HTTP_X_TAPME_POINT=str(setup["business"].shop.id)).data["draft"]
+    assert other["fields"]["point_id"] == second["id"]
+    order = convert(draft_setup, draft)
+    assert order["point_id"] == second["id"]
+    assert order["delivery_fee"] == "750.00"
+
+
+def test_draft_authorization_uses_its_stored_point(setup, draft_setup):
+    client, url, _ = draft_setup
+    business = setup["business"]
+    first = business.shop
+    second = Shop.objects.create(business=business, name="Филиал Б", is_primary=False)
+    membership = Membership.objects.get(business=business, user=setup["manager"])
+    membership.points.set([first])
+    draft = client.post(url + f"?point={second.id}", {}, format="json").data["draft"]
+    ref = {"draft_id": draft["id"], "version": draft["version"]}
+    fields = {**draft["fields"], "point_id": "", "address": "Тестовый адрес"}
+    saved = client.put(url, {**ref, "fields": fields}, format="json")
+    assert saved.status_code == 200
+    assert saved.data["draft"]["fields"]["point_id"] == str(second.id)
+    ref["version"] = saved.data["draft"]["version"]
+
+    client.force_login(setup["manager"])
+    assert client.get(url, {"point": str(first.id)}).status_code == 404
+    assert client.post(url, {}, format="json").status_code == 404
+    assert (
+        client.put(
+            url,
+            {**ref, "fields": {**fields, "point_id": str(first.id)}},
+            format="json",
+        ).status_code
+        == 404
+    )
+    assert client.delete(url, ref, format="json").status_code == 404
+    for action in ("restore", "convert", "extract"):
+        assert client.post(url + action + "/", ref, format="json").status_code == 404
+
+    membership.points.set([second])
+    draft = client.get(url).data["draft"]
+    assert draft["status"] == "active" and draft["fields"]["address"] == "Тестовый адрес"
+    assert client.delete(url, ref, format="json").status_code == 200

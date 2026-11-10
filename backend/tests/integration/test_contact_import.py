@@ -1,5 +1,6 @@
 import json
 from io import BytesIO
+from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -96,6 +97,34 @@ def test_xlsx_selected_rows_and_legacy_import_without_selection(setup, base):
     assert response.json()["created"] == 1
     # Existing clients can still import all validated rows without selected_rows.
     assert upload(setup, base, content.getvalue(), "contacts.xlsx", True).json()["created"] == 1
+
+
+@pytest.mark.parametrize("coordinates", ["A1000000", "XFD3"])
+@pytest.mark.parametrize("trustworthy_dimensions", [False, True])
+def test_xlsx_import_rejects_sparse_rows_and_columns(
+    setup, base, coordinates, trustworthy_dimensions
+):
+    workbook = Workbook()
+    workbook.active.append(["name", "phone"])
+    workbook.active.append(["Контакт", "555111222"])
+    workbook.active[coordinates] = "x"
+    source = BytesIO()
+    workbook.save(source)
+    workbook.close()
+    if not trustworthy_dimensions:
+        patched = BytesIO()
+        with ZipFile(source) as original, ZipFile(patched, "w", ZIP_DEFLATED) as output:
+            for name in original.namelist():
+                data = original.read(name)
+                if name == "xl/worksheets/sheet1.xml":
+                    data = data.replace(
+                        f'<dimension ref="A1:{coordinates}"'.encode(), b'<dimension ref="A1:B2"'
+                    )
+                output.writestr(name, data)
+        source = patched
+    response = upload(setup, base, source.getvalue(), "contacts.xlsx", True)
+    assert response.status_code == 400
+    assert not CustomerRecord.objects.filter(phone="+996555111222").exists()
 
 
 def test_vcf_permissions_and_business_isolation(setup, base):

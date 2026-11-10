@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 
 from config import composition
 from config.api import StrictSerializer, validated
-from tapme.businesses.application.contracts import Scope
+from tapme.businesses.point_scope import request_scope, scoped_query
 
 
 class OverviewQuery(StrictSerializer):
@@ -30,6 +30,6 @@ class OverviewOutput(serializers.Serializer):
 class OverviewView(APIView):
     @extend_schema(parameters=[OverviewQuery], responses=OverviewOutput)
     def get(self, request, business_id):
-        day = validated(OverviewQuery, request.query_params).get("day")
-        result = composition.overview().get(Scope(request.user.id, business_id), day)
+        day = validated(OverviewQuery, scoped_query(request)).get("day")
+        result = composition.overview().get(request_scope(request, business_id), day)
         return Response(OverviewOutput(result).data)

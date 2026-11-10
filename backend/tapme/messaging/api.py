@@ -1,5 +1,4 @@
 import hmac
-import json
 from decimal import Decimal
 
 from django.conf import settings
@@ -21,15 +20,19 @@ from rest_framework.views import APIView
 
 from config import composition
 from config.api import ListQuery, StrictSerializer, validated
-from tapme.businesses.application.contracts import Scope
-from tapme.messaging.infrastructure.processing import receive
+from config.throttling import client_ip
+from tapme.businesses.point_scope import request_scope
+from tapme.messaging.infrastructure.processing import store_webhook, valid_signature
 from tapme.messaging.schemas import (
     ChannelOutput,
+    ChatFolderListOutput,
+    ChatFolderOutput,
     ChatMessageOutput,
     ChatPaymentOutput,
     ConversationDetailOutput,
     ConversationListOutput,
     ConversationOutput,
+    InstagramChannelOutput,
     MessageListOutput,
     OkOutput,
     QuickReplyOutput,
@@ -47,19 +50,25 @@ class ConnectInput(StrictSerializer):
 
 
 class ChatQuery(ListQuery):
+    channel_kind = serializers.ChoiceField(choices=["whatsapp", "instagram"], default="whatsapp")
     search = serializers.CharField(max_length=150, required=False, allow_blank=True)
     category = serializers.ChoiceField(choices=["all", "waiting", "mine", "closed"], default="all")
+    folder_id = serializers.UUIDField(required=False)
 
 
 class MessageQuery(StrictSerializer):
     before = serializers.IntegerField(min_value=0, default=0)
     after = serializers.IntegerField(min_value=0, default=0)
     limit = serializers.IntegerField(min_value=1, max_value=100, default=50)
+    cursor = serializers.RegexField(r"^[a-f0-9]{64}$", allow_blank=True, required=False)
 
 
 class SendInput(StrictSerializer):
     text = serializers.CharField(max_length=4096)
     request_id = serializers.UUIDField()
+    reply_to_id = serializers.IntegerField(
+        min_value=1, max_value=2**63 - 1, required=False, allow_null=True, default=None
+    )
 
 
 class ReadInput(StrictSerializer):
@@ -82,12 +91,15 @@ class AttachmentInput(StrictSerializer):
     file = serializers.FileField()
     text = serializers.CharField(max_length=1024, required=False, default="", allow_blank=True)
     request_id = serializers.UUIDField()
+    reply_to_id = serializers.IntegerField(
+        min_value=1, max_value=2**63 - 1, required=False, allow_null=True, default=None
+    )
 
 
 class ChatAPIView(APIView):
     def run(self, request, business_id, operation, **data):
         return Response(
-            composition.chats().run(operation, Scope(request.user.id, business_id), **data)
+            composition.chats().run(operation, request_scope(request, business_id), **data)
         )
 
 
@@ -110,6 +122,54 @@ class ChannelView(ChatAPIView):
         return self.run(request, business_id, "disconnect")
 
 
+class InstagramConnectInput(StrictSerializer):
+    ig_user_id = serializers.RegexField(r"^[0-9]{5,80}$")
+    token = serializers.CharField(max_length=4096, write_only=True)
+    app_secret = serializers.CharField(max_length=512, write_only=True)
+    version = serializers.IntegerField(min_value=0)
+
+
+class InstagramChannelView(ChatAPIView):
+    @extend_schema(responses=InstagramChannelOutput)
+    def get(self, request, business_id):
+        return self.run(request, business_id, "instagram_channel")
+
+    @extend_schema(
+        operation_id="instagram_connect",
+        request=InstagramConnectInput,
+        responses=InstagramChannelOutput,
+    )
+    def post(self, request, business_id):
+        if not request.is_secure() and request.get_host().split(":")[0] not in {
+            "127.0.0.1",
+            "localhost",
+            "testserver",
+        }:
+            raise InvalidInput("Для передачи токена откройте CRM по HTTPS или через localhost.")
+        return self.run(
+            request,
+            business_id,
+            "instagram_connect",
+            **validated(InstagramConnectInput, request.data),
+        )
+
+    @extend_schema(responses=InstagramChannelOutput)
+    def delete(self, request, business_id):
+        return self.run(request, business_id, "instagram_disconnect")
+
+
+class InstagramActionView(ChatAPIView):
+    @extend_schema(
+        operation_id="instagram_channel_action", request=None, responses=InstagramChannelOutput
+    )
+    def post(self, request, business_id, action):
+        if action not in {"check", "subscribe"}:
+            from tapme.shared.domain import NotFound
+
+            raise NotFound("Действие не найдено.")
+        return self.run(request, business_id, "instagram_action", action=action)
+
+
 class ChatListView(ChatAPIView):
     def get(self, request, business_id):
         return self.run(
@@ -127,6 +187,77 @@ class ChatDetailView(ChatAPIView):
     def patch(self, request, business_id, chat_id):
         return self.run(
             request, business_id, "update", chat_id=chat_id, **validated(UpdateInput, request.data)
+        )
+
+
+class FolderCreateInput(StrictSerializer):
+    name = serializers.CharField(max_length=40)
+
+
+class FolderVersionInput(StrictSerializer):
+    version = serializers.IntegerField(min_value=1)
+
+
+class FolderUpdateInput(FolderCreateInput, FolderVersionInput):
+    pass
+
+
+class ChatFoldersInput(StrictSerializer):
+    version = serializers.IntegerField(min_value=1)
+    folder_ids = serializers.ListField(child=serializers.UUIDField(), max_length=30)
+
+
+class FolderQuery(StrictSerializer):
+    channel_kind = serializers.ChoiceField(choices=["whatsapp", "instagram"], default="whatsapp")
+
+
+class ChatFolderListView(ChatAPIView):
+    @extend_schema(
+        operation_id="chat_folder_list", parameters=[FolderQuery], responses=ChatFolderListOutput
+    )
+    def get(self, request, business_id):
+        return self.run(
+            request, business_id, "folders", **validated(FolderQuery, request.query_params)
+        )
+
+    @extend_schema(request=FolderCreateInput, responses=ChatFolderOutput)
+    def post(self, request, business_id):
+        return self.run(
+            request, business_id, "create_folder", **validated(FolderCreateInput, request.data)
+        )
+
+
+class ChatFolderDetailView(ChatAPIView):
+    @extend_schema(request=FolderUpdateInput, responses=OkOutput)
+    def patch(self, request, business_id, folder_id):
+        return self.run(
+            request,
+            business_id,
+            "rename_folder",
+            folder_id=folder_id,
+            **validated(FolderUpdateInput, request.data),
+        )
+
+    @extend_schema(request=FolderVersionInput, responses=OkOutput)
+    def delete(self, request, business_id, folder_id):
+        return self.run(
+            request,
+            business_id,
+            "delete_folder",
+            folder_id=folder_id,
+            **validated(FolderVersionInput, request.data),
+        )
+
+
+class ChatFoldersView(ChatAPIView):
+    @extend_schema(request=ChatFoldersInput, responses=ConversationDetailOutput)
+    def put(self, request, business_id, chat_id):
+        return self.run(
+            request,
+            business_id,
+            "set_chat_folders",
+            chat_id=chat_id,
+            **validated(ChatFoldersInput, request.data),
         )
 
 
@@ -179,7 +310,7 @@ class ChatAttachmentView(ChatAPIView):
 class ChatFileView(APIView):
     def get(self, request, business_id, chat_id, message_id):
         result = composition.chats().run(
-            "file", Scope(request.user.id, business_id), chat_id=chat_id, message_id=message_id
+            "file", request_scope(request, business_id), chat_id=chat_id, message_id=message_id
         )
         response = HttpResponse(result["content"], content_type=result["mime"])
         response["Content-Disposition"] = content_disposition_header(
@@ -194,58 +325,87 @@ class WebhookThrottle(SimpleRateThrottle):
     rate = "300/min"
     scope = "meta-webhook"
 
+    def __init__(self, identifier):
+        self.identifier = identifier
+        super().__init__()
+
     def get_cache_key(self, request, view):
-        return self.cache_format % {
-            "scope": self.scope,
-            "ident": request.META.get("REMOTE_ADDR", "unknown"),
-        }
+        return self.cache_format % {"scope": self.scope, "ident": self.identifier}
 
 
-@csrf_exempt
-def whatsapp_webhook(request, webhook_key=None):
-    throttle = WebhookThrottle()
+def webhook_limit(request, identifier):
+    throttle = WebhookThrottle(identifier)
     if not throttle.allow_request(request, None):
         response = HttpResponse(status=429)
         response["Retry-After"] = str(max(1, int(throttle.wait() or 60)))
         return response
+
+
+@csrf_exempt
+def meta_webhook(request, webhook_key=None, kind="whatsapp"):
     from django.utils import timezone
 
     from tapme.messaging.models import ChannelAccount
+
+    def reject(status):
+        return webhook_limit(request, f"unverified:{client_ip(request)}") or HttpResponse(
+            status=status
+        )
 
     channel = None
     verify_token = settings.META_WEBHOOK_VERIFY_TOKEN
     if webhook_key:
         channel = (
-            ChannelAccount.objects.filter(webhook_key=webhook_key, status="active")
+            ChannelAccount.objects.filter(webhook_key=webhook_key, status="active", kind=kind)
             .exclude(app_secret_encrypted="")
             .first()
         )
         if not channel:
-            return HttpResponse(status=404)
+            return reject(404)
         verify_token = channel.verify_token
     if not channel and (not settings.META_APP_SECRET or not verify_token):
-        return HttpResponse(status=503)
+        return reject(503)
+    channel_key = channel.id if channel else "legacy"
     if request.method == "GET":
         valid = request.GET.get("hub.mode") == "subscribe" and hmac.compare_digest(
             request.GET.get("hub.verify_token", "").encode(),
             verify_token.encode(),
         )
-        if valid and channel:
+        if not valid:
+            return reject(403)
+        if limited := webhook_limit(request, f"challenge:{channel_key}"):
+            return limited
+        if channel:
             ChannelAccount.objects.filter(id=channel.id).update(webhook_verified_at=timezone.now())
-        return (
-            HttpResponse(request.GET.get("hub.challenge", ""), content_type="text/plain")
-            if valid
-            else HttpResponse(status=403)
-        )
+        return HttpResponse(request.GET.get("hub.challenge", ""), content_type="text/plain")
     if request.method != "POST":
-        return HttpResponse(status=405)
-    if len(request.body) > 1024 * 1024:
-        return HttpResponse(status=413)
+        return reject(405)
+    max_body = 1024 * 1024
+    body = request.read(max_body + 1)
+    if len(body) > max_body:
+        return reject(413)
     try:
-        accepted = receive(request.body, request.headers.get("X-Hub-Signature-256", ""), channel)
-    except (ValueError, json.JSONDecodeError, InvalidInput):
+        if not valid_signature(body, request.headers.get("X-Hub-Signature-256", ""), channel):
+            return reject(401)
+    except InvalidInput:
+        return reject(400)
+    if limited := webhook_limit(request, f"signed:{channel_key}"):
+        return limited
+    try:
+        store_webhook(body, channel)
+    except ValueError:
         return HttpResponse(status=400)
-    return JsonResponse({"received": True}) if accepted else HttpResponse(status=401)
+    return JsonResponse({"received": True})
+
+
+@csrf_exempt
+def whatsapp_webhook(request, webhook_key=None):
+    return meta_webhook(request, webhook_key, "whatsapp")
+
+
+@csrf_exempt
+def instagram_webhook(request, webhook_key):
+    return meta_webhook(request, webhook_key, "instagram")
 
 
 class RegisterInput(StrictSerializer):
@@ -334,7 +494,7 @@ class PaymentSettingsView(ChatAPIView):
         return self.run(request, business_id, "save_payment", **data)
 
     def get(self, request, business_id):
-        result = composition.chats().run("payment_file", Scope(request.user.id, business_id))
+        result = composition.chats().run("payment_file", request_scope(request, business_id))
         response = HttpResponse(result["content"], content_type=result["mime"])
         response["Cache-Control"] = "private, no-store"
         response["X-Content-Type-Options"] = "nosniff"
@@ -469,7 +629,7 @@ ChannelActionView = extend_schema_view(
 class ChannelWebhookView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
-    throttle_classes = []  # Signature endpoint has its own 300/minute IP limit.
+    throttle_classes = []  # The webhook applies separate limits after checking credentials.
 
     @extend_schema(
         operation_id="whatsapp_webhook_verify",

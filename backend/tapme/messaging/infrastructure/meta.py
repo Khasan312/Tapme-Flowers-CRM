@@ -19,12 +19,14 @@ def configured():
     )
 
 
-def gateway_for(channel=None):
+def gateway_for(channel=None, kind=None):
     mode = settings.TAPME_META_MODE
     if mode not in {"fake", "live"} or (channel and channel.provider_mode != mode):
         raise DeliveryRejected(
             "Режим канала не совпадает с режимом сервера. Подключите канал заново в нужном режиме."
         )
+    if (channel.kind if channel else kind) == "instagram":
+        return FakeInstagramGateway() if mode == "fake" else InstagramGateway()
     if mode == "fake":
         return FakeGateway()
     return MetaGateway()
@@ -46,7 +48,7 @@ def decrypt(token):
         return cipher().decrypt(token.encode()).decode()
     except InvalidToken:
         raise InvalidInput(
-            "Не удалось расшифровать доступ к WhatsApp. Проверьте ключ сервера."
+            "Не удалось расшифровать доступ к каналу. Проверьте ключ сервера."
         ) from None
 
 
@@ -56,6 +58,8 @@ class NoRedirect(HTTPRedirectHandler):
 
 
 class MetaGateway:
+    provider_name = "WhatsApp"
+
     def _request(self, path, token, payload=None, raw=None, content_type="application/json"):
         version = settings.META_GRAPH_VERSION
         if not re.fullmatch(r"v\d+\.\d+", version):
@@ -79,14 +83,14 @@ class MetaGateway:
             # Do not expose provider bodies: they may contain tokens or personal data.
             if 400 <= error.code < 500:
                 raise DeliveryRejected(
-                    f"WhatsApp отклонил запрос (HTTP {error.code}). Проверьте доступ и окно ответа."
+                    f"{self.provider_name} отклонил запрос (HTTP {error.code}). Проверьте доступ и окно ответа."
                 ) from None
             raise DeliveryUnknown(
-                "WhatsApp не подтвердил результат. Повтор автоматически не отправлялся."
+                f"{self.provider_name} не подтвердил результат. Повтор автоматически не отправлялся."
             ) from None
         except (URLError, TimeoutError, OSError, ValueError):
             raise DeliveryUnknown(
-                "Не удалось получить подтверждение WhatsApp. Дождитесь статуса; не повторяйте сообщение вслепую."
+                f"Не удалось получить подтверждение {self.provider_name}. Дождитесь статуса; не повторяйте сообщение вслепую."
             ) from None
 
     def inspect(self, phone_id, token):
@@ -225,3 +229,35 @@ class FakeGateway:
 
     def download(self, phone_id, token, media_id):
         raise DeliveryRejected("Для тестового вложения используйте симулятор с файлом.")
+
+
+class InstagramGateway(MetaGateway):
+    provider_name = "Instagram"
+
+    def inspect(self, account_id, token):
+        return self._request(f"{account_id}?fields=id,username,name", token)
+
+    def subscribe(self, account_id, token):
+        if not self._request(
+            f"{account_id}/subscribed_apps", token, {"subscribed_fields": "messages,messaging_seen"}
+        ).get("success"):
+            raise DeliveryRejected("Meta не подтвердила подписку Instagram.")
+
+    def send(self, account_id, token, payload):
+        result = self._request(f"{account_id}/messages", token, payload)
+        if not result.get("message_id"):
+            raise DeliveryUnknown("Instagram не вернул ID сообщения. Ожидаем подтверждения.")
+        return str(result["message_id"])
+
+
+class FakeInstagramGateway:
+    """Local Instagram simulation, selected only by explicit server fake mode."""
+
+    def inspect(self, account_id, token):
+        return {"id": account_id, "username": "test.flowers", "name": "Тестовый Instagram"}
+
+    def subscribe(self, account_id, token):
+        return None
+
+    def send(self, account_id, token, payload):
+        return "mid.fake." + uuid4().hex

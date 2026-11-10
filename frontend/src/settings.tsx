@@ -1,3 +1,4 @@
+import { PointsSettings, StaffPointEditor } from "./points";
 import { ReminderSettings } from "./reminder-settings";
 import { Channels } from "./channels";
 import { newUuid } from "./uuid";
@@ -23,6 +24,7 @@ import type {
 
 export type SettingsTab =
   | "staff"
+  | "points"
   | "windows"
   | "templates"
   | "prices"
@@ -30,6 +32,7 @@ export type SettingsTab =
   | "reminders"
   | "channels";
 const tabs: Record<SettingsTab, string> = {
+  points: "Точки",
   staff: "Сотрудники",
   channels: "Каналы",
   windows: "Окна доставки",
@@ -58,8 +61,17 @@ export function Settings({
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false),
     [conflict, setConflict] = useState(false);
+  const pointSettings =
+    tab === "windows" && business.point_id && business.point_id !== "all";
+  const settingsPath =
+    businessPath(
+      business.id,
+      pointSettings ? `points/${business.point_id}` : "settings",
+    ) + (pointSettings ? "" : "?point=all");
   const source = useRemote<ShopSettings>(
-    businessPath(business.id, "settings"),
+    tab === "shop" || (tab === "windows" && pointSettings)
+      ? settingsPath
+      : null,
     revision,
     { refreshOnAppear: false },
   );
@@ -92,9 +104,7 @@ export function Settings({
     } catch (e) {
       setError(errorText(e));
       setConflict(
-        path === businessPath(business.id, "settings") &&
-          e instanceof ApiError &&
-          e.status === 409,
+        path === settingsPath && e instanceof ApiError && e.status === 409,
       );
       return false;
     } finally {
@@ -103,7 +113,38 @@ export function Settings({
   }
   function saveSettings(e: FormEvent) {
     e.preventDefault();
-    if (draft) void write(businessPath(business.id, "settings"), "PUT", draft);
+    if (draft) {
+      const {
+        version,
+        name,
+        address,
+        phone,
+        windows,
+        city,
+        whatsapp,
+        opening_hours,
+        pickup_unlimited,
+        enforce_capacity,
+      } = draft;
+      void write(
+        settingsPath,
+        pointSettings ? "PATCH" : "PUT",
+        pointSettings
+          ? {
+              version,
+              name,
+              address,
+              phone,
+              windows,
+              city,
+              whatsapp,
+              opening_hours,
+              pickup_unlimited,
+              enforce_capacity,
+            }
+          : draft,
+      );
+    }
   }
   if (tab === "reminders")
     return (
@@ -150,6 +191,9 @@ export function Settings({
         <p role="status" className="save-notice">
           {notice}
         </p>
+      )}
+      {tab === "points" && (
+        <PointsSettings business={business} changed={changed} />
       )}
       {tab === "channels" && <Channels business={business} />}
       {tab === "staff" && (
@@ -218,7 +262,12 @@ export function Settings({
           {staff.loading && <div className="empty">Загружаем сотрудников…</div>}
         </section>
       )}
-      {tab === "windows" && draft && (
+      {tab === "windows" && !pointSettings && (
+        <section className="card card-bd">
+          Выберите точку в боковом меню, чтобы настроить её окна доставки.
+        </section>
+      )}
+      {tab === "windows" && pointSettings && draft && (
         <form onSubmit={saveSettings} className="card">
           <div className="card-hd">
             <h2>Окна доставки</h2>
@@ -393,6 +442,10 @@ export function Settings({
             <h2>Магазин</h2>
           </div>
           <div className="card-bd">
+            <p className="muted">
+              Общие настройки магазина и контакты основной точки. Адреса и
+              телефоны остальных филиалов меняются во вкладке «Точки».
+            </p>
             <fieldset disabled={!owner || busy}>
               <div className="fgrid">
                 {(
@@ -501,7 +554,10 @@ export function Settings({
         <StaffEditor
           business={business}
           initial={staffEditor}
-          close={() => setStaffEditor(null)}
+          close={() => {
+            setStaffEditor(null);
+            setRevision((r) => r + 1);
+          }}
           saved={(message) => {
             setStaffEditor(null);
             setNotice(message || "Сохранено");
@@ -662,6 +718,9 @@ function StaffEditor({
               ))}
             </select>
           </label>
+          {existing && (
+            <StaffPointEditor business={business} staff={existing} />
+          )}
           {!existing && (
             <p className="muted">Передайте логин и пароль сотруднику лично.</p>
           )}

@@ -18,7 +18,7 @@ test.afterEach(() => {
     });
 });
 async function login(page: Page) {
-  await page.goto("/");
+  await page.goto("/login");
   await submitLogin(page, account.username, account.password);
 }
 async function settings(page: Page, tab: string) {
@@ -61,7 +61,7 @@ test("две вкладки сохраняют настройки и шабло�
 }) => {
   await login(page);
   const second = await context.newPage();
-  await second.goto("/");
+  await second.goto("/login");
   await settings(page, "Магазин");
   await settings(second, "Магазин");
   await page

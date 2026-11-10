@@ -20,7 +20,7 @@ test.afterEach(() => {
 });
 
 async function login(page: Page, username: string) {
-  await page.goto("/");
+  await page.goto("/login");
   await submitLogin(page, username, account.password);
 }
 async function logout(page: Page) {

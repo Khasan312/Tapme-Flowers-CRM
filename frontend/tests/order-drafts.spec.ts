@@ -44,7 +44,7 @@ async function api(page: Page, suffix: string, method = "GET", data?: unknown) {
   );
 }
 async function login(page: Page) {
-  await page.goto("/");
+  await page.goto("/login");
   await submitLogin(page, account.username, account.password);
   await api(page, "products/", "POST", {
     name: "Нежный букет",
@@ -53,10 +53,9 @@ async function login(page: Page) {
   await page.goto(chatUrl());
   await expect(page.getByRole("log")).toContainText("Сообщение 65");
 }
-async function editor(page: Page, mobile = false) {
-  if (mobile) await page.locator(".chat-mobile-draft").click();
+async function editor(page: Page) {
   await page
-    .getByRole("button", { name: "Создать черновик", exact: true })
+    .getByRole("button", { name: "Оформить заказ", exact: true })
     .click();
   await expect(page.locator("dialog[open] h2")).toHaveText("Черновик заказа");
   await page
@@ -82,7 +81,21 @@ for (const mobile of [false, true])
   }, info) => {
     if (mobile) await page.setViewportSize({ width: 390, height: 844 });
     await login(page);
-    await editor(page, mobile);
+    await editor(page);
+    const draftPanel = page.getByRole("dialog", {
+      name: "Черновик заказа",
+      exact: true,
+    });
+    await expect(
+      draftPanel.getByRole("button", { name: "Сохранить черновик" }),
+    ).toBeInViewport();
+    if (!mobile) {
+      const thread = await page
+        .getByRole("log", { name: "Сообщения диалога" })
+        .boundingBox();
+      const editorBox = await draftPanel.boundingBox();
+      expect(thread!.x + thread!.width).toBeLessThanOrEqual(editorBox!.x);
+    }
     await page
       .getByRole("button", { name: "Сохранить черновик", exact: true })
       .click();
@@ -95,9 +108,8 @@ for (const mobile of [false, true])
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(mobile ? 390 : 1440);
     await page.reload();
-    if (mobile) await page.locator(".chat-mobile-draft").click();
     await page
-      .getByRole("button", { name: "Открыть черновик", exact: true })
+      .getByRole("button", { name: "Оформить заказ", exact: true })
       .click();
     await expect(
       page.getByLabel("Текст открытки", { exact: true }),
@@ -190,7 +202,7 @@ test("два менеджера: конфликт сохраняет правк�
   const other = await page.context().newPage();
   await other.goto(chatUrl());
   await other
-    .getByRole("button", { name: "Открыть черновик", exact: true })
+    .getByRole("button", { name: "Оформить заказ", exact: true })
     .click();
   await other.getByLabel("Пожелания к заказу").fill("Правка второго менеджера");
   await page.getByLabel("Пожелания к заказу").fill("Без лилий");
@@ -254,7 +266,7 @@ test("букет по бюджету, неполный черновик и от�
 }) => {
   await login(page);
   await page
-    .getByRole("button", { name: "Создать черновик", exact: true })
+    .getByRole("button", { name: "Оформить заказ", exact: true })
     .click();
   await page.getByLabel("Пожелания к заказу").fill("Пока уточняем адрес");
   await page
@@ -265,6 +277,7 @@ test("букет по бюджету, неполный черновик и от�
     .locator("dialog")
     .getByRole("button", { name: "Закрыть", exact: true })
     .click();
+  await page.getByRole("button", { name: "Карточка рядом с чатом" }).click();
   page.once("dialog", (d) => d.accept());
   await page
     .getByRole("button", { name: "Отложить черновик", exact: true })

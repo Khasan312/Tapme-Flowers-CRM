@@ -1,7 +1,13 @@
-export type User = { id: string; username: string };
+export type User = {
+  id: string;
+  username: string;
+  is_platform_admin?: boolean;
+  must_change_password?: boolean;
+};
 export type Business = {
   id: string;
   name: string;
+  point_id?: string;
   currency: string;
   timezone: string;
   role: string;
@@ -25,7 +31,21 @@ export type Product = {
   price: string;
   version?: number;
 };
+export type Point = {
+  windows: ShopSettings["windows"];
+  id: string;
+  name: string;
+  short_name: string;
+  address: string;
+  city: string;
+  active: boolean;
+  is_primary: boolean;
+  version: number;
+  sort: number;
+};
 export type Order = {
+  point_id: string;
+  point_name: string;
   prepayment_percent: number;
   prepayment_required: string;
   payment_due_at: string | null;
@@ -68,6 +88,7 @@ export type Order = {
 };
 
 export type Staff = {
+  point_ids?: string[];
   id: string;
   name: string;
   username: string;
@@ -153,6 +174,8 @@ export type ReminderRules = {
   custom_templates: { id: string; name: string; text: string }[];
 };
 export type Reminder = {
+  point_id: string | null;
+  point_name: string;
   kind: "before_event" | "after_last_order" | "after_delivery" | "holiday";
   id: string;
   customer_id: string;
@@ -224,6 +247,8 @@ export type ReminderPage = Page<Reminder> & {
 };
 export type Task = Pick<
   Order,
+  | "point_id"
+  | "point_name"
   | "id"
   | "number"
   | "status"

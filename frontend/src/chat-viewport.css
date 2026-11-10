@@ -1,0 +1,125 @@
+.crm .chat-preview-mobile-label {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  html:has(.crm :is(.chat-workspace, .ig-workspace).has-conversation),
+  body:has(.crm :is(.chat-workspace, .ig-workspace).has-conversation) {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  .crm.app-shell:has(.chat-inbox-page) {
+    height: var(--chat-visible-height, 100dvh);
+  }
+
+  .crm.app-shell .chat-inbox-page :is(input, textarea) {
+    font-size: 16px;
+  }
+
+  .crm.app-shell .chat-inbox-page .chat-composer .chat-compose-field textarea {
+    flex: 1 1 0;
+    width: 0;
+    min-width: 0;
+    font-size: 16px;
+    line-height: 23px;
+    max-height: min(144px, calc(var(--chat-visible-height, 100dvh) * 0.3));
+  }
+
+  .crm .chat-inbox-page :is(.chat-back, .ig-back, .ig-profile-toggle),
+  .crm .chat-inbox-page .chat-dialog-heading > .chat-icon,
+  .crm
+    .chat-inbox-page
+    .chat-compose-field
+    :is(.chat-send, .chat-attach, .chat-emoji-toggle) {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .crm.app-shell:has(:is(.chat-workspace, .ig-workspace).has-conversation) {
+    position: fixed;
+    inset: var(--chat-visible-top, 0px) 0 auto;
+    width: 100%;
+    max-width: 100%;
+    min-height: 0;
+    height: var(--chat-visible-height, 100dvh);
+    grid-template-rows: minmax(0, 1fr);
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .crm.app-shell:has(:is(.chat-workspace, .ig-workspace).has-conversation)
+    > .rail,
+  .crm.app-shell:has(:is(.chat-workspace, .ig-workspace).has-conversation)
+    .chat-channel-picker.is-mobile,
+  .crm.app-shell:has(.ig-workspace.has-conversation) .ig-preview-notice,
+  .crm.app-shell:has(.ig-workspace.has-conversation) .chat-test-banner {
+    display: none;
+  }
+
+  .crm.app-shell:has(:is(.chat-workspace, .ig-workspace).has-conversation)
+    .chat-inbox-content {
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .crm .chat-inbox-page :is(.chat-workspace, .ig-workspace).has-conversation {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .crm .chat-inbox-page .has-conversation .chat-dialog-panel {
+    min-width: 0;
+    min-height: 0;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .crm .chat-inbox-page :is(.chat-dialog-toolbar, .ig-dialog-header) {
+    padding-top: max(8px, env(safe-area-inset-top, 0px));
+  }
+
+  .crm .chat-inbox-page :is(.chat-dialog-heading, .ig-dialog-header) > div {
+    min-width: 0;
+  }
+
+  .crm .chat-inbox-page :is(.chat-dialog-heading, .ig-dialog-header) h2 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .crm .chat-inbox-page .chat-composer {
+    flex: none;
+    margin-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .crm .chat-inbox-page :is(.chat-thread, .ig-thread) {
+    min-height: 0;
+    overscroll-behavior: contain;
+  }
+
+  .crm .chat-preview-mobile-label {
+    display: inline;
+  }
+
+  .tapme-chat-keyboard-open .crm .chat-owner > :not(.chat-dialog-heading),
+  .tapme-chat-keyboard-open
+    .crm
+    :is(
+      .chat-folder-toolbar,
+      .chat-workflow-actions,
+      .ig-folder-toolbar,
+      .ig-dialog-actions,
+      .chat-mobile-details
+    ) {
+    display: none;
+  }
+
+  .tapme-chat-keyboard-open .crm .chat-composer {
+    margin-bottom: 8px;
+  }
+}

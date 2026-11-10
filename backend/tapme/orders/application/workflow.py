@@ -15,6 +15,7 @@ from tapme.businesses.application.contracts import (
     Role,
     Scope,
     authorize,
+    ensure_point_access,
 )
 from tapme.catalog.application.ports import ProductReader
 from tapme.customers.application.ports import CustomerReader
@@ -60,6 +61,7 @@ def ensure_version(order: Order, version: int) -> None:
 
 
 def ensure_order_access(access: MembershipReader, scope: Scope, order: Order) -> Role:
+    ensure_point_access(access, scope, order.point_id)
     role = access.role_for(scope)
     if role in OFFICE_ROLES:
         assert role is not None
@@ -101,6 +103,7 @@ class WorkflowService:
         authorize(self.access, scope, OFFICE_ROLES)
         with self.uow() as work:
             order = work.orders.lock(scope.business_id, order_id)
+            ensure_point_access(self.access, scope, order.point_id)
             ensure_version(order, version)
             if order.status not in {"pending", "new", "work"}:
                 raise InvalidInput("Редактирование доступно до готовности букета.")
@@ -119,6 +122,7 @@ class WorkflowService:
                     command.window_start,
                     command.window_end,
                     order_id,
+                    point_id=order.point_id,
                 ).quote(command.fulfillment)
             previous = {line.product_id: line for line in order.lines}
             lines = []
@@ -139,6 +143,9 @@ class WorkflowService:
                 )
             values = asdict(command)
             values.pop("items")
+            requested_point = values.pop("point_id")
+            if requested_point and requested_point != order.point_id:
+                raise InvalidInput("Нельзя менять точку существующего заказа через редактирование.")
             changed = replace(
                 order,
                 **values,
@@ -187,6 +194,7 @@ class WorkflowService:
         authorize(self.access, scope, OFFICE_ROLES)
         with self.uow() as work:
             order = work.orders.lock(scope.business_id, order_id)
+            ensure_point_access(self.access, scope, order.point_id)
             ensure_version(order, version)
             if order.status == "pending":
                 raise InvalidInput("Сначала подтвердите заказ, затем назначьте сотрудников.")
@@ -202,7 +210,11 @@ class WorkflowService:
             for staff_id in sorted({uid for uid, _ in assignments if uid}):
                 work.orders.lock_staff(scope.business_id, staff_id)
             for user_id, role in assignments:
-                if user_id and self.access.role_for(Scope(user_id, scope.business_id)) != role:
+                if (
+                    user_id
+                    and self.access.role_for(Scope(user_id, scope.business_id, order.point_id))
+                    != role
+                ):
                     raise InvalidInput("Выберите активного сотрудника нужной роли своего магазина.")
             if order.status != "new" and not florist_id:
                 raise InvalidInput("Нельзя убрать флориста из начатого заказа.")
@@ -228,6 +240,7 @@ class WorkflowService:
         authorize(self.access, scope, frozenset(Role))
         with self.uow() as work:
             order = work.orders.lock(scope.business_id, order_id)
+            ensure_point_access(self.access, scope, order.point_id)
             # A florist can claim an unassigned order here; serialize with staff removal.
             work.orders.lock_staff(scope.business_id, scope.user_id)
             role = ensure_order_access(self.access, scope, order)
@@ -270,6 +283,7 @@ class WorkflowService:
     def issue(self, scope: Scope, order_id: UUID, version: int, detail: str) -> Order:
         with self.uow() as work:
             order = work.orders.lock(scope.business_id, order_id)
+            ensure_point_access(self.access, scope, order.point_id)
             role = ensure_order_access(self.access, scope, order)
             if role not in OFFICE_ROLES and role != Role.COURIER:
                 raise Forbidden("Сообщение о доставке доступно курьеру и менеджеру.")
@@ -306,6 +320,7 @@ class WorkflowService:
         ).hexdigest()
         with self.uow() as work:
             order = work.orders.lock(scope.business_id, order_id)
+            ensure_point_access(self.access, scope, order.point_id)
             previous = work.payments.by_request(scope.business_id, request_key)
             if previous:
                 if previous.request_hash != fingerprint:
@@ -342,18 +357,21 @@ class WorkflowService:
     def payments(self, scope: Scope, order_id: UUID) -> tuple[Payment, ...]:
         authorize(self.access, scope, OFFICE_ROLES)
         with self.uow() as work:
-            work.orders.get(scope.business_id, order_id)
+            order = work.orders.get(scope.business_id, order_id)
+            ensure_point_access(self.access, scope, order.point_id)
             return work.payments.list(scope.business_id, order_id)
 
     def history(self, scope: Scope, order_id: UUID) -> list[dict[str, object]]:
         authorize(self.access, scope, OFFICE_ROLES)
-        self.reads.get(scope.business_id, order_id)
+        order = self.reads.get(scope.business_id, order_id)
+        ensure_point_access(self.access, scope, order.point_id)
         return self.reads.history(scope.business_id, order_id)
 
     def resolve_issue(self, scope: Scope, order_id: UUID, version: int) -> Order:
         authorize(self.access, scope, OFFICE_ROLES)
         with self.uow() as work:
             order = work.orders.lock(scope.business_id, order_id)
+            ensure_point_access(self.access, scope, order.point_id)
             ensure_version(order, version)
             if not order.delivery_issue:
                 raise InvalidInput("Нет открытой проблемы доставки.")

@@ -1,3 +1,9 @@
+{
+    servers {
+        max_header_size 32KB
+    }
+}
+
 {$PUBLIC_DOMAIN} {
     encode zstd gzip
     request_body {
@@ -10,12 +16,11 @@
         Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
     }
     handle /api/* {
-        reverse_proxy api:8000
+        reverse_proxy api:8000 {
+            header_up X-Tapme-Client-IP {remote_host}
+        }
     }
     handle /health/ {
-        reverse_proxy api:8000
-    }
-    handle /admin/* {
         reverse_proxy api:8000
     }
     handle_path /static/* {

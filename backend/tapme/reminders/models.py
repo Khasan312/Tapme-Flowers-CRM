@@ -65,6 +65,7 @@ class ReminderStep(models.Model):
 
 
 class ReminderRecord(models.Model):
+    point = models.ForeignKey("businesses.Shop", null=True, on_delete=models.PROTECT)
     scenario = models.ForeignKey(ReminderScenario, null=True, on_delete=models.SET_NULL)
     step = models.ForeignKey(ReminderStep, null=True, on_delete=models.SET_NULL)
     event_date = models.DateField(null=True)

@@ -4,6 +4,7 @@ from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
+from tapme.businesses.infrastructure.access import DjangoMembershipReader
 from tapme.businesses.models import Business, Membership, Shop
 from tapme.messaging.domain import DeliveryRejected, DeliveryUnknown
 from tapme.messaging.infrastructure.meta import configured, decrypt, encrypt, gateway_for
@@ -13,17 +14,17 @@ from tapme.shared.domain import Conflict, InvalidInput, NotFound
 
 class ChannelOperations:
     def _channel(self, scope):
-        row = ChannelAccount.objects.filter(business_id=scope.business_id).first()
+        row = ChannelAccount.objects.filter(business_id=scope.business_id, kind="whatsapp").first()
         if not row:
             raise NotFound("Сначала подключите номер WhatsApp.")
         return row
 
     def channel(self, scope):
-        row = ChannelAccount.objects.filter(business_id=scope.business_id).first()
+        row = ChannelAccount.objects.filter(business_id=scope.business_id, kind="whatsapp").first()
         owner = Membership.objects.filter(
             business_id=scope.business_id, user_id=scope.user_id, role="owner", is_active=True
         ).exists()
-        shop = Shop.objects.filter(business_id=scope.business_id).first()
+        shop = Shop.objects.filter(business_id=scope.business_id, is_primary=True).first()
         result = {
             "configured": bool(configured()),
             "provider_mode": row.provider_mode if row else settings.TAPME_META_MODE,
@@ -81,7 +82,7 @@ class ChannelOperations:
                 Business.objects.select_for_update().get(id=scope.business_id)
                 old = (
                     ChannelAccount.objects.select_for_update()
-                    .filter(business_id=scope.business_id)
+                    .filter(business_id=scope.business_id, kind="whatsapp")
                     .first()
                 )
                 if old and old.phone_number_id != phone_number_id:
@@ -139,7 +140,7 @@ class ChannelOperations:
                         last_inbound_at=None,
                     )
                 ChannelAccount.objects.update_or_create(
-                    business_id=scope.business_id, defaults=defaults
+                    business_id=scope.business_id, kind="whatsapp", defaults=defaults
                 )
         except IntegrityError:
             raise Conflict("Этот номер уже подключён к другому магазину.") from None
@@ -148,7 +149,9 @@ class ChannelOperations:
     @transaction.atomic
     def disconnect(self, scope):
         row = (
-            ChannelAccount.objects.select_for_update().filter(business_id=scope.business_id).first()
+            ChannelAccount.objects.select_for_update()
+            .filter(business_id=scope.business_id, kind="whatsapp")
+            .first()
         )
         if row:
             row.token_encrypted = row.app_secret_encrypted = ""
@@ -211,20 +214,33 @@ class ChannelOperations:
         row.save(update_fields=["autoreply", "version"])
         return self.channel(scope)
 
+    def payment_shop(self, scope, lock=False):
+        points = DjangoMembershipReader().points(scope)
+        if lock:
+            points = points.select_for_update()
+        shop = (
+            points.filter(id=scope.point_id).first()
+            if scope.point_id
+            else points.filter(is_primary=True).first()
+        )
+        if not shop:
+            raise NotFound("Выберите доступную точку для оплаты.")
+        return shop
+
     def payment(self, scope):
-        shop = Shop.objects.filter(business_id=scope.business_id).first()
+        shop = self.payment_shop(scope)
         return {
             "version": shop.payment_version if shop else 0,
             "note": shop.payment_note if shop else "",
             "text": shop.payment_message if shop else "",
-            "image_url": f"/api/v1/businesses/{scope.business_id}/channels/payment-qr/"
+            "image_url": f"/api/v1/businesses/{scope.business_id}/channels/payment-qr/?point={shop.id}"
             if shop and shop.payment_qr_key
             else None,
         }
 
     @transaction.atomic
     def save_payment(self, scope, version, note, text, content=None, mime="", remove=False):
-        shop = Shop.objects.select_for_update().get(business_id=scope.business_id)
+        shop = self.payment_shop(scope, lock=True)
         if version != shop.payment_version:
             raise Conflict("QR или подпись изменены в другой вкладке. Обновите настройки.")
         old = shop.payment_qr_key
@@ -260,7 +276,7 @@ class ChannelOperations:
         return self.payment(scope)
 
     def payment_file(self, scope):
-        shop = Shop.objects.get(business_id=scope.business_id)
+        shop = self.payment_shop(scope)
         if not shop.payment_qr_key:
             raise NotFound("QR пока не загружен.")
         return {

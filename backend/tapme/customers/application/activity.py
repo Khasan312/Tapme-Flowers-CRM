@@ -5,7 +5,7 @@ from tapme.businesses.application.contracts import OFFICE_ROLES, MembershipReade
 
 
 class ActivityReader(Protocol):
-    def get(self, business_id: UUID, customer_id: UUID) -> dict[str, object]: ...
+    def get(self, scope: Scope, customer_id: UUID) -> dict[str, object]: ...
 
 
 class ActivityService:
@@ -14,4 +14,4 @@ class ActivityService:
 
     def get(self, scope: Scope, customer_id: UUID) -> dict[str, object]:
         authorize(self.access, scope, OFFICE_ROLES)
-        return self.reads.get(scope.business_id, customer_id)
+        return self.reads.get(scope, customer_id)

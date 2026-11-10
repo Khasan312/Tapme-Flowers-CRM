@@ -30,6 +30,9 @@ class ChatService:
                 "save_payment",
                 "simulate",
                 "simulate_verify",
+                "instagram_connect",
+                "instagram_disconnect",
+                "instagram_action",
             }
             else OFFICE_ROLES
         )

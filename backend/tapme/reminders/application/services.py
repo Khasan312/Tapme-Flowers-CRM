@@ -21,10 +21,12 @@ class ReminderRepository(Protocol):
     ) -> ReminderConfiguration: ...
     def rules(self, business_id: UUID) -> ReminderRules: ...
     def save_rules(self, business_id: UUID, rules: ReminderRules) -> ReminderRules: ...
-    def generate(self, business_id: UUID, now: datetime) -> int: ...
+    def generate(
+        self, business_id: UUID, now: datetime, point_ids: tuple[UUID, ...] | None = None
+    ) -> int: ...
     def list(
         self,
-        business_id: UUID,
+        scope: Scope,
         state: str,
         limit: int,
         offset: int,
@@ -32,7 +34,7 @@ class ReminderRepository(Protocol):
         kind: str = "all",
         scenario: UUID | None = None,
     ) -> dict[str, object]: ...
-    def prepare(self, business_id: UUID, reminder_id: UUID, now: datetime) -> dict[str, str]: ...
+    def prepare(self, scope: Scope, reminder_id: UUID, now: datetime) -> dict[str, str]: ...
     def act(
         self,
         scope: Scope,
@@ -81,7 +83,7 @@ class ReminderService:
 
     def generate(self, scope: Scope, now: datetime) -> int:
         authorize(self.access, scope, OFFICE_ROLES)
-        return self.repository.generate(scope.business_id, now)
+        return self.repository.generate(scope.business_id, now, self.access.point_ids(scope))
 
     def list(
         self,
@@ -97,11 +99,11 @@ class ReminderService:
         page_bounds(limit, offset)
         if state not in {"wait", "sent", "skipped", "answered", "ordered"}:
             raise InvalidInput("Неизвестное состояние напоминания.")
-        return self.repository.list(scope.business_id, state, limit, offset, now, kind, scenario)
+        return self.repository.list(scope, state, limit, offset, now, kind, scenario)
 
     def prepare(self, scope: Scope, reminder_id: UUID, now: datetime) -> dict[str, str]:
         authorize(self.access, scope, OFFICE_ROLES)
-        return self.repository.prepare(scope.business_id, reminder_id, now)
+        return self.repository.prepare(scope, reminder_id, now)
 
     def act(
         self,

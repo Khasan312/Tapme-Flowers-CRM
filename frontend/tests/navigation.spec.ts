@@ -403,7 +403,10 @@ test("выбранный второй магазин сохраняется по
   // Model a second membership only in the browser. Read responses are snapshots;
   // there is no fake server-side access and no mutation of either shop.
   const responses: Record<string, unknown> = {};
+  const points = await (await page.request.get(`${base()}/points/`)).json();
   for (const endpoint of [
+    "points/",
+    ...points.map((point: { id: string }) => `points/${point.id}/`),
     "settings/",
     "overview/",
     "customers/directory/",

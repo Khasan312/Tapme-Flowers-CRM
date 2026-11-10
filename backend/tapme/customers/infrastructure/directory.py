@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 from django.db.models import Count, DecimalField, IntegerField, Max, OuterRef, Subquery, Sum
 from django.db.models.functions import Coalesce
 
+from tapme.businesses.infrastructure.access import DjangoMembershipReader
 from tapme.businesses.models import Business
 from tapme.customers.infrastructure.repository import DjangoCustomerRepository
 from tapme.customers.models import CustomerRecord
@@ -13,10 +14,14 @@ from tapme.reminders.domain import event_day
 
 
 class DjangoDirectoryReader:
-    def list(self, business_id, search, group, limit, offset, now):
+    def list(self, scope, search, group, limit, offset, now):
+        business_id = scope.business_id
+        point_ids = DjangoMembershipReader().point_ids(scope)
         today = now.astimezone(ZoneInfo(Business.objects.get(id=business_id).timezone)).date()
         orders = (
-            OrderRecord.objects.filter(business_id=business_id, customer_id=OuterRef("id"))
+            OrderRecord.objects.filter(
+                business_id=business_id, point_id__in=point_ids, customer_id=OuterRef("id")
+            )
             .exclude(status__in=["pending", "cancelled"])
             .values("customer_id")
             .annotate(count=Count("id"), total=Sum("total"), last=Max("delivery_date"))

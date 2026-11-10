@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Локальный образец визуального дизайна Telegram Web K. Вымышленные чаты, без подключения к Telegram.">
+  <title>Telegram Web K — образец дизайна</title>
+  <link rel="stylesheet" href="fonts.css">
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="wallpaper" aria-hidden="true"></div>
+  <main class="telegram-shell" id="app" aria-label="Локальный образец дизайна Telegram Web K">
+    <aside class="sidebar" aria-label="Список чатов">
+      <div class="sidebar-main" id="sidebar-main">
+        <header class="list-header">
+          <button class="icon-button" id="main-menu-button" aria-label="Открыть меню" aria-expanded="false" aria-controls="main-menu" data-icon="menu"></button>
+          <div class="search-field">
+            <span class="search-symbol" data-icon="search" aria-hidden="true"></span>
+            <input id="chat-search" type="search" autocomplete="off" placeholder="Поиск" aria-label="Поиск чатов">
+            <span class="search-avatar avatar gradient-purple" aria-hidden="true">Д</span>
+          </div>
+        </header>
+        <div class="sidebar-scroll">
+          <div class="notification-banner" id="notification-banner">
+            <div><strong>Не пропускайте сообщения! 🔔</strong><span>Включите уведомления в настройках.</span></div>
+            <button class="icon-button small" id="dismiss-banner" aria-label="Скрыть подсказку" data-icon="close"></button>
+          </div>
+          <nav class="chat-list" id="chat-list" aria-label="Чаты"></nav>
+          <div class="empty-search" id="empty-search" hidden>Чаты не найдены</div>
+        </div>
+        <button class="new-chat-button" id="new-chat-button" aria-label="Выбрать чат" data-icon="edit"></button>
+      </div>
+      <section class="settings-panel" id="settings-panel" aria-label="Настройки" hidden></section>
+    </aside>
+
+    <section class="conversation" aria-label="Переписка">
+      <header class="chat-header">
+        <button class="icon-button mobile-back" id="back-to-chats" aria-label="Вернуться к чатам" data-icon="back"></button>
+        <button class="chat-person" id="open-profile" aria-label="Информация о чате">
+          <span class="avatar header-avatar gradient-purple" id="header-avatar" aria-hidden="true">ДК</span>
+          <span class="person-text"><strong id="chat-title">Дизайн-команда</strong><span id="chat-status">5 участников</span></span>
+        </button>
+        <div class="header-actions">
+          <button class="icon-button" id="search-in-chat" aria-label="Поиск в переписке" data-icon="search"></button>
+          <button class="icon-button" id="chat-menu-button" aria-label="Меню переписки" aria-expanded="false" data-icon="more"></button>
+        </div>
+      </header>
+      <div class="conversation-search" id="conversation-search" hidden><span data-icon="search" aria-hidden="true"></span><input id="message-search" placeholder="Поиск в переписке" aria-label="Найти сообщение"><button class="icon-button small" id="close-message-search" aria-label="Закрыть поиск" data-icon="close"></button></div>
+      <div class="messages-scroll" id="messages-scroll">
+        <div class="messages-lane" id="messages" role="log" aria-label="Сообщения"></div>
+      </div>
+      <div class="composer-anchor">
+        <div class="emoji-picker" id="emoji-picker" aria-label="Эмодзи" hidden></div>
+        <div class="attachment-picker popup-menu" id="attachment-picker" hidden>
+          <div class="menu-caption">В этом образце</div>
+          <button class="menu-item" id="insert-example-file"><span data-icon="file"></span>Добавить карточку файла</button>
+          <button class="menu-item" id="insert-example-image"><span data-icon="image"></span>Добавить образец палитры</button>
+        </div>
+        <form class="composer" id="composer">
+          <button type="button" class="icon-button" id="attach-button" aria-label="Вложения" aria-expanded="false" data-icon="attach"></button>
+          <textarea id="message-input" rows="1" placeholder="Сообщение" aria-label="Сообщение в локальном образце"></textarea>
+          <button type="button" class="icon-button" id="emoji-button" aria-label="Выбрать эмодзи" aria-expanded="false" data-icon="smile"></button>
+          <button type="submit" class="icon-button send-button" id="send-button" aria-label="Добавить сообщение в локальный образец" data-icon="send"></button>
+        </form>
+      </div>
+    </section>
+
+    <aside class="profile-panel" id="profile-panel" aria-label="Информация о чате" hidden></aside>
+    <div class="main-menu popup-menu" id="main-menu" role="menu" aria-label="Главное меню" hidden>
+      <div class="menu-account"><span class="avatar gradient-purple">Д</span><span>Демо-профиль</span><span class="account-check" data-icon="check"></span></div>
+      <div class="menu-divider"></div>
+      <button class="menu-item" id="saved-messages" role="menuitem"><span data-icon="bookmark"></span>Избранное</button>
+      <button class="menu-item" id="contacts-button" role="menuitem"><span data-icon="users"></span>Контакты</button>
+      <button class="menu-item" id="settings-button" role="menuitem"><span data-icon="settings"></span>Настройки</button>
+      <div class="menu-divider"></div>
+      <a class="menu-item" role="menuitem" href="system.html"><span data-icon="palette"></span>Разбор дизайна</a>
+      <div class="menu-caption">Локальный образец · без подключения</div>
+    </div>
+    <div class="chat-menu popup-menu" id="chat-menu" role="menu" aria-label="Действия с перепиской" hidden>
+      <button class="menu-item" id="chat-menu-info" role="menuitem"><span data-icon="info"></span>Информация о чате</button>
+      <button class="menu-item" id="chat-menu-search" role="menuitem"><span data-icon="search"></span>Поиск</button>
+      <button class="menu-item" id="chat-menu-mute" role="menuitem"><span data-icon="bell"></span>Уведомления <span class="switch is-on" aria-hidden="true"></span></button>
+    </div>
+    <div class="sample-toast" id="sample-toast" role="status" hidden></div>
+  </main>
+</body>
+</html>

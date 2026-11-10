@@ -1,0 +1,68 @@
+[
+  {
+    "name": "index-C7zwiSRP.css",
+    "kind": "stylesheet",
+    "url": "https://web.telegram.org/k/index-C7zwiSRP.css",
+    "local": "source/index-C7zwiSRP.css"
+  },
+  {
+    "name": "KFOmCnqEu92Fr1Mu4mxKKTU1Kg.woff2",
+    "kind": "font",
+    "url": "https://web.telegram.org/k/assets/fonts/KFOmCnqEu92Fr1Mu4mxKKTU1Kg.woff2",
+    "local": "assets/KFOmCnqEu92Fr1Mu4mxKKTU1Kg.woff2"
+  },
+  {
+    "name": "KFOmCnqEu92Fr1Mu5mxKKTU1Kvnz.woff2",
+    "kind": "font",
+    "url": "https://web.telegram.org/k/assets/fonts/KFOmCnqEu92Fr1Mu5mxKKTU1Kvnz.woff2",
+    "local": "assets/KFOmCnqEu92Fr1Mu5mxKKTU1Kvnz.woff2"
+  },
+  {
+    "name": "KFOmCnqEu92Fr1Mu7GxKKTU1Kvnz.woff2",
+    "kind": "font",
+    "url": "https://web.telegram.org/k/assets/fonts/KFOmCnqEu92Fr1Mu7GxKKTU1Kvnz.woff2",
+    "local": "assets/KFOmCnqEu92Fr1Mu7GxKKTU1Kvnz.woff2"
+  },
+  {
+    "name": "KFOlCnqEu92Fr1MmEU9fABc4AMP6lbBP.woff2",
+    "kind": "font",
+    "url": "https://web.telegram.org/k/assets/fonts/KFOlCnqEu92Fr1MmEU9fABc4AMP6lbBP.woff2",
+    "local": "assets/KFOlCnqEu92Fr1MmEU9fABc4AMP6lbBP.woff2"
+  },
+  {
+    "name": "KFOlCnqEu92Fr1MmEU9fChc4AMP6lbBP.woff2",
+    "kind": "font",
+    "url": "https://web.telegram.org/k/assets/fonts/KFOlCnqEu92Fr1MmEU9fChc4AMP6lbBP.woff2",
+    "local": "assets/KFOlCnqEu92Fr1MmEU9fChc4AMP6lbBP.woff2"
+  },
+  {
+    "name": "KFOlCnqEu92Fr1MmEU9fBBc4AMP6lQ.woff2",
+    "kind": "font",
+    "url": "https://web.telegram.org/k/assets/fonts/KFOlCnqEu92Fr1MmEU9fBBc4AMP6lQ.woff2",
+    "local": "assets/KFOlCnqEu92Fr1MmEU9fBBc4AMP6lQ.woff2"
+  },
+  {
+    "name": "L0xTDF4xlVMF-BfR8bXMIhJHg45mwgGEFl0_3vrtSM1J-gEPT5Ese6hmHSx0me8iUI0lkQ.woff2",
+    "kind": "font",
+    "url": "https://web.telegram.org/k/assets/fonts/L0xTDF4xlVMF-BfR8bXMIhJHg45mwgGEFl0_3vrtSM1J-gEPT5Ese6hmHSx0me8iUI0lkQ.woff2",
+    "local": "assets/L0xTDF4xlVMF-BfR8bXMIhJHg45mwgGEFl0_3vrtSM1J-gEPT5Ese6hmHSx0me8iUI0lkQ.woff2"
+  },
+  {
+    "name": "L0xTDF4xlVMF-BfR8bXMIhJHg45mwgGEFl0_3vrtSM1J-gEPT5Ese6hmHSh0me8iUI0.woff2",
+    "kind": "font",
+    "url": "https://web.telegram.org/k/assets/fonts/L0xTDF4xlVMF-BfR8bXMIhJHg45mwgGEFl0_3vrtSM1J-gEPT5Ese6hmHSh0me8iUI0.woff2",
+    "local": "assets/L0xTDF4xlVMF-BfR8bXMIhJHg45mwgGEFl0_3vrtSM1J-gEPT5Ese6hmHSh0me8iUI0.woff2"
+  },
+  {
+    "name": "pattern.svg",
+    "kind": "image",
+    "url": "https://web.telegram.org/k/assets/img/pattern.svg",
+    "local": "assets/pattern.svg"
+  },
+  {
+    "name": "appDialogsManager-BeAWAL2M.css",
+    "kind": "stylesheet",
+    "url": "https://web.telegram.org/k/appDialogsManager-BeAWAL2M.css",
+    "local": "source/appDialogsManager-BeAWAL2M.css"
+  }
+]

@@ -1,0 +1,2005 @@
+{
+  "kind": "synthetic pipeline evaluation, not S-04 approval",
+  "dataset_sha256": "323182866998d4967725234c728f1488d901e292d204b52fe3f0698984acf02c",
+  "prompt_sha256": "f5f0f70cb985eb5dd0a4bb0294052f860af2197f3ff96238e3efa90de0b861b0",
+  "parallel_requests": 2,
+  "pricing_source": "https://docs.mistral.ai/inference/pricing",
+  "pricing_checked": "2026-10-26",
+  "unit_prices_usd_per_million": {
+    "ministral-3b-2512": [
+      0.1,
+      0.1
+    ],
+    "ministral-8b-2512": [
+      0.15,
+      0.15
+    ]
+  },
+  "results": [
+    {
+      "model": "ministral-3b-2512",
+      "case": "full_delivery",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 997,
+        "completion_tokens": 506
+      },
+      "fields": {
+        "items": [
+          {
+            "kind": "product",
+            "product_id": "00000000-0000-4000-8000-000000000001",
+            "quantity": 2
+          }
+        ],
+        "fulfillment": "courier",
+        "address": "Тестовая улица, 1",
+        "recipient_name": "Анна Тестовая",
+        "recipient_phone": "+996700123456",
+        "card_text": "С праздником!",
+        "date": "2026-10-27",
+        "window": {
+          "start": "10:00",
+          "end": "12:00"
+        }
+      },
+      "expected_fields": 8,
+      "correct_fields": 8,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 5.184,
+      "estimated_usd": 0.0001503
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "full_delivery",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 997,
+        "completion_tokens": 506
+      },
+      "fields": {
+        "items": [
+          {
+            "kind": "product",
+            "product_id": "00000000-0000-4000-8000-000000000001",
+            "quantity": 2
+          }
+        ],
+        "fulfillment": "courier",
+        "address": "Тестовая улица, 1",
+        "recipient_name": "Анна Тестовая",
+        "recipient_phone": "+996700123456",
+        "card_text": "С праздником!",
+        "date": "2026-10-27",
+        "window": {
+          "start": "10:00",
+          "end": "12:00"
+        }
+      },
+      "expected_fields": 8,
+      "correct_fields": 8,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 7.104,
+      "estimated_usd": 0.00022545
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "pickup_interval",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 947,
+        "completion_tokens": 235
+      },
+      "fields": {
+        "items": [
+          {
+            "kind": "product",
+            "product_id": "00000000-0000-4000-8000-000000000001",
+            "quantity": 1
+          }
+        ],
+        "fulfillment": "pickup",
+        "date": "2026-10-27",
+        "window": {
+          "start": "10:00",
+          "end": "12:00"
+        }
+      },
+      "expected_fields": 4,
+      "correct_fields": 4,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.886,
+      "estimated_usd": 0.0001182
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "pickup_interval",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 947,
+        "completion_tokens": 231
+      },
+      "fields": {
+        "items": [
+          {
+            "kind": "product",
+            "product_id": "00000000-0000-4000-8000-000000000001",
+            "quantity": 1
+          }
+        ],
+        "fulfillment": "pickup",
+        "date": "2026-10-27",
+        "window": {
+          "start": "10:00",
+          "end": "12:00"
+        }
+      },
+      "expected_fields": 4,
+      "correct_fields": 4,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 2.826,
+      "estimated_usd": 0.0001767
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "pickup_no_window",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 930,
+        "completion_tokens": 213
+      },
+      "fields": {
+        "items": [
+          {
+            "kind": "product",
+            "product_id": "00000000-0000-4000-8000-000000000001",
+            "quantity": 1
+          }
+        ],
+        "fulfillment": "pickup",
+        "date": "2026-10-27"
+      },
+      "expected_fields": 3,
+      "correct_fields": 3,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 2.706,
+      "estimated_usd": 0.0001143
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "pickup_no_window",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 930,
+        "completion_tokens": 213
+      },
+      "fields": {
+        "items": [
+          {
+            "kind": "product",
+            "product_id": "00000000-0000-4000-8000-000000000001",
+            "quantity": 1
+          }
+        ],
+        "fulfillment": "pickup",
+        "date": "2026-10-27"
+      },
+      "expected_fields": 3,
+      "correct_fields": 3,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.967,
+      "estimated_usd": 0.00017145
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "budget_exact",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 949,
+        "completion_tokens": 379
+      },
+      "error": "invalid_result",
+      "fields": {},
+      "expected_fields": 4,
+      "correct_fields": 0,
+      "missing": [
+        "date",
+        "fulfillment",
+        "items",
+        "requested_time_text"
+      ],
+      "incorrect": [],
+      "extra": [],
+      "passed": false,
+      "seconds": 3.081,
+      "estimated_usd": 0.0001328
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "budget_exact",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 949,
+        "completion_tokens": 196
+      },
+      "fields": {
+        "items": [
+          {
+            "kind": "budget",
+            "amount": "3000.00",
+            "description": ""
+          }
+        ],
+        "fulfillment": "courier",
+        "date": "2026-10-27",
+        "requested_time_text": "к 15:00"
+      },
+      "expected_fields": 4,
+      "correct_fields": 4,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.634,
+      "estimated_usd": 0.00017175
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "correction_date_address",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 1005,
+        "completion_tokens": 208
+      },
+      "fields": {
+        "address": "Учебная 5",
+        "fulfillment": "courier",
+        "window": {
+          "start": "10:00",
+          "end": "12:00"
+        },
+        "date": "2026-10-28"
+      },
+      "expected_fields": 4,
+      "correct_fields": 4,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.679,
+      "estimated_usd": 0.0001213
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "correction_date_address",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 1005,
+        "completion_tokens": 161
+      },
+      "fields": {
+        "fulfillment": "courier",
+        "address": "Учебная 5",
+        "window": {
+          "start": "10:00",
+          "end": "12:00"
+        },
+        "date": "2026-10-28"
+      },
+      "expected_fields": 4,
+      "correct_fields": 4,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 4.671,
+      "estimated_usd": 0.0001749
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "date_negation",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 978,
+        "completion_tokens": 9
+      },
+      "fields": {
+        "date": "2026-10-28"
+      },
+      "expected_fields": 2,
+      "correct_fields": 1,
+      "missing": [
+        "fulfillment"
+      ],
+      "incorrect": [],
+      "extra": [],
+      "passed": false,
+      "seconds": 2.507,
+      "estimated_usd": 9.87e-05
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "date_negation",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 978,
+        "completion_tokens": 7
+      },
+      "fields": {
+        "date": "2026-10-28"
+      },
+      "expected_fields": 2,
+      "correct_fields": 1,
+      "missing": [
+        "fulfillment"
+      ],
+      "incorrect": [],
+      "extra": [],
+      "passed": false,
+      "seconds": 0.514,
+      "estimated_usd": 0.00014775
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "new_year",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 922,
+        "completion_tokens": 9
+      },
+      "fields": {
+        "date": "2027-01-01"
+      },
+      "expected_fields": 2,
+      "correct_fields": 1,
+      "missing": [
+        "fulfillment"
+      ],
+      "incorrect": [],
+      "extra": [],
+      "passed": false,
+      "seconds": 0.428,
+      "estimated_usd": 9.31e-05
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "new_year",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 922,
+        "completion_tokens": 75
+      },
+      "fields": {
+        "fulfillment": "courier",
+        "date": "2027-01-01"
+      },
+      "expected_fields": 2,
+      "correct_fields": 2,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 0.872,
+      "estimated_usd": 0.00014955
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "hour_rollover",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 922,
+        "completion_tokens": 9
+      },
+      "fields": {
+        "date": "2026-10-27",
+        "requested_time_text": "к 00:30"
+      },
+      "expected_fields": 3,
+      "correct_fields": 2,
+      "missing": [
+        "fulfillment"
+      ],
+      "incorrect": [],
+      "extra": [],
+      "passed": false,
+      "seconds": 0.438,
+      "estimated_usd": 9.31e-05
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "hour_rollover",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 922,
+        "completion_tokens": 75
+      },
+      "fields": {
+        "fulfillment": "courier",
+        "date": "2026-10-27",
+        "requested_time_text": "к 00:30"
+      },
+      "expected_fields": 3,
+      "correct_fields": 3,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.416,
+      "estimated_usd": 0.00014955
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "hour_22",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 922,
+        "completion_tokens": 75
+      },
+      "fields": {
+        "fulfillment": "courier",
+        "date": "2026-10-26",
+        "requested_time_text": "к 22:00"
+      },
+      "expected_fields": 3,
+      "correct_fields": 3,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.227,
+      "estimated_usd": 9.97e-05
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "hour_22",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 922,
+        "completion_tokens": 75
+      },
+      "fields": {
+        "fulfillment": "courier",
+        "date": "2026-10-26",
+        "requested_time_text": "к 22:00"
+      },
+      "expected_fields": 3,
+      "correct_fields": 3,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 0.893,
+      "estimated_usd": 0.00014955
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "utc_timezone",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 923,
+        "completion_tokens": 9
+      },
+      "fields": {
+        "date": "2027-01-02"
+      },
+      "expected_fields": 2,
+      "correct_fields": 1,
+      "missing": [
+        "fulfillment"
+      ],
+      "incorrect": [],
+      "extra": [],
+      "passed": false,
+      "seconds": 0.968,
+      "estimated_usd": 9.32e-05
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "utc_timezone",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 923,
+        "completion_tokens": 76
+      },
+      "fields": {
+        "fulfillment": "pickup",
+        "date": "2027-01-02"
+      },
+      "expected_fields": 2,
+      "correct_fields": 2,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.505,
+      "estimated_usd": 0.00014985
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "leap_year",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 924,
+        "completion_tokens": 9
+      },
+      "fields": {
+        "date": "2028-02-29"
+      },
+      "expected_fields": 2,
+      "correct_fields": 1,
+      "missing": [
+        "fulfillment"
+      ],
+      "incorrect": [],
+      "extra": [],
+      "passed": false,
+      "seconds": 0.457,
+      "estimated_usd": 9.33e-05
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "leap_year",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 924,
+        "completion_tokens": 77
+      },
+      "fields": {
+        "fulfillment": "courier",
+        "date": "2028-02-29"
+      },
+      "expected_fields": 2,
+      "correct_fields": 2,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 0.89,
+      "estimated_usd": 0.00015015
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "explicit_date",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 937,
+        "completion_tokens": 9
+      },
+      "fields": {
+        "date": "2026-10-28",
+        "window": {
+          "start": "14:00",
+          "end": "16:00"
+        }
+      },
+      "expected_fields": 3,
+      "correct_fields": 2,
+      "missing": [
+        "fulfillment"
+      ],
+      "incorrect": [],
+      "extra": [],
+      "passed": false,
+      "seconds": 0.422,
+      "estimated_usd": 9.46e-05
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "explicit_date",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 937,
+        "completion_tokens": 7
+      },
+      "fields": {
+        "date": "2026-10-28",
+        "window": {
+          "start": "14:00",
+          "end": "16:00"
+        }
+      },
+      "expected_fields": 3,
+      "correct_fields": 2,
+      "missing": [
+        "fulfillment"
+      ],
+      "incorrect": [],
+      "extra": [],
+      "passed": false,
+      "seconds": 0.524,
+      "estimated_usd": 0.0001416
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "exact_evening",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 927,
+        "completion_tokens": 9
+      },
+      "fields": {
+        "date": "2026-10-27",
+        "requested_time_text": "к 22:00"
+      },
+      "expected_fields": 3,
+      "correct_fields": 2,
+      "missing": [
+        "fulfillment"
+      ],
+      "incorrect": [],
+      "extra": [],
+      "passed": false,
+      "seconds": 0.365,
+      "estimated_usd": 9.36e-05
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "exact_evening",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 927,
+        "completion_tokens": 80
+      },
+      "fields": {
+        "fulfillment": "courier",
+        "date": "2026-10-27",
+        "requested_time_text": "к 22:00"
+      },
+      "expected_fields": 3,
+      "correct_fields": 3,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.467,
+      "estimated_usd": 0.00015105
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "short_answer",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 975,
+        "completion_tokens": 9
+      },
+      "fields": {
+        "date": "2026-10-28"
+      },
+      "expected_fields": 1,
+      "correct_fields": 1,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 0.465,
+      "estimated_usd": 9.84e-05
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "short_answer",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 975,
+        "completion_tokens": 77
+      },
+      "fields": {
+        "date": "2026-10-28"
+      },
+      "expected_fields": 1,
+      "correct_fields": 1,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 0.864,
+      "estimated_usd": 0.0001578
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "confirmed_offer",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 992,
+        "completion_tokens": 257
+      },
+      "fields": {
+        "items": [
+          {
+            "kind": "product",
+            "product_id": "00000000-0000-4000-8000-000000000001",
+            "quantity": 1
+          }
+        ],
+        "date": "2026-10-27",
+        "window": {
+          "start": "10:00",
+          "end": "12:00"
+        }
+      },
+      "expected_fields": 4,
+      "correct_fields": 3,
+      "missing": [
+        "fulfillment"
+      ],
+      "incorrect": [],
+      "extra": [],
+      "passed": false,
+      "seconds": 1.824,
+      "estimated_usd": 0.0001249
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "confirmed_offer",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 992,
+        "completion_tokens": 257
+      },
+      "fields": {
+        "items": [
+          {
+            "kind": "product",
+            "product_id": "00000000-0000-4000-8000-000000000001",
+            "quantity": 1
+          }
+        ],
+        "date": "2026-10-27",
+        "window": {
+          "start": "10:00",
+          "end": "12:00"
+        }
+      },
+      "expected_fields": 4,
+      "correct_fields": 3,
+      "missing": [
+        "fulfillment"
+      ],
+      "incorrect": [],
+      "extra": [],
+      "passed": false,
+      "seconds": 2.371,
+      "estimated_usd": 0.00018735
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "only_question",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 941,
+        "completion_tokens": 9
+      },
+      "fields": {},
+      "expected_fields": 0,
+      "correct_fields": 0,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 3.024,
+      "estimated_usd": 9.5e-05
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "only_question",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 941,
+        "completion_tokens": 152
+      },
+      "fields": {},
+      "expected_fields": 0,
+      "correct_fields": 0,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 2.747,
+      "estimated_usd": 0.00016395
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "not_ordering",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 1003,
+        "completion_tokens": 9
+      },
+      "fields": {},
+      "expected_fields": 0,
+      "correct_fields": 0,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 0.369,
+      "estimated_usd": 0.0001012
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "not_ordering",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 1003,
+        "completion_tokens": 9
+      },
+      "fields": {},
+      "expected_fields": 0,
+      "correct_fields": 0,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 0.442,
+      "estimated_usd": 0.0001518
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "cancelled",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 989,
+        "completion_tokens": 7
+      },
+      "fields": {},
+      "expected_fields": 0,
+      "correct_fields": 0,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 0.456,
+      "estimated_usd": 9.96e-05
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "cancelled",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 989,
+        "completion_tokens": 7
+      },
+      "fields": {},
+      "expected_fields": 0,
+      "correct_fields": 0,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 0.492,
+      "estimated_usd": 0.0001494
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "date_unsure",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 927,
+        "completion_tokens": 9
+      },
+      "fields": {},
+      "expected_fields": 1,
+      "correct_fields": 0,
+      "missing": [
+        "fulfillment"
+      ],
+      "incorrect": [],
+      "extra": [],
+      "passed": false,
+      "seconds": 0.364,
+      "estimated_usd": 9.36e-05
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "date_unsure",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 927,
+        "completion_tokens": 7
+      },
+      "fields": {},
+      "expected_fields": 1,
+      "correct_fields": 0,
+      "missing": [
+        "fulfillment"
+      ],
+      "incorrect": [],
+      "extra": [],
+      "passed": false,
+      "seconds": 0.404,
+      "estimated_usd": 0.0001401
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "card_literal",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 926,
+        "completion_tokens": 80
+      },
+      "fields": {
+        "card_text": "Мамочка, люблю тебя!"
+      },
+      "expected_fields": 1,
+      "correct_fields": 1,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 0.716,
+      "estimated_usd": 0.0001006
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "card_literal",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 926,
+        "completion_tokens": 83
+      },
+      "fields": {
+        "card_text": "Мамочка, люблю тебя!"
+      },
+      "expected_fields": 1,
+      "correct_fields": 1,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.004,
+      "estimated_usd": 0.00015135
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "card_contains_time",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 929,
+        "completion_tokens": 9
+      },
+      "fields": {},
+      "expected_fields": 1,
+      "correct_fields": 0,
+      "missing": [
+        "card_text"
+      ],
+      "incorrect": [],
+      "extra": [],
+      "passed": false,
+      "seconds": 0.44,
+      "estimated_usd": 9.38e-05
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "card_contains_time",
+      "split": "development",
+      "tokens": {},
+      "error": "provider_unavailable",
+      "fields": {},
+      "expected_fields": 1,
+      "correct_fields": 0,
+      "missing": [
+        "card_text"
+      ],
+      "incorrect": [],
+      "extra": [],
+      "passed": false,
+      "seconds": 15.02,
+      "estimated_usd": 0.0
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "card_injection",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 934,
+        "completion_tokens": 9
+      },
+      "fields": {},
+      "expected_fields": 1,
+      "correct_fields": 0,
+      "missing": [
+        "card_text"
+      ],
+      "incorrect": [],
+      "extra": [],
+      "passed": false,
+      "seconds": 0.332,
+      "estimated_usd": 9.43e-05
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "card_injection",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 934,
+        "completion_tokens": 109
+      },
+      "fields": {},
+      "expected_fields": 1,
+      "correct_fields": 0,
+      "missing": [
+        "card_text"
+      ],
+      "incorrect": [],
+      "extra": [],
+      "passed": false,
+      "seconds": 1.177,
+      "estimated_usd": 0.00015645
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "recipient_only",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 942,
+        "completion_tokens": 162
+      },
+      "fields": {
+        "recipient_name": "Айдана",
+        "recipient_phone": "+996700123456"
+      },
+      "expected_fields": 2,
+      "correct_fields": 2,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.254,
+      "estimated_usd": 0.0001104
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "recipient_only",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 942,
+        "completion_tokens": 162
+      },
+      "fields": {
+        "recipient_name": "Айдана",
+        "recipient_phone": "+996700123456"
+      },
+      "expected_fields": 2,
+      "correct_fields": 2,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.796,
+      "estimated_usd": 0.0001656
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "buyer_not_recipient",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 945,
+        "completion_tokens": 98
+      },
+      "fields": {},
+      "expected_fields": 0,
+      "correct_fields": 0,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.129,
+      "estimated_usd": 0.0001043
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "buyer_not_recipient",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 945,
+        "completion_tokens": 108
+      },
+      "fields": {},
+      "expected_fields": 0,
+      "correct_fields": 0,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.057,
+      "estimated_usd": 0.00015795
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "item_correction",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 987,
+        "completion_tokens": 140
+      },
+      "fields": {
+        "items": [
+          {
+            "kind": "product",
+            "product_id": "00000000-0000-4000-8000-000000000002",
+            "quantity": 2
+          }
+        ]
+      },
+      "expected_fields": 1,
+      "correct_fields": 1,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.189,
+      "estimated_usd": 0.0001127
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "item_correction",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 987,
+        "completion_tokens": 140
+      },
+      "fields": {
+        "items": [
+          {
+            "kind": "product",
+            "product_id": "00000000-0000-4000-8000-000000000002",
+            "quantity": 2
+          }
+        ]
+      },
+      "expected_fields": 1,
+      "correct_fields": 1,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 2.014,
+      "estimated_usd": 0.00016905
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "two_products",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 937,
+        "completion_tokens": 209
+      },
+      "fields": {
+        "items": [
+          {
+            "kind": "product",
+            "product_id": "00000000-0000-4000-8000-000000000001",
+            "quantity": 2
+          },
+          {
+            "kind": "product",
+            "product_id": "00000000-0000-4000-8000-000000000002",
+            "quantity": 1
+          }
+        ]
+      },
+      "expected_fields": 1,
+      "correct_fields": 1,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.542,
+      "estimated_usd": 0.0001146
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "two_products",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 937,
+        "completion_tokens": 209
+      },
+      "fields": {
+        "items": [
+          {
+            "kind": "product",
+            "product_id": "00000000-0000-4000-8000-000000000001",
+            "quantity": 2
+          },
+          {
+            "kind": "product",
+            "product_id": "00000000-0000-4000-8000-000000000002",
+            "quantity": 1
+          }
+        ]
+      },
+      "expected_fields": 1,
+      "correct_fields": 1,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 3.291,
+      "estimated_usd": 0.0001719
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "window_not_in_catalog",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 930,
+        "completion_tokens": 9
+      },
+      "fields": {
+        "date": "2026-10-27"
+      },
+      "expected_fields": 2,
+      "correct_fields": 1,
+      "missing": [
+        "fulfillment"
+      ],
+      "incorrect": [],
+      "extra": [],
+      "passed": false,
+      "seconds": 0.365,
+      "estimated_usd": 9.39e-05
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "window_not_in_catalog",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 930,
+        "completion_tokens": 83
+      },
+      "fields": {
+        "fulfillment": "courier",
+        "date": "2026-10-27"
+      },
+      "expected_fields": 2,
+      "correct_fields": 2,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.01,
+      "estimated_usd": 0.00015195
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "exact_replaces_window",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 1015,
+        "completion_tokens": 117
+      },
+      "fields": {
+        "fulfillment": "courier",
+        "date": "2026-10-27",
+        "requested_time_text": "к 15:00",
+        "window": {
+          "start": "",
+          "end": ""
+        }
+      },
+      "expected_fields": 4,
+      "correct_fields": 4,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.341,
+      "estimated_usd": 0.0001132
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "exact_replaces_window",
+      "split": "development",
+      "tokens": {
+        "prompt_tokens": 1015,
+        "completion_tokens": 91
+      },
+      "fields": {
+        "fulfillment": "courier",
+        "date": "2026-10-27",
+        "requested_time_text": "к 15:00",
+        "window": {
+          "start": "",
+          "end": ""
+        }
+      },
+      "expected_fields": 4,
+      "correct_fields": 4,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 0.983,
+      "estimated_usd": 0.0001659
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "holdout_weekday",
+      "split": "holdout",
+      "tokens": {
+        "prompt_tokens": 929,
+        "completion_tokens": 82
+      },
+      "fields": {
+        "fulfillment": "pickup",
+        "date": "2026-10-30",
+        "window": {
+          "start": "14:00",
+          "end": "16:00"
+        }
+      },
+      "expected_fields": 3,
+      "correct_fields": 3,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.832,
+      "estimated_usd": 0.0001011
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "holdout_weekday",
+      "split": "holdout",
+      "tokens": {
+        "prompt_tokens": 929,
+        "completion_tokens": 82
+      },
+      "fields": {
+        "fulfillment": "pickup",
+        "date": "2026-10-30",
+        "window": {
+          "start": "14:00",
+          "end": "16:00"
+        }
+      },
+      "expected_fields": 3,
+      "correct_fields": 3,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 0.852,
+      "estimated_usd": 0.00015165
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "holdout_minutes",
+      "split": "holdout",
+      "tokens": {
+        "prompt_tokens": 926,
+        "completion_tokens": 9
+      },
+      "fields": {
+        "date": "2026-10-26",
+        "requested_time_text": "к 21:45"
+      },
+      "expected_fields": 3,
+      "correct_fields": 2,
+      "missing": [
+        "fulfillment"
+      ],
+      "incorrect": [],
+      "extra": [],
+      "passed": false,
+      "seconds": 0.628,
+      "estimated_usd": 9.35e-05
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "holdout_minutes",
+      "split": "holdout",
+      "tokens": {
+        "prompt_tokens": 926,
+        "completion_tokens": 79
+      },
+      "fields": {
+        "fulfillment": "pickup",
+        "date": "2026-10-26",
+        "requested_time_text": "к 21:45"
+      },
+      "expected_fields": 3,
+      "correct_fields": 3,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.004,
+      "estimated_usd": 0.00015075
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "holdout_nonleap",
+      "split": "holdout",
+      "tokens": {
+        "prompt_tokens": 922,
+        "completion_tokens": 76
+      },
+      "fields": {
+        "fulfillment": "courier",
+        "date": "2027-03-01"
+      },
+      "expected_fields": 2,
+      "correct_fields": 2,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 0.791,
+      "estimated_usd": 9.98e-05
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "holdout_nonleap",
+      "split": "holdout",
+      "tokens": {
+        "prompt_tokens": 922,
+        "completion_tokens": 75
+      },
+      "fields": {
+        "fulfillment": "courier",
+        "date": "2027-03-01"
+      },
+      "expected_fields": 2,
+      "correct_fields": 2,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.463,
+      "estimated_usd": 0.00014955
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "holdout_past",
+      "split": "holdout",
+      "tokens": {
+        "prompt_tokens": 932,
+        "completion_tokens": 9
+      },
+      "fields": {},
+      "expected_fields": 1,
+      "correct_fields": 0,
+      "missing": [
+        "fulfillment"
+      ],
+      "incorrect": [],
+      "extra": [],
+      "passed": false,
+      "seconds": 0.374,
+      "estimated_usd": 9.41e-05
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "holdout_past",
+      "split": "holdout",
+      "tokens": {
+        "prompt_tokens": 932,
+        "completion_tokens": 85
+      },
+      "fields": {
+        "fulfillment": "pickup"
+      },
+      "expected_fields": 1,
+      "correct_fields": 1,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 0.937,
+      "estimated_usd": 0.00015255
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "holdout_manager_unconfirmed",
+      "split": "holdout",
+      "tokens": {
+        "prompt_tokens": 1044,
+        "completion_tokens": 9
+      },
+      "fields": {},
+      "expected_fields": 0,
+      "correct_fields": 0,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 0.493,
+      "estimated_usd": 0.0001053
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "holdout_manager_unconfirmed",
+      "split": "holdout",
+      "tokens": {
+        "prompt_tokens": 1044,
+        "completion_tokens": 150
+      },
+      "fields": {},
+      "expected_fields": 0,
+      "correct_fields": 0,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.299,
+      "estimated_usd": 0.0001791
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "holdout_no_recipient",
+      "split": "holdout",
+      "tokens": {
+        "prompt_tokens": 945,
+        "completion_tokens": 195
+      },
+      "fields": {
+        "items": [
+          {
+            "kind": "product",
+            "product_id": "00000000-0000-4000-8000-000000000002",
+            "quantity": 1
+          }
+        ],
+        "fulfillment": "pickup",
+        "date": "2026-10-28",
+        "window": {
+          "start": "14:00",
+          "end": "16:00"
+        }
+      },
+      "expected_fields": 4,
+      "correct_fields": 4,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.984,
+      "estimated_usd": 0.000114
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "holdout_no_recipient",
+      "split": "holdout",
+      "tokens": {
+        "prompt_tokens": 945,
+        "completion_tokens": 213
+      },
+      "fields": {
+        "items": [
+          {
+            "kind": "product",
+            "product_id": "00000000-0000-4000-8000-000000000002",
+            "quantity": 1
+          }
+        ],
+        "fulfillment": "pickup",
+        "date": "2026-10-28",
+        "window": {
+          "start": "14:00",
+          "end": "16:00"
+        }
+      },
+      "expected_fields": 4,
+      "correct_fields": 4,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.84,
+      "estimated_usd": 0.0001737
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "holdout_budget",
+      "split": "holdout",
+      "tokens": {
+        "prompt_tokens": 934,
+        "completion_tokens": 303
+      },
+      "error": "invalid_result",
+      "fields": {},
+      "expected_fields": 2,
+      "correct_fields": 0,
+      "missing": [
+        "items",
+        "notes"
+      ],
+      "incorrect": [],
+      "extra": [],
+      "passed": false,
+      "seconds": 2.393,
+      "estimated_usd": 0.0001237
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "holdout_budget",
+      "split": "holdout",
+      "tokens": {
+        "prompt_tokens": 934,
+        "completion_tokens": 116
+      },
+      "fields": {
+        "items": [
+          {
+            "kind": "budget",
+            "amount": "4500.00",
+            "description": "без лилий"
+          }
+        ]
+      },
+      "expected_fields": 2,
+      "correct_fields": 1,
+      "missing": [
+        "notes"
+      ],
+      "incorrect": [],
+      "extra": [],
+      "passed": false,
+      "seconds": 1.221,
+      "estimated_usd": 0.0001575
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "holdout_recipient_change",
+      "split": "holdout",
+      "tokens": {
+        "prompt_tokens": 1015,
+        "completion_tokens": 151
+      },
+      "fields": {
+        "recipient_name": "Мария",
+        "recipient_phone": "+996700654321"
+      },
+      "expected_fields": 2,
+      "correct_fields": 2,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.271,
+      "estimated_usd": 0.0001166
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "holdout_recipient_change",
+      "split": "holdout",
+      "tokens": {
+        "prompt_tokens": 1015,
+        "completion_tokens": 189
+      },
+      "fields": {
+        "recipient_name": "Мария",
+        "recipient_phone": "+996700654321"
+      },
+      "expected_fields": 2,
+      "correct_fields": 2,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.586,
+      "estimated_usd": 0.0001806
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "holdout_notes_card",
+      "split": "holdout",
+      "tokens": {
+        "prompt_tokens": 935,
+        "completion_tokens": 140
+      },
+      "fields": {
+        "card_text": "Счастья тебе!",
+        "notes": "белая упаковка"
+      },
+      "expected_fields": 2,
+      "correct_fields": 2,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 2.062,
+      "estimated_usd": 0.0001075
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "holdout_notes_card",
+      "split": "holdout",
+      "tokens": {
+        "prompt_tokens": 935,
+        "completion_tokens": 148
+      },
+      "fields": {
+        "address_details": "белая упаковка",
+        "card_text": "Счастья тебе!"
+      },
+      "expected_fields": 2,
+      "correct_fields": 1,
+      "missing": [
+        "notes"
+      ],
+      "incorrect": [],
+      "extra": [
+        "address_details"
+      ],
+      "passed": false,
+      "seconds": 1.391,
+      "estimated_usd": 0.00016245
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "holdout_occasion",
+      "split": "holdout",
+      "tokens": {
+        "prompt_tokens": 925,
+        "completion_tokens": 81
+      },
+      "fields": {
+        "occasion": "годовщина свадьбы"
+      },
+      "expected_fields": 1,
+      "correct_fields": 1,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.255,
+      "estimated_usd": 0.0001006
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "holdout_occasion",
+      "split": "holdout",
+      "tokens": {
+        "prompt_tokens": 925,
+        "completion_tokens": 81
+      },
+      "fields": {
+        "occasion": "годовщина свадьбы"
+      },
+      "expected_fields": 1,
+      "correct_fields": 1,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 1.373,
+      "estimated_usd": 0.0001509
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "holdout_address_details",
+      "split": "holdout",
+      "tokens": {
+        "prompt_tokens": 944,
+        "completion_tokens": 166
+      },
+      "fields": {
+        "address": "Примерная улица, 12",
+        "address_details": "подъезд 2, этаж 3"
+      },
+      "expected_fields": 2,
+      "correct_fields": 2,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 3.776,
+      "estimated_usd": 0.000111
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "holdout_address_details",
+      "split": "holdout",
+      "tokens": {
+        "prompt_tokens": 944,
+        "completion_tokens": 194
+      },
+      "fields": {
+        "address": "Примерная улица, 12",
+        "address_details": "подъезд 2, этаж 3"
+      },
+      "expected_fields": 2,
+      "correct_fields": 2,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 3.514,
+      "estimated_usd": 0.0001707
+    },
+    {
+      "model": "ministral-3b-2512",
+      "case": "holdout_future_message_anchor",
+      "split": "holdout",
+      "tokens": {
+        "prompt_tokens": 923,
+        "completion_tokens": 76
+      },
+      "fields": {
+        "fulfillment": "pickup",
+        "date": "2026-10-27"
+      },
+      "expected_fields": 2,
+      "correct_fields": 2,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 0.943,
+      "estimated_usd": 9.99e-05
+    },
+    {
+      "model": "ministral-8b-2512",
+      "case": "holdout_future_message_anchor",
+      "split": "holdout",
+      "tokens": {
+        "prompt_tokens": 923,
+        "completion_tokens": 76
+      },
+      "fields": {
+        "fulfillment": "pickup",
+        "date": "2026-10-27"
+      },
+      "expected_fields": 2,
+      "correct_fields": 2,
+      "missing": [],
+      "incorrect": [],
+      "extra": [],
+      "passed": true,
+      "seconds": 0.852,
+      "estimated_usd": 0.00014985
+    }
+  ],
+  "summary": {
+    "ministral-3b-2512": {
+      "all": {
+        "cases": 40,
+        "passed": 24,
+        "expected_fields": 86,
+        "correct_fields": 66,
+        "field_recall_percent": 76.74,
+        "field_precision_percent": 100.0,
+        "incorrect_values": 0,
+        "unsupported_extra_fields": 0,
+        "p50_seconds": 1.189,
+        "p95_seconds": 3.081,
+        "prompt_tokens": 38029,
+        "completion_tokens": 4109,
+        "estimated_usd": 0.004214,
+        "failed_requests": 2,
+        "errors_by_code": {
+          "invalid_result": 2
+        }
+      },
+      "development": {
+        "cases": 28,
+        "passed": 15,
+        "expected_fields": 62,
+        "correct_fields": 46,
+        "field_recall_percent": 74.19,
+        "field_precision_percent": 100.0,
+        "incorrect_values": 0,
+        "unsupported_extra_fields": 0,
+        "p50_seconds": 1.129,
+        "p95_seconds": 3.081,
+        "prompt_tokens": 26655,
+        "completion_tokens": 2812,
+        "estimated_usd": 0.002947,
+        "failed_requests": 1,
+        "errors_by_code": {
+          "invalid_result": 1
+        }
+      },
+      "holdout": {
+        "cases": 12,
+        "passed": 9,
+        "expected_fields": 24,
+        "correct_fields": 20,
+        "field_recall_percent": 83.33,
+        "field_precision_percent": 100.0,
+        "incorrect_values": 0,
+        "unsupported_extra_fields": 0,
+        "p50_seconds": 1.271,
+        "p95_seconds": 3.776,
+        "prompt_tokens": 11374,
+        "completion_tokens": 1297,
+        "estimated_usd": 0.001267,
+        "failed_requests": 1,
+        "errors_by_code": {
+          "invalid_result": 1
+        }
+      }
+    },
+    "ministral-8b-2512": {
+      "all": {
+        "cases": 40,
+        "passed": 32,
+        "expected_fields": 86,
+        "correct_fields": 78,
+        "field_recall_percent": 90.7,
+        "field_precision_percent": 98.73,
+        "incorrect_values": 0,
+        "unsupported_extra_fields": 1,
+        "p50_seconds": 1.373,
+        "p95_seconds": 4.671,
+        "prompt_tokens": 37100,
+        "completion_tokens": 4761,
+        "estimated_usd": 0.006279,
+        "failed_requests": 1,
+        "errors_by_code": {
+          "provider_unavailable": 1
+        }
+      },
+      "development": {
+        "cases": 28,
+        "passed": 22,
+        "expected_fields": 62,
+        "correct_fields": 56,
+        "field_recall_percent": 90.32,
+        "field_precision_percent": 100.0,
+        "incorrect_values": 0,
+        "unsupported_extra_fields": 0,
+        "p50_seconds": 1.416,
+        "p95_seconds": 7.104,
+        "prompt_tokens": 25726,
+        "completion_tokens": 3273,
+        "estimated_usd": 0.00435,
+        "failed_requests": 1,
+        "errors_by_code": {
+          "provider_unavailable": 1
+        }
+      },
+      "holdout": {
+        "cases": 12,
+        "passed": 10,
+        "expected_fields": 24,
+        "correct_fields": 22,
+        "field_recall_percent": 91.67,
+        "field_precision_percent": 95.65,
+        "incorrect_values": 0,
+        "unsupported_extra_fields": 1,
+        "p50_seconds": 1.373,
+        "p95_seconds": 3.514,
+        "prompt_tokens": 11374,
+        "completion_tokens": 1488,
+        "estimated_usd": 0.001929,
+        "failed_requests": 0,
+        "errors_by_code": {}
+      }
+    }
+  },
+  "code_sha256": {
+    "backend/tapme/orders/infrastructure/extractors.py": "3d7606c696bc355b08ac31a5de4092580de10c1ce773914a84d099de97107be1",
+    "backend/tapme/orders/application/extraction.py": "a3a33aa8a180ba627be8ef982a1de2cdacba605cf653eac52e9d3d89cb4c201b",
+    "backend/tapme/orders/application/extraction_grounding.py": "5baa4fa5f0822e4ec08930dd41332c17168ed9f008667c611338a93733e08f58"
+  },
+  "notes": [
+    "Frozen 28 development + 12 held-out cases; one live run per model/case, temperature 0.",
+    "Scores measure the full model + grounding + deterministic date pipeline, not the model alone.",
+    "No prompts or rules were tuned against held-out results after this comparison.",
+    "String matching ignores case and trailing sentence punctuation; budget description is not scored, but application requires quote grounding.",
+    "One timed-out 8B request has unknown token usage; USD estimate excludes unknown usage, cache discounts and tax. It is not a billing statement.",
+    "Small synthetic set is not representative partner validation and does not close S-04/Q-13."
+  ]
+}

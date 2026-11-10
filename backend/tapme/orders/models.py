@@ -7,6 +7,7 @@ from django.db import models
 class OfficeTask(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     business = models.ForeignKey("businesses.Business", on_delete=models.CASCADE)
+    point = models.ForeignKey("businesses.Shop", null=True, blank=True, on_delete=models.PROTECT)
     content = models.CharField(max_length=500)
     done = models.BooleanField(default=False)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
@@ -21,6 +22,7 @@ class OrderCounter(models.Model):
 
 
 class OrderRecord(models.Model):
+    point = models.ForeignKey("businesses.Shop", on_delete=models.PROTECT)
     prepayment_percent = models.PositiveSmallIntegerField(default=0, db_default=0)
     prepayment_required = models.DecimalField(
         max_digits=12, decimal_places=2, default=0, db_default=0
@@ -70,6 +72,14 @@ class OrderRecord(models.Model):
     created_at = models.DateTimeField()
     request_key = models.UUIDField()
     request_hash = models.CharField(max_length=64)
+
+    def save(self, *args, **kwargs):
+        # Older internal callers may omit the point only for a single-point company.
+        if not self.point_id:
+            from tapme.businesses.models import Shop
+
+            self.point = Shop.objects.get(business_id=self.business_id, active=True)
+        super().save(*args, **kwargs)
 
     class Meta:
         constraints = [
@@ -123,6 +133,10 @@ class OrderEvent(models.Model):
 
 
 class OrderDraft(models.Model):
+    extraction_actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL
+    )
+    extraction_state = models.JSONField(default=dict, db_default={})
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     business = models.ForeignKey("businesses.Business", on_delete=models.PROTECT)
     conversation = models.ForeignKey("messaging.Conversation", on_delete=models.CASCADE)
