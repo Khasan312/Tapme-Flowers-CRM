@@ -21,7 +21,11 @@ const prefix = "tapme-chat-draft:";
 export function clearChatDrafts() {
   try {
     for (const key of Object.keys(sessionStorage))
-      if (key.startsWith(prefix) || key.startsWith("tapme-chat-navigation:"))
+      if (
+        key.startsWith(prefix) ||
+        key.startsWith("tapme-order-draft:") ||
+        key.startsWith("tapme-chat-navigation:")
+      )
         sessionStorage.removeItem(key);
   } catch {
     /* Browser storage may be disabled. */

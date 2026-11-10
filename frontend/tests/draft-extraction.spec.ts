@@ -64,8 +64,8 @@ test.afterEach(async ({ page }) => {
   await page.unrouteAll({ behavior: "wait" });
   execFileSync(python, [fixture, "delete"], { input: JSON.stringify(account) });
 });
-async function openEditor(page: Page, mobile = false) {
-  await page.goto("/");
+async function openEditor(page: Page) {
+  await page.goto("/login");
   await submitLogin(page, account.username, account.password);
   await api(page, "products/", "POST", {
     name: "Нежный букет",
@@ -74,13 +74,8 @@ async function openEditor(page: Page, mobile = false) {
   await page.goto(
     `/?view=chats&business=${account.business_id}&chat=${seeded.chat_id}`,
   );
-  if (mobile)
-    await page
-      .getByRole("group", { name: "Клиент и черновик", exact: true })
-      .getByRole("button", { name: "Черновик заказа", exact: true })
-      .click();
   await page
-    .getByRole("button", { name: "Создать черновик", exact: true })
+    .getByRole("button", { name: "Оформить заказ", exact: true })
     .click();
   await expect(page.getByLabel("Автозаполнение черновика")).toContainText(
     "Демонстрационный режим без ИИ",
@@ -91,7 +86,7 @@ for (const mobile of [false, true])
     page,
   }, info) => {
     if (mobile) await page.setViewportSize({ width: 390, height: 844 });
-    await openEditor(page, mobile);
+    await openEditor(page);
     await page
       .getByLabel("Адрес доставки", { exact: true })
       .fill("Ручной адрес");

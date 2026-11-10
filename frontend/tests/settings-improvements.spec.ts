@@ -28,7 +28,7 @@ test.afterEach(() => {
 });
 
 async function login(page: Page) {
-  await page.goto("/");
+  await page.goto("/login");
   await submitLogin(page, account.username, account.password);
   await page.getByRole("button", { name: "Настройки", exact: true }).click();
 }

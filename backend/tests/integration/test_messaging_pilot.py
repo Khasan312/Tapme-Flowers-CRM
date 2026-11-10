@@ -520,8 +520,8 @@ def test_payment_qr_is_in_backup_reference_list(pilot, monkeypatch):
             assert archive.read(key) == file.read()
 
 
-def test_unread_is_separate_from_waiting_and_webhook_is_throttled(pilot):
-    setup, client, base, channel = pilot
+def test_unread_is_separate_from_waiting(pilot):
+    _, client, base, _ = pilot
     chat = incoming(client, base)
     summary = client.get(base + "/chats/summary/").data
     assert summary["waiting"] == 1 and summary["unread"] == 1
@@ -532,14 +532,40 @@ def test_unread_is_separate_from_waiting_and_webhook_is_throttled(pilot):
     )
     summary = client.get(base + "/chats/summary/").data
     assert summary["waiting"] == 1 and summary["unread"] == 0
-    from django.test import RequestFactory
 
+
+def test_webhook_rejections_cannot_exhaust_signed_delivery_limit(pilot, monkeypatch, settings):
     from tapme.messaging.api import WebhookThrottle
 
-    throttle = WebhookThrottle()
-    request = RequestFactory().get("/", REMOTE_ADDR="192.0.2.77")
-    for _ in range(300):
-        assert throttle.allow_request(request, None)
+    _, client, _, channel = pilot
+    monkeypatch.setattr(WebhookThrottle, "rate", "2/min")
+    settings.TRUST_PROXY = True
+    headers = {"REMOTE_ADDR": "192.0.2.77", "HTTP_X_TAPME_CLIENT_IP": "198.51.100.7"}
     url = f"/api/v1/webhooks/meta/whatsapp/{channel.webhook_key}/"
-    response = client.get(url, REMOTE_ADDR="192.0.2.77")
+    missing = "/api/v1/webhooks/meta/whatsapp/unknown/"
+    assert client.get(missing, **headers).status_code == 404
+    assert client.get(url, **headers).status_code == 403
+    response = client.get(url, **headers)
     assert response.status_code == 429 and response["Retry-After"]
+    assert (
+        client.get(url, **{**headers, "HTTP_X_TAPME_CLIENT_IP": "198.51.100.8"}).status_code == 403
+    )
+
+    body = b'{"object":"whatsapp_business_account","entry":[]}'
+    signature = "sha256=" + hmac.new(b"private-secret", body, hashlib.sha256).hexdigest()
+
+    def send(signature):
+        return client.post(
+            url,
+            body,
+            content_type="application/json",
+            HTTP_X_HUB_SIGNATURE_256=signature,
+            **headers,
+        )
+
+    assert send("sha256=bad").status_code == 429
+    assert not WebhookEvent.objects.exists()
+    assert send(signature).status_code == 200
+    assert send(signature).status_code == 200
+    assert send(signature).status_code == 429
+    assert WebhookEvent.objects.count() == 1

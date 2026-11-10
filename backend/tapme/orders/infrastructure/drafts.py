@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 from django.db import transaction
 from django.utils import timezone
 
+from tapme.businesses.infrastructure.access import DjangoMembershipReader
 from tapme.businesses.models import Shop
 from tapme.catalog.models import ProductRecord
 from tapme.messaging.models import Conversation, Message
@@ -47,6 +48,17 @@ class DjangoDraftRepository:
         if chat.mode != "human":
             raise InvalidInput("Сначала откройте диалог.")
 
+    def _check_draft_point(self, scope, row):
+        point = row.order.point_id if row.order_id else row.fields.get("point_id")
+        if not point:
+            return
+        try:
+            point_id = UUID(str(point))
+        except ValueError:
+            raise NotFound("Черновик не найден.") from None
+        if not DjangoMembershipReader().points(scope).filter(id=point_id).exists():
+            raise NotFound("Черновик не найден.")
+
     def _draft(self, scope, chat_id, draft_id, version):
         row = (
             OrderDraft.objects.select_for_update()
@@ -55,6 +67,7 @@ class DjangoDraftRepository:
         )
         if not row:
             raise NotFound("Черновик не найден.")
+        self._check_draft_point(scope, row)
         if row.status != "converted" and row.version != version:
             raise Conflict(
                 "Черновик изменён в другой вкладке. Ваши правки сохранены в форме; загрузите актуальный черновик перед повторным сохранением."
@@ -78,6 +91,7 @@ class DjangoDraftRepository:
             return {"draft": None}
         from tapme.orders.infrastructure.extraction import public_state
 
+        self._check_draft_point(scope, row)
         fields = normalize_fields(row.fields)
         products = self._products(scope, fields)
         missing = missing_fields(fields)
@@ -98,8 +112,6 @@ class DjangoDraftRepository:
                     "total": str(price * quantity),
                 }
             )
-        from tapme.businesses.infrastructure.access import DjangoMembershipReader
-
         available = DjangoMembershipReader().points(scope).filter(active=True)
         selected = fields.get("point_id")
         shop = available.filter(id=selected).first() if selected else None
@@ -165,8 +177,6 @@ class DjangoDraftRepository:
             self._editable(chat)
             row = OrderDraft.objects.filter(conversation=chat, status="active").first()
             if row is None:
-                from tapme.businesses.infrastructure.access import DjangoMembershipReader
-
                 selected = scope.point_id
                 if (
                     not selected
@@ -209,9 +219,10 @@ class DjangoDraftRepository:
             if row.customer_id != chat.customer_id:
                 raise Conflict("Клиент диалога изменился. Создайте новый черновик.")
             if fields.get("point_id"):
-                from tapme.businesses.infrastructure.access import DjangoMembershipReader
-
                 DjangoMembershipReader().order_point(scope, UUID(fields["point_id"]))
+            elif row.fields.get("point_id"):
+                # An omitted or blank point must not make a scoped draft company-wide.
+                fields["point_id"] = row.fields["point_id"]
             self._products(scope, fields)
             if set(reviewed_fields or []) - set(fields):
                 raise InvalidInput("Неизвестное поле проверки.")

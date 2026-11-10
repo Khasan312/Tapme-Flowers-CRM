@@ -31,6 +31,7 @@ INSTALLED_APPS = [
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "config.middleware.limit_api_accept_header",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -168,7 +169,8 @@ STATIC_ROOT = (
 CSRF_TRUSTED_ORIGINS = [
     origin for origin in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if origin
 ]
-if os.getenv("DJANGO_TRUST_PROXY") == "true":
+TRUST_PROXY = os.getenv("DJANGO_TRUST_PROXY") == "true"
+if TRUST_PROXY:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_SSL_REDIRECT = not DEBUG
 SECURE_HSTS_SECONDS = 31536000 if not DEBUG else 0

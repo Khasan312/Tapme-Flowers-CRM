@@ -31,7 +31,7 @@ test("фото прайса: создание, карандаш справа, з
     "-c",
     "import sys; from PIL import Image; Image.new('RGB', (300, 200), 'blue').save(sys.stdout.buffer, 'PNG')",
   ]);
-  await page.goto("/");
+  await page.goto("/login");
   await submitLogin(page, account.username, account.password);
   await page.getByRole("button", { name: "Настройки", exact: true }).click();
   await page.getByRole("tab", { name: "Прайс", exact: true }).click();

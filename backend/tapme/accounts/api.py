@@ -6,10 +6,10 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from config.api import StrictSerializer, validated
+from config.throttling import ClientRateThrottle
 from tapme.accounts.permissions import is_platform_admin
 
 
@@ -49,7 +49,7 @@ class CsrfView(APIView):
 class LoginView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
-    throttle_classes = [ScopedRateThrottle]
+    throttle_classes = [ClientRateThrottle]
     throttle_scope = "login"
 
     @extend_schema(request=LoginInput, responses=LoginOutput)
@@ -86,7 +86,7 @@ class PasswordInput(StrictSerializer):
 
 class PasswordView(APIView):
     permission_classes = [IsAuthenticated]
-    throttle_classes = [ScopedRateThrottle]
+    throttle_classes = [ClientRateThrottle]
     throttle_scope = "login"
 
     @extend_schema(request=PasswordInput, responses={204: None})

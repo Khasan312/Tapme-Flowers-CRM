@@ -17,13 +17,15 @@ from tapme.messaging.models import ChannelAccount, Conversation, Message, Webhoo
 from tapme.shared.domain import InvalidInput, NotFound
 
 
-def receive(body, signature, channel=None):
+def valid_signature(body, signature, channel=None):
     secret = decrypt(channel.app_secret_encrypted) if channel else settings.META_APP_SECRET
     if not secret:
         raise InvalidInput("Канал не настроен.")
     expected = "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(expected.encode(), (signature or "").encode()):
-        return False
+    return hmac.compare_digest(expected.encode(), signature.encode())
+
+
+def store_webhook(body, channel=None):
     payload = json.loads(body)
     if not isinstance(payload, dict) or payload.get("object") != (
         "instagram" if channel and channel.kind == "instagram" else "whatsapp_business_account"
@@ -33,7 +35,6 @@ def receive(body, signature, channel=None):
         digest=hashlib.sha256((str(channel.id).encode() if channel else b"") + body).hexdigest(),
         defaults={"payload": payload, "channel": channel},
     )
-    return True
 
 
 def instant(value):

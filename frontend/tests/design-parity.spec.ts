@@ -21,7 +21,7 @@ test("макет: настройки, общий поиск, виды заказ
 }, info) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.goto("/");
+  await page.goto("/login");
   await submitLogin(page, account.username, account.password);
   await page.getByRole("button", { name: "Настройки", exact: true }).click();
   await expect(

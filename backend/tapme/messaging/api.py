@@ -1,5 +1,4 @@
 import hmac
-import json
 from decimal import Decimal
 
 from django.conf import settings
@@ -21,8 +20,9 @@ from rest_framework.views import APIView
 
 from config import composition
 from config.api import ListQuery, StrictSerializer, validated
+from config.throttling import client_ip
 from tapme.businesses.point_scope import request_scope
-from tapme.messaging.infrastructure.processing import receive
+from tapme.messaging.infrastructure.processing import store_webhook, valid_signature
 from tapme.messaging.schemas import (
     ChannelOutput,
     ChatFolderListOutput,
@@ -325,23 +325,32 @@ class WebhookThrottle(SimpleRateThrottle):
     rate = "300/min"
     scope = "meta-webhook"
 
+    def __init__(self, identifier):
+        self.identifier = identifier
+        super().__init__()
+
     def get_cache_key(self, request, view):
-        return self.cache_format % {
-            "scope": self.scope,
-            "ident": request.META.get("REMOTE_ADDR", "unknown"),
-        }
+        return self.cache_format % {"scope": self.scope, "ident": self.identifier}
 
 
-@csrf_exempt
-def meta_webhook(request, webhook_key=None, kind="whatsapp"):
-    throttle = WebhookThrottle()
+def webhook_limit(request, identifier):
+    throttle = WebhookThrottle(identifier)
     if not throttle.allow_request(request, None):
         response = HttpResponse(status=429)
         response["Retry-After"] = str(max(1, int(throttle.wait() or 60)))
         return response
+
+
+@csrf_exempt
+def meta_webhook(request, webhook_key=None, kind="whatsapp"):
     from django.utils import timezone
 
     from tapme.messaging.models import ChannelAccount
+
+    def reject(status):
+        return webhook_limit(request, f"unverified:{client_ip(request)}") or HttpResponse(
+            status=status
+        )
 
     channel = None
     verify_token = settings.META_WEBHOOK_VERIFY_TOKEN
@@ -352,31 +361,41 @@ def meta_webhook(request, webhook_key=None, kind="whatsapp"):
             .first()
         )
         if not channel:
-            return HttpResponse(status=404)
+            return reject(404)
         verify_token = channel.verify_token
     if not channel and (not settings.META_APP_SECRET or not verify_token):
-        return HttpResponse(status=503)
+        return reject(503)
+    channel_key = channel.id if channel else "legacy"
     if request.method == "GET":
         valid = request.GET.get("hub.mode") == "subscribe" and hmac.compare_digest(
             request.GET.get("hub.verify_token", "").encode(),
             verify_token.encode(),
         )
-        if valid and channel:
+        if not valid:
+            return reject(403)
+        if limited := webhook_limit(request, f"challenge:{channel_key}"):
+            return limited
+        if channel:
             ChannelAccount.objects.filter(id=channel.id).update(webhook_verified_at=timezone.now())
-        return (
-            HttpResponse(request.GET.get("hub.challenge", ""), content_type="text/plain")
-            if valid
-            else HttpResponse(status=403)
-        )
+        return HttpResponse(request.GET.get("hub.challenge", ""), content_type="text/plain")
     if request.method != "POST":
-        return HttpResponse(status=405)
-    if len(request.body) > 1024 * 1024:
-        return HttpResponse(status=413)
+        return reject(405)
+    max_body = 1024 * 1024
+    body = request.read(max_body + 1)
+    if len(body) > max_body:
+        return reject(413)
     try:
-        accepted = receive(request.body, request.headers.get("X-Hub-Signature-256", ""), channel)
-    except (ValueError, json.JSONDecodeError, InvalidInput):
+        if not valid_signature(body, request.headers.get("X-Hub-Signature-256", ""), channel):
+            return reject(401)
+    except InvalidInput:
+        return reject(400)
+    if limited := webhook_limit(request, f"signed:{channel_key}"):
+        return limited
+    try:
+        store_webhook(body, channel)
+    except ValueError:
         return HttpResponse(status=400)
-    return JsonResponse({"received": True}) if accepted else HttpResponse(status=401)
+    return JsonResponse({"received": True})
 
 
 @csrf_exempt
@@ -610,7 +629,7 @@ ChannelActionView = extend_schema_view(
 class ChannelWebhookView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
-    throttle_classes = []  # Signature endpoint has its own 300/minute IP limit.
+    throttle_classes = []  # The webhook applies separate limits after checking credentials.
 
     @extend_schema(
         operation_id="whatsapp_webhook_verify",

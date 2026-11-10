@@ -18,11 +18,8 @@ class DjangoPhotoStorage:
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("error", Image.DecompressionBombWarning)
-                with Image.open(BytesIO(content)) as original:
-                    if (
-                        original.format not in {"JPEG", "PNG", "WEBP"}
-                        or original.width * original.height > 24_000_000
-                    ):
+                with Image.open(BytesIO(content), formats=["JPEG", "PNG", "WEBP"]) as original:
+                    if original.width * original.height > 24_000_000:
                         raise InvalidInput("Используйте JPEG, PNG или WebP до 24 мегапикселей.")
                     original.load()
                     picture = ImageOps.exif_transpose(original).convert("RGB")

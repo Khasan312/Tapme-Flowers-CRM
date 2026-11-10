@@ -19,7 +19,7 @@ for (const mobile of [false, true])
   }, info) => {
     test.setTimeout(120000);
     if (mobile) await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/");
+    await page.goto("/login");
     await submitLogin(page, account.username, account.password);
     await page.goto(
       `/?view=settings&tab=channels&business=${account.business_id}`,

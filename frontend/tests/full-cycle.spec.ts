@@ -23,7 +23,7 @@ test("команда, редактирование, флорист, достав
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   async function login(username: string) {
-    await page.goto("/");
+    await page.goto("/login");
     await submitLogin(page, username, account.password);
   }
   const florist = account.username + "_florist",

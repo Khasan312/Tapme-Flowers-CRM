@@ -198,16 +198,73 @@ small {
   position: relative;
   overflow: hidden;
 }
-.login-story:after {
-  content: "";
+.login-bloom {
   position: absolute;
-  border: 1px solid #325145;
-  border-radius: 50%;
-  width: 570px;
-  height: 570px;
-  right: -340px;
-  bottom: -200px;
+  stroke: #9abc9f;
+  stroke-width: 1.5px;
   pointer-events: none;
+}
+.login-bloom--lower {
+  right: 4%;
+  bottom: 0;
+  width: 70%;
+  height: min(420px, calc(50% - 135px));
+}
+.login-bloom--hanging {
+  top: 0;
+  right: 12%;
+  width: 65%;
+  height: min(320px, calc(50% - 145px));
+  --bloom-petal-color: #d6bfdf;
+  --bloom-delay: 0.24s;
+}
+.login-bloom-veins {
+  opacity: 0.55;
+}
+.login-bloom-petals,
+.login-bloom-folds {
+  stroke: var(--bloom-petal-color, #e6c9b8);
+}
+.login-bloom-folds {
+  opacity: 0.66;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .login-bloom path {
+    stroke-dasharray: 1 1;
+    animation: login-bloom-draw var(--draw-duration, 1s) ease-in-out
+      calc(var(--bloom-delay, 0s) + var(--draw-delay, 0s)) both;
+  }
+  .login-bloom-stem {
+    --draw-duration: 1.55s;
+  }
+  .login-bloom-leaves {
+    --draw-delay: 0.8s;
+  }
+  .login-bloom-veins {
+    --draw-delay: 1.15s;
+    --draw-duration: 0.75s;
+  }
+  .login-bloom-petals {
+    --draw-delay: 1.5s;
+    --draw-duration: 1.3s;
+  }
+  .login-bloom-folds {
+    --draw-delay: 2.25s;
+    --draw-duration: 0.8s;
+  }
+}
+@keyframes login-bloom-draw {
+  from {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
 }
 .login-story h1 {
   font-size: clamp(32px, 4vw, 56px);
@@ -219,6 +276,27 @@ small {
 .login-story p {
   line-height: 1.8;
   color: #a8bdb0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .login-story-word {
+    display: inline-block;
+    animation: login-story-write var(--write-duration) linear var(--write-delay)
+      backwards;
+  }
+}
+@keyframes login-story-write {
+  from,
+  to {
+    mask-image: linear-gradient(90deg, #000 48%, transparent 52%);
+    mask-size: 210% 100%;
+    mask-repeat: no-repeat;
+  }
+  from {
+    mask-position: 100% 0;
+  }
+  to {
+    mask-position: 0 0;
+  }
 }
 .login-foot {
   font-size: 12px;
@@ -1293,8 +1371,17 @@ fieldset:disabled {
     min-height: 0;
   }
   .login-story > div:not(.brand),
-  .login-story .login-foot,
-  .login-story::after {
+  .login-story .login-foot {
+    display: none;
+  }
+  .login-bloom--lower {
+    right: max(16px, env(safe-area-inset-right));
+    bottom: -15px;
+    width: 92px;
+    height: 92px;
+    stroke-width: 4px;
+  }
+  .login-bloom--hanging {
     display: none;
   }
   .login-story .brand-mark {

@@ -111,3 +111,233 @@
     scroll-margin-top: 52px;
   }
 }
+
+.crm .chat-workflow-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  grid-column: 1 / -1;
+  gap: 8px;
+  min-width: 0;
+}
+
+.crm .chat-workflow-actions .chat-order-action {
+  gap: 7px;
+  min-height: 40px;
+  padding: 6px 12px;
+  white-space: nowrap;
+}
+
+.crm .chat-workflow-actions .chat-folder-chip {
+  min-width: 36px;
+  margin-left: auto;
+}
+
+.crm .chat-compose-field .chat-tools-trigger {
+  display: none;
+}
+
+.crm .chat-dialog-toolbar {
+  grid-template-columns: minmax(0, 150px) minmax(0, 1fr) auto;
+  padding-bottom: 8px;
+}
+
+.crm .chat-dialog-toolbar > .chat-owner {
+  display: contents;
+}
+
+@container chat-dialog (max-width: 620px) {
+  .crm .chat-dialog-toolbar {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 6px;
+  }
+  .crm .chat-dialog-heading {
+    grid-column: 1 / -1;
+  }
+  .crm .chat-workflow-actions {
+    grid-column: 1;
+    grid-row: 2;
+    gap: 5px;
+  }
+  .crm .chat-owner .chat-assignee,
+  .crm .chat-owner > .chat-resolve {
+    grid-row: 2;
+    justify-self: end;
+    justify-content: center;
+    width: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 6px;
+  }
+  .crm .chat-owner .chat-assignee {
+    grid-column: 2;
+  }
+  .crm .chat-owner > .chat-resolve {
+    grid-column: 3;
+  }
+  .crm .chat-owner .chat-assignee-content {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    clip-path: inset(50%);
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .crm .chat-owner > .chat-resolve > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    clip-path: inset(50%);
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .crm .chat-workflow-actions .chat-folder-chip {
+    width: 40px;
+    height: 40px;
+    justify-content: center;
+    padding: 0;
+  }
+  .crm .chat-workflow-actions .chat-folder-chip > span,
+  .crm .chat-workflow-actions .chat-folder-chip > svg:last-child {
+    display: none;
+  }
+}
+
+@media (min-width: 1100px) {
+  .crm .chat-inbox-page .chat-workspace.has-folders {
+    grid-template-columns: 140px 250px minmax(0, 1fr);
+  }
+  .crm
+    .chat-inbox-page
+    .chat-workspace.has-folders.has-conversation:has(> .chat-profile.show) {
+    grid-template-columns: 220px minmax(0, 1fr) minmax(265px, 29%);
+  }
+  .crm
+    .chat-inbox-page
+    .chat-workspace.has-folders.has-conversation:has(> .draft-editor-panel) {
+    grid-template-columns: 210px minmax(0, 1fr) minmax(350px, 36%);
+  }
+  .crm
+    .chat-workspace.has-folders:has(> .chat-profile.show, > .draft-editor-panel)
+    > .chat-folder-rail,
+  .crm
+    .chat-workspace.has-folders:has(> .draft-editor-panel)
+    > .chat-profile.show,
+  .crm .chat-workspace.has-folders > .chat-profile:not(.show) {
+    display: none;
+  }
+  .crm
+    .chat-workspace.has-folders.has-conversation:not(
+      :has(> .draft-editor-panel)
+    )
+    > .chat-profile.show {
+    display: block;
+    position: static;
+    width: auto;
+    min-height: 0;
+    box-shadow: none;
+  }
+  .crm
+    .chat-workspace.has-folders:has(> .chat-profile.show, > .draft-editor-panel)
+    .chat-row {
+    gap: 7px;
+    padding-inline: 8px;
+  }
+  .crm
+    .chat-workspace.has-folders:has(> .chat-profile.show, > .draft-editor-panel)
+    .chat-avatar
+    .av {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+  }
+  .crm .chat-workspace.has-folders.has-conversation > .chat-profile > header {
+    display: flex;
+    position: sticky;
+    top: -14px;
+    z-index: 2;
+    padding: 8px 0;
+    background: #fcfdf9;
+  }
+}
+@media (min-width: 1100px) and (max-width: 1240px) {
+  .crm
+    .chat-inbox-page
+    .chat-workspace.has-folders.has-conversation:has(> .draft-editor-panel) {
+    grid-template-columns: minmax(0, 1fr) minmax(330px, 42%);
+  }
+  .crm
+    .chat-workspace.has-folders:has(> .draft-editor-panel)
+    > .chat-list-panel {
+    display: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .crm .chat-dialog-toolbar {
+    padding: 6px;
+  }
+  .crm .chat-dialog-heading .chat-icon {
+    flex: none;
+    width: 44px;
+    height: 44px;
+  }
+  .crm .chat-dialog-heading .chat-profile-trigger {
+    color: var(--accent);
+  }
+  .crm .chat-heading-phone {
+    display: none;
+  }
+  .crm .chat-workflow-actions .chat-order-action {
+    min-height: 44px;
+    padding-inline: 8px;
+    font-size: 12px;
+  }
+  .crm .chat-workflow-actions .chat-folder-chip,
+  .crm .chat-owner .chat-assignee,
+  .crm .chat-owner > .chat-resolve {
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .crm .chat-dialog-panel .chat-composer {
+    position: relative;
+    padding: 6px;
+  }
+  .crm .chat-dialog-panel .chat-compose-tools:not(.is-open) {
+    display: none;
+  }
+  .crm .chat-dialog-panel .chat-compose-tools.is-open {
+    position: absolute;
+    z-index: 4;
+    bottom: calc(100% + 4px);
+    left: 0;
+    display: grid;
+    padding: 5px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 10px 30px #14271e24;
+  }
+  .crm .chat-dialog-panel .chat-compose-tools.is-open > button {
+    min-height: 44px;
+    justify-content: start;
+    padding-inline: 12px;
+    color: var(--ink);
+    font-size: 13px;
+  }
+  .crm .chat-compose-field .chat-tools-trigger {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    flex: none;
+    color: var(--accent);
+    border-radius: 50%;
+    background: transparent;
+  }
+  .crm .chat-compose-field .chat-tools-trigger[aria-expanded="true"] {
+    background: #efe7f6;
+  }
+}

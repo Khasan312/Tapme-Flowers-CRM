@@ -432,3 +432,39 @@ def test_draft_keeps_explicit_point_and_its_delivery_price(setup, draft_setup, b
     order = convert(draft_setup, draft)
     assert order["point_id"] == second["id"]
     assert order["delivery_fee"] == "750.00"
+
+
+def test_draft_authorization_uses_its_stored_point(setup, draft_setup):
+    client, url, _ = draft_setup
+    business = setup["business"]
+    first = business.shop
+    second = Shop.objects.create(business=business, name="Филиал Б", is_primary=False)
+    membership = Membership.objects.get(business=business, user=setup["manager"])
+    membership.points.set([first])
+    draft = client.post(url + f"?point={second.id}", {}, format="json").data["draft"]
+    ref = {"draft_id": draft["id"], "version": draft["version"]}
+    fields = {**draft["fields"], "point_id": "", "address": "Тестовый адрес"}
+    saved = client.put(url, {**ref, "fields": fields}, format="json")
+    assert saved.status_code == 200
+    assert saved.data["draft"]["fields"]["point_id"] == str(second.id)
+    ref["version"] = saved.data["draft"]["version"]
+
+    client.force_login(setup["manager"])
+    assert client.get(url, {"point": str(first.id)}).status_code == 404
+    assert client.post(url, {}, format="json").status_code == 404
+    assert (
+        client.put(
+            url,
+            {**ref, "fields": {**fields, "point_id": str(first.id)}},
+            format="json",
+        ).status_code
+        == 404
+    )
+    assert client.delete(url, ref, format="json").status_code == 404
+    for action in ("restore", "convert", "extract"):
+        assert client.post(url + action + "/", ref, format="json").status_code == 404
+
+    membership.points.set([second])
+    draft = client.get(url).data["draft"]
+    assert draft["status"] == "active" and draft["fields"]["address"] == "Тестовый адрес"
+    assert client.delete(url, ref, format="json").status_code == 200

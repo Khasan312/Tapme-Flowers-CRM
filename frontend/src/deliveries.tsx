@@ -6,6 +6,16 @@ import { useRemote } from "./hooks";
 import { Status } from "./orders";
 import { Avatar, shopDay } from "./ui";
 import type { Business, Order, Page, Point, Staff } from "./types";
+type DeliveryDeskData = Page<Order> & {
+  summary?: { done: number; route: number };
+  window_load?: {
+    point_id: string;
+    window_start: string;
+    window_end: string;
+    occupied: number;
+  }[];
+};
+
 export function DeliveryDesk({
   business,
   revision,
@@ -20,7 +30,7 @@ export function DeliveryDesk({
     [refresh, setRefresh] = useState(0),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
-  const source = useRemote<Page<Order>>(
+  const source = useRemote<DeliveryDeskData>(
       businessPath(business.id, "orders/desk") +
         `?scope=date&day=${day}&status=courier&limit=50&offset=${offset}`,
       revision + refresh,
@@ -38,6 +48,18 @@ export function DeliveryDesk({
       ) || [];
   const windowKey = (o: Order) =>
     `${o.point_id}|${o.window_start.slice(0, 5)}–${o.window_end.slice(0, 5)}`;
+  const byWindow = new Map<string, Order[]>();
+  for (const order of orders) {
+    const key = windowKey(order);
+    if (!byWindow.has(key)) byWindow.set(key, []);
+    byWindow.get(key)!.push(order);
+  }
+  const windowLoad = new Map(
+    source.data?.window_load?.map((row) => [
+      `${row.point_id}|${row.window_start}–${row.window_end}`,
+      row.occupied,
+    ]),
+  );
   async function assign(o: Order, id: string) {
     setBusy(true);
     setError("");
@@ -64,12 +86,8 @@ export function DeliveryDesk({
           <h1>Доставка</h1>
           <div className="sub">
             {source.data?.count ?? "—"} доставок
-            {(
-              source.data as unknown as {
-                summary?: { done: number; route: number };
-              }
-            )?.summary &&
-              ` · ${(source.data as unknown as { summary: { done: number; route: number } }).summary.done} вручено · ${(source.data as unknown as { summary: { done: number; route: number } }).summary.route} в пути`}
+            {source.data?.summary &&
+              ` · ${source.data.summary.done} вручено · ${source.data.summary.route} в пути`}
           </div>
         </div>
         <span className="spacer" />
@@ -94,7 +112,7 @@ export function DeliveryDesk({
           type="date"
           value={day}
           onChange={(e) => {
-            setDay(e.target.value);
+            setDay(e.target.value || shopDay(business.timezone));
             setOffset(0);
           }}
         />
@@ -109,35 +127,46 @@ export function DeliveryDesk({
           </div>
           <DeliveryWindowHelp />
           <div className="card-bd tight">
-            {Array.from(new Set(orders.map(windowKey)))
-              .sort()
-              .map((key) => (
-                <div key={key}>
-                  <div className="card-hd window-group">
-                    <span className="mono b ink">
-                      {business.point_id === "all" && (
-                        <span className="point-badge">
-                          {
-                            points.data?.find((p) => p.id === key.split("|")[0])
-                              ?.short_name
-                          }
-                        </span>
+            {[...byWindow]
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([key, rows]) => {
+                const [pointId, time] = key.split("|");
+                const point = points.data?.find((p) => p.id === pointId);
+                const capacity = point?.windows.find(
+                  (w) => `${w.start}–${w.end}` === time,
+                )?.capacity;
+                const occupied =
+                  windowLoad.get(key) ??
+                  (source.data?.window_load ? 0 : undefined);
+                const extra =
+                  capacity !== undefined && occupied !== undefined
+                    ? occupied - capacity
+                    : 0;
+                return (
+                  <div key={key}>
+                    <div
+                      className={`card-hd window-group${extra > 0 ? " is-over-capacity" : ""}`}
+                    >
+                      <span className="mono b ink">
+                        {business.point_id === "all" && point && (
+                          <span className="point-badge">
+                            {point.short_name}
+                          </span>
+                        )}
+                        {time}
+                      </span>
+                      <span className="small muted">
+                        {occupied !== undefined && capacity !== undefined
+                          ? `Мест занято: ${occupied} из ${capacity}`
+                          : capacity !== undefined
+                            ? `Вместимость: ${capacity}`
+                            : "Вместимость не задана"}
+                      </span>
+                      {extra > 0 && (
+                        <span className="tag crit">Сверх лимита: {extra}</span>
                       )}
-                      {key.split("|")[1]}
-                    </span>
-                    <span className="small muted">
-                      {orders.filter((o) => windowKey(o) === key).length}{" "}
-                      доставок · вместимость{" "}
-                      {points.data
-                        ?.find((p) => p.id === key.split("|")[0])
-                        ?.windows.find(
-                          (w) => `${w.start}–${w.end}` === key.split("|")[1],
-                        )?.capacity ?? "—"}
-                    </span>
-                  </div>
-                  {orders
-                    .filter((o) => windowKey(o) === key)
-                    .map((o) => (
+                    </div>
+                    {rows.map((o) => (
                       <div className="lrow" key={o.id}>
                         <Avatar
                           name={
@@ -187,8 +216,9 @@ export function DeliveryDesk({
                         </div>
                       </div>
                     ))}
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             {!orders.length && (
               <div className="empty">
                 {source.loading ? "Загружаем доставки…" : "Доставок нет"}

@@ -12,7 +12,6 @@ import {
   Plus,
   LogOut,
   Truck,
-  ArrowUpRight,
   Bell,
   MessageCircle,
   Settings as SettingsIcon,
@@ -37,7 +36,6 @@ import { useChatChannelNavigation } from "./chat-channel-navigation";
 import type { ChatChannel } from "./chat-types";
 import { useChatNotifications, ChatNotificationControls } from "./chat-extras";
 import { clearChatDrafts } from "./chat-drafts";
-import { PublicOrderPage } from "./public";
 import { PasswordPanel } from "./account";
 import { FirstPasswordPage, SignInPage, platformUrl } from "./auth";
 import PlatformApp from "./platform";
@@ -47,6 +45,7 @@ import { DeliveryDesk } from "./deliveries";
 import { PointSwitcher } from "./point-switcher";
 import { OrderDesk } from "./order-desk";
 import { startChatViewport } from "./chat-keyboard";
+import { newUuid } from "./uuid";
 import {
   accessibleRoute,
   homeRoute,
@@ -77,6 +76,7 @@ const roles: Record<string, string> = {
   florist: "Флорист",
   courier: "Курьер",
 };
+const signOutEvent = "tapme-sign-out";
 
 function Workspace() {
   const measureTopbar = useCallback((node: HTMLElement | null) => {
@@ -248,8 +248,10 @@ function Workspace() {
           setBusinesses(choices);
         }
       } catch (e) {
-        if (live && !(e instanceof ApiError && e.status === 403))
-          setError(errorText(e));
+        if (live) {
+          if (e instanceof ApiError && e.status === 403) clearChatDrafts();
+          else setError(errorText(e));
+        }
       } finally {
         if (live) setStarting(false);
       }
@@ -257,6 +259,15 @@ function Workspace() {
     return () => {
       live = false;
     };
+  }, []);
+  useEffect(() => {
+    function onStorage(event: StorageEvent) {
+      if (event.key !== signOutEvent) return;
+      clearChatDrafts();
+      window.location.reload();
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
   useEffect(() => {
     if (!notice) return;
@@ -297,6 +308,11 @@ function Workspace() {
     try {
       await request("/auth/logout/", { method: "POST" });
       clearChatDrafts();
+      try {
+        localStorage.setItem(signOutEvent, newUuid());
+      } catch {
+        /* Storage may be unavailable. */
+      }
       setUser(null);
       setBusinesses([]);
       go(homeRoute, "replace");
@@ -870,6 +886,5 @@ export default function App() {
     location.pathname === platformUrl().replace(/\/$/, "")
   )
     return <PlatformApp />;
-  const match = location.pathname.match(/^\/track\/([^/]+)\/?$/);
-  return match ? <PublicOrderPage token={match[1]} /> : <Workspace />;
+  return <Workspace />;
 }

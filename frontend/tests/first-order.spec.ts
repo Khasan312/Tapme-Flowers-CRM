@@ -30,7 +30,7 @@ test("вход, клиент, прайс, заказ и сохранение п�
       page.getByRole("heading", { name: "Заказы", exact: true }),
     ).toBeVisible();
   }
-  await page.goto("/");
+  await page.goto("/login");
   await expect(
     page.getByRole("heading", { name: "С возвращением" }),
   ).toBeVisible();
@@ -133,7 +133,7 @@ test("смена клиента обновляет получателя и те�
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
+  await page.goto("/login");
   await submitLogin(page, account.username, account.password);
   const base = `/api/v1/businesses/${account.business_id}`;
   const csrf = await (await page.request.get("/api/v1/auth/csrf/")).json();

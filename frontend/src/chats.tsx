@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
@@ -14,9 +15,11 @@ import {
   CircleAlert,
   CircleCheck,
   Clock3,
+  ContactRound,
   Copy,
   MessageCircle,
   Paperclip,
+  Plus,
   QrCode,
   Reply,
   Search,
@@ -35,7 +38,6 @@ import { Avatar, shortDate } from "./ui";
 import { newUuid } from "./uuid";
 import { useChatDraft } from "./chat-drafts";
 import { startChatPolling } from "./chat-polling";
-import { ChatMobileDetails, revealChatDetails } from "./chat-mobile-details";
 import {
   observeChatThreadResize,
   shouldSendChatOnEnter,
@@ -69,7 +71,7 @@ import type {
 import "./chats.css";
 import { PaymentDialog, QuickReplies } from "./chat-extras";
 import { InstagramCustomerLink } from "./instagram-customer-link";
-import { OrderDraftCard } from "./order-draft";
+import { OrderDraftCard, useChatOrderDraft } from "./order-draft";
 import {
   ChatContextMenu,
   ChatListItem,
@@ -505,6 +507,35 @@ function ConversationPane({
     }
   }, [text, requestId]);
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const toolsId = useId();
+  const toolsButton = useRef<HTMLButtonElement>(null);
+  const toolsPanel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!toolsOpen) return;
+    function dismiss(event: PointerEvent) {
+      const target = event.target as Node;
+      if (
+        !toolsButton.current?.contains(target) &&
+        !toolsPanel.current?.contains(target)
+      )
+        setToolsOpen(false);
+    }
+    function escape(event: KeyboardEvent) {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      setToolsOpen(false);
+      toolsButton.current?.focus();
+    }
+    toolsPanel.current
+      ?.querySelector<HTMLButtonElement>("button:not(:disabled)")
+      ?.focus();
+    document.addEventListener("pointerdown", dismiss);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", dismiss);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [toolsOpen]);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
   const [customerName, setCustomerName] = useState("");
@@ -519,6 +550,7 @@ function ConversationPane({
     [olderBusy, setOlderBusy] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const profilePanel = useRef<HTMLElement>(null);
+  const profileButton = useRef<HTMLButtonElement>(null);
   const [newMessages, setNewMessages] = useState(false);
   const [scrolledUp, setScrolledUp] = useState(false);
   const [messageMenu, setMessageMenu] = useState<MessageMenuTarget | null>(
@@ -843,6 +875,18 @@ function ConversationPane({
   const row = detail.data;
   const isInstagram = row?.channel_kind === "instagram";
   const channelName = isInstagram ? "Instagram" : "WhatsApp";
+  const orderDraft = useChatOrderDraft({
+    enabled: Boolean(row?.customer) && !denied,
+    business,
+    chatId,
+    userId,
+    canEdit: row?.mode === "human" && !row.needs_customer_link,
+    openOrder,
+    changed: () => {
+      setRevision((v) => v + 1);
+      changed();
+    },
+  });
   if (denied)
     return (
       <div className="chat-welcome">
@@ -878,24 +922,41 @@ function ConversationPane({
               <div>
                 <h2>{row?.name || "Загружаем диалог…"}</h2>
                 <p>
-                  {channelName}{" "}
-                  {row?.channel_phone ? `· ${row.channel_phone}` : ""}
+                  {channelName}
+                  {row?.channel_phone && (
+                    <span className="chat-heading-phone">
+                      {" "}
+                      · {row.channel_phone}
+                    </span>
+                  )}
                   {row?.provider_mode === "fake" ? " · тестовый режим" : ""}
                 </p>
               </div>
               <button
-                className="chat-icon"
+                ref={profileButton}
+                className="chat-icon chat-profile-trigger"
                 aria-label="Карточка рядом с чатом"
-                onClick={() => setShowProfile((v) => !v)}
+                title="Клиент и заказы"
+                aria-expanded={showProfile && !orderDraft.editing}
+                disabled={orderDraft.editing}
+                onClick={() => {
+                  setShowProfile((v) => !v);
+                  if (!showProfile)
+                    requestAnimationFrame(() =>
+                      profilePanel.current
+                        ?.querySelector<HTMLButtonElement>("header button")
+                        ?.focus({ preventScroll: true }),
+                    );
+                }}
               >
-                <UserRound size={20} />
+                <ContactRound size={20} aria-hidden="true" />
               </button>
             </div>
             {row && (
               <button
                 className={`chat-resolve ${row.mode === "closed" ? "is-closed" : ""}`}
                 type="button"
-                disabled={busy}
+                disabled={busy || orderDraft.editing}
                 onClick={() =>
                   void update({
                     mode: row.mode === "closed" ? "human" : "closed",
@@ -913,24 +974,40 @@ function ConversationPane({
               </button>
             )}
           </div>
+          {row && (
+            <div className="chat-workflow-actions">
+              <button
+                type="button"
+                className="btn primary chat-order-action"
+                disabled={!orderDraft.ready || orderDraft.editing}
+                title={
+                  !row.customer
+                    ? "Сначала свяжите диалог с клиентом"
+                    : undefined
+                }
+                onClick={orderDraft.open}
+              >
+                <ShoppingBag size={16} aria-hidden="true" />
+                Оформить заказ
+              </button>
+              <ChatFolderButton
+                names={folderNames(row.folder_ids || [])}
+                open={editFolders}
+              />
+            </div>
+          )}
         </header>
-        {row && (
-          <div className="chat-folder-toolbar">
-            <ChatFolderButton
-              names={folderNames(row.folder_ids || [])}
-              open={editFolders}
-            />
-          </div>
-        )}
-        <ChatMobileDetails
-          canDraft={Boolean(row?.customer_id)}
-          open={(section) => {
-            setShowProfile(true);
-            revealChatDetails(profilePanel, section);
-          }}
-        />
-        {(error || pollError || detail.error) && (
-          <Notice>{error || pollError || detail.error}</Notice>
+        {(error ||
+          pollError ||
+          detail.error ||
+          (!showProfile && (orderDraft.error || orderDraft.loadError))) && (
+          <Notice>
+            {error ||
+              pollError ||
+              detail.error ||
+              orderDraft.error ||
+              orderDraft.loadError}
+          </Notice>
         )}
         {selecting && (
           <div
@@ -1124,16 +1201,33 @@ function ConversationPane({
             void send();
           }}
         >
-          <div className="chat-compose-tools">
+          <div
+            id={toolsId}
+            ref={toolsPanel}
+            className={`chat-compose-tools${toolsOpen ? " is-open" : ""}`}
+          >
             <button
               type="button"
               aria-expanded={templatesOpen}
-              onClick={() => setTemplatesOpen((v) => !v)}
+              onClick={() => {
+                if (toolsOpen)
+                  toolsButton.current?.focus({ preventScroll: true });
+                setToolsOpen(false);
+                setTemplatesOpen((v) => !v);
+              }}
             >
               <TextQuote size={15} />
               Шаблоны
             </button>
-            <button type="button" onClick={() => setQuickOpen(true)}>
+            <button
+              type="button"
+              onClick={() => {
+                if (toolsOpen)
+                  toolsButton.current?.focus({ preventScroll: true });
+                setToolsOpen(false);
+                setQuickOpen(true);
+              }}
+            >
               <Zap size={15} />
               Быстрые ответы
             </button>
@@ -1145,7 +1239,12 @@ function ConversationPane({
                   ? "Отправка QR в Instagram пока недоступна"
                   : undefined
               }
-              onClick={() => setPaymentOpen(true)}
+              onClick={() => {
+                if (toolsOpen)
+                  toolsButton.current?.focus({ preventScroll: true });
+                setToolsOpen(false);
+                setPaymentOpen(true);
+              }}
             >
               <QrCode size={15} />
               Отправить QR
@@ -1260,6 +1359,17 @@ function ConversationPane({
             </div>
           )}
           <div className="chat-compose-field">
+            <button
+              type="button"
+              className="chat-tools-trigger"
+              ref={toolsButton}
+              aria-label="Действия с сообщением"
+              aria-controls={toolsId}
+              aria-expanded={toolsOpen}
+              onClick={() => setToolsOpen((v) => !v)}
+            >
+              <Plus size={20} aria-hidden="true" />
+            </button>
             <ChatEmojiPicker
               disabled={busy}
               insert={(emoji) => {
@@ -1291,7 +1401,7 @@ function ConversationPane({
             <textarea
               ref={messageInput}
               aria-label={`Сообщение в ${channelName}`}
-              placeholder={`Ответить в ${channelName}…`}
+              placeholder="Сообщение…"
               maxLength={isInstagram ? 1000 : file ? 1024 : 4096}
               rows={1}
               enterKeyHint="enter"
@@ -1413,7 +1523,10 @@ function ConversationPane({
           <button
             className="chat-icon"
             aria-label="Скрыть карточку клиента"
-            onClick={() => setShowProfile(false)}
+            onClick={() => {
+              setShowProfile(false);
+              profileButton.current?.focus({ preventScroll: true });
+            }}
           >
             <X size={18} />
           </button>
@@ -1502,17 +1615,7 @@ function ConversationPane({
             )}
             {row.customer && (
               <>
-                <OrderDraftCard
-                  business={business}
-                  chatId={chatId}
-                  userId={userId}
-                  canEdit={row.mode === "human" && !row.needs_customer_link}
-                  openOrder={openOrder}
-                  changed={() => {
-                    setRevision((v) => v + 1);
-                    changed();
-                  }}
-                />
+                <OrderDraftCard controller={orderDraft} openOrder={openOrder} />
                 <div className="chat-profile-card">
                   <h3>
                     <ShoppingBag size={17} />
@@ -1583,6 +1686,7 @@ function ConversationPane({
           </>
         )}
       </aside>
+      {orderDraft.editor}
       {paymentOpen && (
         <PaymentDialog
           businessId={business.id}

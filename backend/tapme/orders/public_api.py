@@ -4,11 +4,11 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from config import composition
 from config.api import StrictSerializer, validated
+from config.throttling import ClientRateThrottle
 from tapme.businesses.point_scope import request_scope
 
 
@@ -50,7 +50,7 @@ class ShareView(APIView):
 class PublicView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
-    throttle_classes = [ScopedRateThrottle]
+    throttle_classes = [ClientRateThrottle]
     throttle_scope = "public"
 
     @extend_schema(responses=PublicOutput)

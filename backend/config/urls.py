@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import admin
 from django.urls import path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
@@ -159,7 +160,6 @@ urlpatterns = [
         NoteDoneView.as_view(),
     ),
     path("health/", health),
-    path("admin/", admin.site.urls),
     path("api/v1/auth/csrf/", CsrfView.as_view()),
     path("api/v1/auth/login/", LoginView.as_view()),
     path("api/v1/auth/logout/", LogoutView.as_view()),
@@ -184,6 +184,9 @@ urlpatterns = [
         SpectacularSwaggerView.as_view(url_name="schema", permission_classes=[IsAuthenticated]),
     ),
 ]
+
+if settings.DEBUG:
+    urlpatterns.append(path("admin/", admin.site.urls))
 
 urlpatterns += [path("api/v1/businesses/<uuid:business_id>/tasks/", TaskListView.as_view())]
 for route, view in [

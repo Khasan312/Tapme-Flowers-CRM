@@ -23,7 +23,7 @@ test.afterEach(async ({ page }) => {
 test("печать талона: только заказ, длинный состав без обрезки и возврат в CRM", async ({
   page,
 }, info) => {
-  await page.goto("/");
+  await page.goto("/login");
   await submitLogin(page, account.username, account.password);
   const base = `/api/v1/businesses/${account.business_id}`;
   const csrf = await (await page.request.get("/api/v1/auth/csrf/")).json();

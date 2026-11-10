@@ -20,6 +20,24 @@ HEADERS = {
     "additional_phones": "additional_phones",
     "дополнительные телефоны": "additional_phones",
 }
+MAX_XLSX_ROWS = 5000  # Includes the header and blank rows.
+MAX_XLSX_COLUMNS = 64
+
+
+def xlsx_rows(sheet):
+    message = f"Лист Excel должен содержать до {MAX_XLSX_ROWS} строк и {MAX_XLSX_COLUMNS} столбцов."
+    if (sheet.max_row or 0) > MAX_XLSX_ROWS or (sheet.max_column or 0) > MAX_XLSX_COLUMNS:
+        raise InvalidInput(message)
+    # XLSX dimensions are supplied by the file and may be absent or inaccurate.
+    # Limit the iterator independently so row gaps cannot expand the work.
+    sheet.reset_dimensions()
+    for number, row in enumerate(
+        sheet.iter_rows(min_row=1, min_col=1, max_row=MAX_XLSX_ROWS + 1, values_only=True),
+        1,
+    ):
+        if number > MAX_XLSX_ROWS or len(row) > MAX_XLSX_COLUMNS:
+            raise InvalidInput(message)
+        yield row
 
 
 def read_customers(upload):
@@ -47,7 +65,9 @@ def read_customers(upload):
             workbook = load_workbook(
                 BytesIO(data), read_only=True, data_only=True, keep_links=False
             )
-            iterator = iter(workbook.worksheets[0].iter_rows(values_only=True))
+            if not workbook.worksheets:
+                raise InvalidInput("В Excel-файле нет листов с контактами.")
+            iterator = xlsx_rows(workbook.worksheets[0])
         else:
             raise InvalidInput("Поддерживаются CSV в UTF-8, XLSX и VCF (vCard).")
         header = [HEADERS.get(str(cell or "").strip().lower(), "") for cell in next(iterator)]
