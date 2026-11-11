@@ -196,6 +196,10 @@ class QuickTunnel:
         )
         desired = {**identity, "hostname": hostname}
         if applied == desired and updated == original:
+            url_file = self.state / "tunnel-url"
+            expected_url = f"https://{hostname}/crm-flowers/\n"
+            if not url_file.exists() or url_file.read_text() != expected_url:
+                atomic_write(url_file, expected_url)
             return True
         sha = (self.state / "current").read_text().strip()
         if not re.fullmatch(r"[a-f0-9]{40}", sha):

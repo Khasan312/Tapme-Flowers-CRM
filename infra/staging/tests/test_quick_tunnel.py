@@ -122,6 +122,17 @@ class QuickTunnelTests(unittest.TestCase):
         self.tunnel.sync()
         self.assertEqual(self.compose_calls(), [])
 
+    def test_interrupted_url_file_write_recovers_without_application_restart(self):
+        self.tunnel.sync()
+        (self.tunnel.state / "tunnel-url").unlink()
+        self.mock_run.reset_mock()
+        self.tunnel.sync()
+        self.assertEqual(self.compose_calls(), [])
+        self.assertEqual(
+            (self.tunnel.state / "tunnel-url").read_text(),
+            f"https://{HOST}/crm-flowers/\n",
+        )
+
     def test_failed_application_update_is_retried_without_publishing_success(self):
         self.fail_compose = True
         with self.assertRaises(subprocess.CalledProcessError):
