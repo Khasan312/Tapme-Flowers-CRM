@@ -10,6 +10,10 @@ Workflow `.github/workflows/production.yml` проверяет PR и push в `de
 
 Порядок работы с `develop`, `main`, тегами и hotfix: [RELEASES.md](RELEASES.md).
 
+У `develop` отдельный тестовый сервер: после успешных проверок и сборки он
+обновляется через runner с меткой `flower-staging`. Его настройка и ограничения
+описаны в [STAGING.md](STAGING.md). Ниже описана production-инфраструктура.
+
 Сам сервер не собирает образы. Для запуска он использует краткоживущий
 `GITHUB_TOKEN` с правом чтения пакетов; SSH-ключ владельца в GitHub не передаётся.
 Временный Docker login удаляется после завершения, включая ошибку.
