@@ -11,16 +11,16 @@ root=$TAPME_STAGING_ROOT
 env_file=$root/.env.staging
 [[ -f $root/.deploy-enabled ]] || { echo 'Staging deployment is disabled.' >&2; exit 2; }
 [[ -r $env_file && $(stat -c '%a' "$env_file") == 600 ]] || { echo 'Staging env must exist with mode 600.' >&2; exit 2; }
+mkdir -p "$root/state" "$root/backups" "$root/releases/$sha/staging"
+exec 9>"$root/state/deploy.lock"
+flock -w 240 9 || { echo 'Another staging update is still running.' >&2; exit 1; }
+# Read the hostname under the same lock used by the Quick Tunnel reconciler.
 export PUBLIC_DOMAIN
 PUBLIC_DOMAIN=$(sed -n 's/^PUBLIC_DOMAIN=//p' "$env_file" | tr -d '\r')
 [[ $PUBLIC_DOMAIN =~ ^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$ ]] || { echo 'Invalid staging hostname.' >&2; exit 2; }
-
-mkdir -p "$root/state" "$root/backups" "$root/releases/$sha/staging"
-exec 9>"$root/state/deploy.lock"
-flock -n 9 || { echo 'Another staging deployment is running.' >&2; exit 1; }
 source_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 release=$root/releases/$sha/staging
-for file in compose.yaml Caddyfile deploy.sh; do
+for file in compose.yaml Caddyfile deploy.sh quick-tunnel.py; do
     [[ $source_dir == "$release" ]] || install -m 644 "$source_dir/$file" "$release/$file"
 done
 
@@ -65,4 +65,7 @@ fi
 printf '%s\n' "$sha" > "$root/state/current.next"
 mv "$root/state/current.next" "$root/state/current"
 printf '%s\n' "$TAPME_STAGING_IMAGE_PREFIX" > "$root/state/image-prefix"
+mkdir -p "$root/infra/staging"
+install -m 644 "$release/quick-tunnel.py" "$root/infra/staging/quick-tunnel.py.next"
+mv "$root/infra/staging/quick-tunnel.py.next" "$root/infra/staging/quick-tunnel.py"
 echo "Deployed develop commit $sha to staging."
