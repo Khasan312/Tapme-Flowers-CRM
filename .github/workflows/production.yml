@@ -68,6 +68,10 @@ jobs:
           bash -n .githooks/pre-push
           shellcheck infra/github/apply-main-protection.sh infra/github/apply-branch-protection.sh .githooks/pre-push
           python3 -m unittest discover -s infra/cd/tests -v
+          bash -n infra/staging/deploy.sh
+          bash -n infra/staging/start-runner.sh
+          shellcheck infra/staging/deploy.sh infra/staging/start-runner.sh
+          python3 -m unittest discover -s infra/staging/tests -v
       - name: Validate deployment Compose files
         run: |
           export TAPME_DEPLOY_ROOT="$RUNNER_TEMP/tapme-compose"
@@ -77,6 +81,10 @@ jobs:
           printf 'PUBLIC_DOMAIN=tapme.example\n' > "$TAPME_DEPLOY_ROOT/.env.production"
           docker compose -f infra/cd/core.yaml config --quiet
           docker compose -p tapme-blue -f infra/cd/release.yaml config --quiet
+          export TAPME_STAGING_ROOT="$RUNNER_TEMP/flower-staging"
+          mkdir -p "$TAPME_STAGING_ROOT"
+          printf 'PUBLIC_DOMAIN=staging.example\n' > "$TAPME_STAGING_ROOT/.env.staging"
+          docker compose -f infra/staging/compose.yaml config --quiet
       - name: Check first deployment network provisioning
         env:
           PUBLIC_DOMAIN: tapme.example
@@ -147,6 +155,10 @@ jobs:
             -v "$PWD/infra/cd/frontend.Caddyfile:/etc/caddy/Caddyfile:ro" \
             "ghcr.io/${GITHUB_REPOSITORY,,}-web:${GITHUB_SHA}" \
             caddy validate --config /etc/caddy/Caddyfile
+          docker run --rm -e PUBLIC_DOMAIN=staging.example -e IMAGE_TAG="$GITHUB_SHA" \
+            -v "$PWD/infra/staging/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            "ghcr.io/${GITHUB_REPOSITORY,,}-web:${GITHUB_SHA}" \
+            caddy validate --config /etc/caddy/Caddyfile
           export TAPME_DEPLOY_ROOT="$RUNNER_TEMP/web-route-check"
           export PUBLIC_DOMAIN=tapme.example COLOR=blue IMAGE_TAG="$GITHUB_SHA"
           export TAPME_IMAGE_PREFIX="ghcr.io/${GITHUB_REPOSITORY,,}"
@@ -173,7 +185,7 @@ jobs:
             "ghcr.io/${GITHUB_REPOSITORY,,}-web:${GITHUB_SHA}" \
             caddy validate --config /etc/caddy/Caddyfile
       - name: Publish private image
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/develop')
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COMPONENT: ${{ matrix.component }}
@@ -182,6 +194,28 @@ jobs:
           trap 'rm -rf "$DOCKER_CONFIG"' EXIT
           printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           docker push "ghcr.io/${GITHUB_REPOSITORY,,}-${COMPONENT}:${GITHUB_SHA}"
+
+  deploy_staging:
+    name: Deploy develop to staging
+    needs: images
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: [self-hosted, linux, x64, flower-staging]
+    timeout-minutes: 20
+    concurrency:
+      group: flower-staging-deployment
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - name: Deploy checked develop revision
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash infra/staging/deploy.sh "$GITHUB_SHA"
 
   deploy:
     name: Deploy production

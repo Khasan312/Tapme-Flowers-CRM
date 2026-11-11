@@ -1,0 +1,132 @@
+name: flower-crm-staging
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-app: &app
+  image: ${TAPME_STAGING_IMAGE_PREFIX:-ghcr.io/khasan312/tapme-flowers-crm}-api:${IMAGE_TAG:?Set commit SHA}
+  env_file: ${TAPME_STAGING_ROOT:?Set staging root}/.env.staging
+  environment:
+    DJANGO_DEBUG: "false"
+    DJANGO_ALLOWED_HOSTS: ${PUBLIC_DOMAIN:?Set HTTPS hostname}
+    DJANGO_CSRF_TRUSTED_ORIGINS: https://${PUBLIC_DOMAIN}
+    DJANGO_TRUST_PROXY: "true"
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: "5432"
+    CELERY_BROKER_URL: redis://redis:6379/0
+    CACHE_URL: redis://redis:6379/1
+    TAPME_PHOTO_STORAGE: filesystem
+    TAPME_MEDIA_ROOT: /data/media
+    TAPME_META_MODE: fake
+    TAPME_AI_ENABLED: "false"
+  volumes: [photos:/data/media]
+  networks: [private, edge]
+  restart: unless-stopped
+  logging: *logging
+  stop_grace_period: 60s
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:17-bookworm
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set staging database}
+      POSTGRES_USER: ${POSTGRES_USER:?Set staging database user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set staging database password}
+    volumes: [database:/var/lib/postgresql/data]
+    networks: [private]
+    restart: unless-stopped
+    logging: *logging
+    stop_grace_period: 60s
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  redis:
+    image: redis:8.2-alpine
+    command: [redis-server, --appendonly, "yes", --maxmemory-policy, noeviction]
+    volumes: [redis:/data]
+    networks: [private]
+    restart: unless-stopped
+    logging: *logging
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+  api:
+    <<: *app
+    volumes:
+      - photos:/data/media
+      - static:/data/static
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request,os; r=urllib.request.Request('http://127.0.0.1:8000/health/',headers={'Host':os.environ['DJANGO_ALLOWED_HOSTS'],'X-Forwarded-Proto':'https'}); urllib.request.urlopen(r,timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 10s
+  worker:
+    <<: *app
+    command: [celery, -A, "config.celery:app", worker, --loglevel=INFO, --concurrency=2, "--hostname=staging@%h"]
+    healthcheck:
+      test: [CMD-SHELL, 'celery -A config.celery:app inspect ping --destination "staging@$$HOSTNAME" --timeout 5 | grep -q pong']
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 10s
+  beat:
+    <<: *app
+    command: [celery, -A, "config.celery:app", beat, --loglevel=INFO, --schedule=/data/celery/beat]
+    volumes:
+      - photos:/data/media
+      - scheduler:/data/celery
+  web:
+    image: ${TAPME_STAGING_IMAGE_PREFIX:-ghcr.io/khasan312/tapme-flowers-crm}-web:${IMAGE_TAG}
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN}
+      IMAGE_TAG: ${IMAGE_TAG}
+    ports: ["127.0.0.1:8090:80"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - static:/srv/django-static:ro
+      - assets:/srv/shared-assets:ro
+    networks: [edge]
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, "http://127.0.0.1/health/"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+  assets:
+    image: ${TAPME_STAGING_IMAGE_PREFIX:-ghcr.io/khasan312/tapme-flowers-crm}-web:${IMAGE_TAG}
+    profiles: [init]
+    entrypoint: [/bin/sh, -c]
+    command: ["cp -a /srv/frontend/assets/. /srv/shared-assets/"]
+    volumes: [assets:/srv/shared-assets]
+    networks: [edge]
+    logging: *logging
+
+networks:
+  private:
+    internal: true
+  edge:
+
+volumes:
+  database:
+  redis:
+  photos:
+  static:
+  assets:
+  scheduler:
