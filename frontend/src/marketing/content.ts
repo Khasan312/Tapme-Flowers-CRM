@@ -167,3 +167,15 @@ export const legalLinks = [
   { path: "offer", label: "Публичная оферта" },
   { path: "terms", label: "Пользовательское соглашение" },
 ] as const;
+
+// The name must match the documents submitted for Meta business verification exactly.
+// Other registration details stay out of public pages; Meta checks them in its own form.
+export const operator = {
+  name: "ИП Осмоналиев Арсен Алмазбекович",
+  location: "г. Бишкек, Кыргызская Республика",
+  phone: "+996 558 628 228",
+  phoneHref: "tel:+996558628228",
+  privacyEmail: "privacy@tapme.kg",
+  securityEmail: "security@tapme.kg",
+  supportEmail: "support@tapme.kg",
+} as const;

@@ -22,7 +22,14 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { BrandBadge } from "./brand";
-import { features, guides, legalLinks, questions, solutions } from "./content";
+import {
+  features,
+  guides,
+  legalLinks,
+  operator,
+  questions,
+  solutions,
+} from "./content";
 import { ProductDemo } from "./demo";
 import { legalDocuments } from "./legal";
 import { siteUrl } from "./routes";
@@ -298,7 +305,13 @@ function Footer() {
           ))}
         </div>
         <div className="mk-footer-bottom">
-          <span>© {new Date().getFullYear()} Tapme Flowers · Бишкек</span>
+          <span>
+            © {new Date().getFullYear()} Tapme Flowers · {operator.name} ·{" "}
+            <a href={operator.phoneHref}>{operator.phone}</a> ·{" "}
+            <a href={`mailto:${operator.supportEmail}`}>
+              {operator.supportEmail}
+            </a>
+          </span>
           <nav aria-label="Правовая информация">
             {legalLinks.map((link) => (
               <a key={link.path} href={siteUrl(link.path)}>
