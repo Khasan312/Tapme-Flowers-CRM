@@ -150,5 +150,19 @@ fi
 printf '%s %s\n' "$color" "$sha" > "$root/state/current.next"
 mv "$root/state/current.next" "$root/state/current"
 committed=1
+
+# The privacy policy promises 30 days of backup retention. Prune only after a
+# successful release and always keep the three newest dumps for recovery.
+shopt -s nullglob
+dumps=("$root"/backups/*.dump)
+shopt -u nullglob
+if (( ${#dumps[@]} > 3 )); then
+    for dump in "${dumps[@]:0:${#dumps[@]}-3}"; do
+        if [[ -n $(find "$dump" -mtime +30) ]]; then
+            rm -f -- "$dump"
+        fi
+    done
+fi
+
 echo "Deployed $sha in slot $color. Previous web/API containers remain available for recovery."
 echo "Public HTTPS also requires DNS for $PUBLIC_DOMAIN to point to this server."

@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 
@@ -163,6 +164,32 @@ class DeployTests(unittest.TestCase):
         self.assert_previous_release()
         self.assertFalse(any("reload" in args for args in self.calls()))
         self.assertFalse(any("tapme-blue" in args and "stop" in args for args in self.calls()))
+
+    def make_backups(self):
+        backups = self.root / "backups"
+        backups.mkdir()
+        expired = time.time() - 40 * 86400
+        for day in range(1, 6):
+            dump = backups / f"202609{day:02d}T000000Z-{OLD_SHA}.dump"
+            dump.write_text("expired dump")
+            os.utime(dump, (expired, expired))
+        (backups / f"20261101T000000Z-{OLD_SHA}.dump").write_text("recent dump")
+        return backups
+
+    def test_success_prunes_backups_older_than_30_days(self):
+        backups = self.make_backups()
+        result = self.run_deploy()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        names = sorted(path.name for path in backups.glob("*.dump"))
+        self.assertEqual(len(names), 3)
+        self.assertTrue(names[0].startswith("20260905"))
+        self.assertTrue(names[1].startswith("20261101"))
+        self.assertTrue(names[2].endswith(f"-{NEW_SHA}.dump"))
+
+    def test_failed_deployment_keeps_all_backups(self):
+        backups = self.make_backups()
+        self.assertNotEqual(self.run_deploy("migrate").returncode, 0)
+        self.assertEqual(len(list(backups.glob("*.dump"))), 7)
 
     def test_empty_backup_prevents_migration(self):
         self.assertNotEqual(self.run_deploy("empty-backup").returncode, 0)
